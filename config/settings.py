@@ -680,7 +680,24 @@ PRIVACY_CONFIG: dict = {
     # 需要脱敏扫描的键名（出现即视为敏感）
     "sensitive_keys": ["password", "passwd", "secret", "token", "api_key", "apikey", "cookie"],
     # 演示账号只从环境变量读取，不写入任何文件
-    "scan_text_extensions": [".py", ".json", ".jsonl", ".md", ".txt", ".csv", ".yaml", ".yml", ".toml", ".ini"],
+    # 注意：脚本类文件（.ps1 / .sh / .bat）也算「文本」，必须纳入扫描 ——
+    # 曾经漏掉 .ps1，导致 scripts/start_all.ps1 里的硬编码口令与绝对路径一路躲过检查。
+    "scan_text_extensions": [
+        ".py",
+        ".json",
+        ".jsonl",
+        ".md",
+        ".txt",
+        ".csv",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".ini",
+        ".ps1",
+        ".sh",
+        ".bat",
+        ".cmd",
+    ],
 }
 
 

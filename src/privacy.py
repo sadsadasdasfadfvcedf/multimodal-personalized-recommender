@@ -38,10 +38,20 @@ _ABS_WIN = re.compile(r"[A-Za-z]:\\\\?[Uu]sers|C:\\\\|D:\\\\")
 _PLACEHOLDER = ("", "none", "null", "xxx", "***", "changeme", "your_", "<", "${", "os.getenv", "env[")
 
 
+# 版本控制元数据不参与隐私扫描：它既不属于提交包内容，也不该影响 files_scanned
+# 这类统计（.git 下有成百个内部对象文件，纳入后计数会翻倍失真）。
+# 注意：__pycache__ 故意 **不** 在此列 —— 它命中 forbidden_patterns，
+# 必须继续被检出，用来保证提交包前确实清理过字节码。
+SKIP_DIR_PARTS = {".git"}
+
+
 def _iter_files(root: Path):
     for path in root.rglob("*"):
-        if path.is_file():
-            yield path
+        if not path.is_file():
+            continue
+        if SKIP_DIR_PARTS & set(path.relative_to(root).parts[:-1]):
+            continue
+        yield path
 
 
 def _relative(path: Path, root: Path) -> str:
