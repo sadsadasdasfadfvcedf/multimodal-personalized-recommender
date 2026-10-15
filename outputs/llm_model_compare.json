@@ -1,0 +1,299 @@
+{
+  "checked_at": "2026-10-14T04:49:51+00:00",
+  "query": {
+    "source": "voice",
+    "text": "500以内的婚礼装饰品"
+  },
+  "models": [
+    {
+      "model": "Qwen2-1.5B-Instruct",
+      "path": "C:\\Users\\Administrator\\Documents\\trae_projects\\multimodal_ai\\models\\Qwen\\Qwen2-1.5B-Instruct",
+      "size_mb": 2955.4,
+      "samples": [
+        {
+          "item_id": "22158",
+          "title": "3个心形悬挂装饰 乡村风格",
+          "raw": "这款心形装饰品，采用乡村风格设计，价格适中，非常适合装饰您的家居空间。",
+          "normalized": "这款心形装饰品，采用乡村风格设计，价格适中，非常适合装饰您的家居空间。",
+          "fluency_actions": [],
+          "fact_violations": [],
+          "format_violations": [],
+          "fluency_violations": [],
+          "accepted": true,
+          "final_text": "这款心形装饰品，采用乡村风格设计，价格适中，非常适合装饰您的家居空间。"
+        },
+        {
+          "item_id": "22943",
+          "title": "10个复古彩球圣诞灯",
+          "raw": "这款复古彩灯装饰品，价格仅需4.85元，非常适合你的预算，是您在装饰品类别的理想选择。",
+          "normalized": "这款复古彩灯装饰品，价格仅需4.85元，非常适合你的预算，是您在装饰品类别的理想选择。",
+          "fluency_actions": [],
+          "fact_violations": [
+            {
+              "type": "fabricated_number",
+              "token": "4.85",
+              "value": 4.85,
+              "reason": "该数值无法在证据包中溯源"
+            },
+            {
+              "type": "wrong_category",
+              "mentioned": "类别",
+              "expected": "装饰品"
+            }
+          ],
+          "format_violations": [],
+          "fluency_violations": [],
+          "accepted": false,
+          "final_text": "推荐理由：它属于「装饰品」品类。参考价 £4.95（来源：historical_mode）。符合你的预算要求：价格 4.95 不超过 500.0。符合你的品类要求：装饰品（要求 装饰品）。它来自「推荐系统 v146 个性化精排」这一路的候选。它来自「相似商品召回」这一路的候选。"
+        },
+        {
+          "item_id": "22809",
+          "title": "6个圣诞老人小烛灯套装",
+          "raw": "这款圣诞老人的小烛灯套件，价格实惠，仅需2.75元，非常适合装饰您的节日氛围。",
+          "normalized": "这款圣诞老人的小烛灯套件，价格实惠，仅需2.75元，非常适合装饰您的节日氛围。",
+          "fluency_actions": [],
+          "fact_violations": [
+            {
+              "type": "fabricated_number",
+              "token": "2.75",
+              "value": 2.75,
+              "reason": "该数值无法在证据包中溯源"
+            }
+          ],
+          "format_violations": [],
+          "fluency_violations": [],
+          "accepted": false,
+          "final_text": "推荐理由：它属于「装饰品」品类。参考价 £2.95（来源：historical_mode）。符合你的预算要求：价格 2.95 不超过 500.0。符合你的品类要求：装饰品（要求 装饰品）。它来自「推荐系统 v146 个性化精排」这一路的候选。它来自「品类热门召回」这一路的候选。"
+        },
+        {
+          "item_id": "23483",
+          "title": "悬挂蝴蝶茶烛台",
+          "raw": "这款悬挂蝴蝶的茶烛台上，价格仅需1.5元，是您在预算内选择的完美装饰品！",
+          "normalized": "这款悬挂蝴蝶的茶烛台上，价格仅需1.5元，是您在预算内选择的完美装饰品！",
+          "fluency_actions": [],
+          "fact_violations": [
+            {
+              "type": "fabricated_number",
+              "token": "1.5",
+              "value": 1.5,
+              "reason": "该数值无法在证据包中溯源"
+            }
+          ],
+          "format_violations": [],
+          "fluency_violations": [],
+          "accepted": false,
+          "final_text": "推荐理由：它属于「装饰品」品类。参考价 £1.25（来源：historical_mode）。符合你的预算要求：价格 1.25 不超过 500.0。符合你的品类要求：装饰品（要求 装饰品）。它来自「历史购买相似召回」这一路的候选。知识库依据（01_品类选品指南#3）：选购建议： - 明确类目后，再叠加颜色与预算约束，命中率显著高于只给类目。 - 茶烛台、相框这类小件家居装饰价格多在 1-6 英镑区间，适…"
+        }
+      ],
+      "error": null,
+      "seconds": 61.08,
+      "seconds_per_explanation": 15.27,
+      "accepted": 1,
+      "attempted": 4,
+      "accept_rate": 0.25,
+      "reject_reasons": [
+        "fabricated_number",
+        "wrong_category"
+      ]
+    },
+    {
+      "model": "Qwen3-4B-Instruct-2507",
+      "path": "C:\\Users\\Administrator\\Documents\\trae_projects\\multimodal_ai\\models\\Qwen\\Qwen3-4B-Instruct-2507",
+      "size_mb": 7687.5,
+      "samples": [
+        {
+          "item_id": "22158",
+          "title": "3个心形悬挂装饰 乡村风格",
+          "raw": "这乡村风的心形挂饰，价格实惠，属于装饰品类，完全在你的预算是内的。",
+          "normalized": "这乡村风的心形挂饰，价格实惠，属于装饰品类，完全在你的预算是内的。",
+          "fluency_actions": [],
+          "fact_violations": [],
+          "format_violations": [],
+          "fluency_violations": [],
+          "accepted": true,
+          "final_text": "这乡村风的心形挂饰，价格实惠，属于装饰品类，完全在你的预算是内的。"
+        },
+        {
+          "item_id": "22943",
+          "title": "10个复古彩球圣诞灯",
+          "raw": "这10個复古彩ball聖誕燈，裝飾品選項，價格實惠，在你的預算範圍內，推薦給你！",
+          "normalized": "这10个复古彩球圣诞灯，装饰品选项，价格实惠，在你的预算范围内，推荐给你！",
+          "fluency_actions": [
+            {
+              "action": "traditional_to_simplified",
+              "engine": "zhconv",
+              "chars": 16,
+              "sample": [
+                "個",
+                "聖",
+                "誕",
+                "燈",
+                "裝",
+                "飾"
+              ]
+            },
+            {
+              "action": "english_replaced",
+              "words": [
+                "ball"
+              ]
+            }
+          ],
+          "fact_violations": [],
+          "format_violations": [],
+          "fluency_violations": [],
+          "accepted": true,
+          "final_text": "这10个复古彩球圣诞灯，装饰品选项，价格实惠，在你的预算范围内，推荐给你！"
+        },
+        {
+          "item_id": "22809",
+          "title": "6个圣诞老人小烛灯套装",
+          "raw": "这个圣诞老人烛灯套件是装饰品，价格实惠，在你的预算范围之内，推荐给你！",
+          "normalized": "这个圣诞老人烛灯套件是装饰品，价格实惠，在你的预算范围之内，推荐给你！",
+          "fluency_actions": [],
+          "fact_violations": [],
+          "format_violations": [],
+          "fluency_violations": [],
+          "accepted": true,
+          "final_text": "这个圣诞老人烛灯套件是装饰品，价格实惠，在你的预算范围之内，推荐给你！"
+        },
+        {
+          "item_id": "23483",
+          "title": "悬挂蝴蝶茶烛台",
+          "raw": "这款悬挂蝴蝶 tea 烛台是装饰品，价格实惠，在你的预算范围之内，来自历史购买推荐。",
+          "normalized": "这款悬挂蝴蝶烛台是装饰品，价格实惠，在你的预算范围之内，来自历史购买推荐。",
+          "fluency_actions": [
+            {
+              "action": "english_removed",
+              "words": [
+                "tea"
+              ]
+            },
+            {
+              "action": "collapse_cjk_spaces"
+            }
+          ],
+          "fact_violations": [],
+          "format_violations": [],
+          "fluency_violations": [],
+          "accepted": true,
+          "final_text": "这款悬挂蝴蝶烛台是装饰品，价格实惠，在你的预算范围之内，来自历史购买推荐。"
+        }
+      ],
+      "error": null,
+      "seconds": 73.24,
+      "seconds_per_explanation": 18.31,
+      "accepted": 4,
+      "attempted": 4,
+      "accept_rate": 1.0,
+      "reject_reasons": []
+    }
+  ],
+  "samples": [
+    {
+      "item_id": "22158",
+      "title": "3个心形悬挂装饰 乡村风格",
+      "price": 2.95,
+      "facts": {
+        "item_id": "22158",
+        "title": "3个心形悬挂装饰 乡村风格",
+        "english_title": "3 HEARTS HANGING DECORATION RUSTIC",
+        "category": "装饰品",
+        "price": 2.95,
+        "currency": "GBP",
+        "price_source": "historical_mode",
+        "transactions": 160,
+        "origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline"
+      }
+    },
+    {
+      "item_id": "22943",
+      "title": "10个复古彩球圣诞灯",
+      "price": 4.95,
+      "facts": {
+        "item_id": "22943",
+        "title": "10个复古彩球圣诞灯",
+        "english_title": "CHRISTMAS LIGHTS 10 VINTAGE BAUBLES",
+        "category": "装饰品",
+        "price": 4.95,
+        "currency": "GBP",
+        "price_source": "historical_mode",
+        "transactions": 123,
+        "origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline"
+      }
+    },
+    {
+      "item_id": "22809",
+      "title": "6个圣诞老人小烛灯套装",
+      "price": 2.95,
+      "facts": {
+        "item_id": "22809",
+        "title": "6个圣诞老人小烛灯套装",
+        "english_title": "SET OF 6 T-LIGHTS SANTA",
+        "category": "装饰品",
+        "price": 2.95,
+        "currency": "GBP",
+        "price_source": "historical_mode",
+        "transactions": 94,
+        "origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline"
+      }
+    },
+    {
+      "item_id": "23483",
+      "title": "悬挂蝴蝶茶烛台",
+      "price": 1.25,
+      "facts": {
+        "item_id": "23483",
+        "title": "悬挂蝴蝶茶烛台",
+        "english_title": "HANGING  BUTTERFLY T-LIGHT HOLDER",
+        "category": "装饰品",
+        "price": 1.25,
+        "currency": "GBP",
+        "price_source": "historical_mode",
+        "transactions": 24,
+        "origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline"
+      }
+    }
+  ],
+  "discovered": [
+    {
+      "name": "Qwen2-1.5B-Instruct",
+      "path": "C:\\Users\\Administrator\\Documents\\trae_projects\\multimodal_ai\\models\\Qwen\\Qwen2-1.5B-Instruct",
+      "size_mb": 2955.4
+    },
+    {
+      "name": "Qwen3-4B-Instruct-2507",
+      "path": "C:\\Users\\Administrator\\Documents\\trae_projects\\multimodal_ai\\models\\Qwen\\Qwen3-4B-Instruct-2507",
+      "size_mb": 7687.5
+    }
+  ],
+  "comparison": [
+    {
+      "model": "Qwen3-4B-Instruct-2507",
+      "size_mb": 7687.5,
+      "accept_rate": 1.0,
+      "accepted": 4,
+      "attempted": 4,
+      "seconds_per_explanation": 18.31,
+      "reject_reasons": []
+    },
+    {
+      "model": "Qwen2-1.5B-Instruct",
+      "size_mb": 2955.4,
+      "accept_rate": 0.25,
+      "accepted": 1,
+      "attempted": 4,
+      "seconds_per_explanation": 15.27,
+      "reject_reasons": [
+        "fabricated_number",
+        "wrong_category"
+      ]
+    }
+  ],
+  "best": "Qwen3-4B-Instruct-2507",
+  "notes": [
+    "accept_rate = 通过事实门控 + 格式门控的比例，等价于「解释不编造」的达标率。",
+    "模型间唯一变量是生成模型；商品、提示词、采样参数、门控规则完全一致。",
+    "子进程每次加载权重，因此 seconds_per_explanation 含加载摊销；批量越大摊销越低。"
+  ]
+}

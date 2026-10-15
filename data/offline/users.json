@@ -1,0 +1,20 @@
+{
+  "users": {
+    "15547": {
+      "name": "林先生",
+      "persona": "家居复购型",
+      "color": "#6d5dfc"
+    },
+    "14156": {
+      "name": "陈小姐",
+      "persona": "厨房好物型",
+      "color": "#ff7a59"
+    },
+    "17231": {
+      "name": "王女士",
+      "persona": "装饰礼品型",
+      "color": "#0aa38f"
+    }
+  },
+  "model_version": "v146_xgb_pairwise_deep"
+}

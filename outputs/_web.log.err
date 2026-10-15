@@ -1,0 +1,154 @@
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 59168)
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socket.py", line 707, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] 远程主机强迫关闭了一个现有的连接。
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 53482)
+Exception occurred during processing of request from ('127.0.0.1', 59203)
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1483, in do_GET
+    self._json({"error": "image not found"}, 404)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1457, in _json
+    self._send(code, json.dumps(obj, ensure_ascii=False, default=str).encode("utf-8"),
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1453, in _send
+    self.end_headers()
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1483, in do_GET
+    self._json({"error": "image not found"}, 404)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1457, in _json
+    self._send(code, json.dumps(obj, ensure_ascii=False, default=str).encode("utf-8"),
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1453, in _send
+    self.end_headers()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 840, in write
+    self._sock.sendall(b)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+ConnectionResetError: [WinError 10054] 远程主机强迫关闭了一个现有的连接。
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+----------------------------------------
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 840, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] 远程主机强迫关闭了一个现有的连接。
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 57600)
+Exception occurred during processing of request from ('127.0.0.1', 56948)
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1483, in do_GET
+    self._json({"error": "image not found"}, 404)
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1483, in do_GET
+    self._json({"error": "image not found"}, 404)
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1457, in _json
+    self._send(code, json.dumps(obj, ensure_ascii=False, default=str).encode("utf-8"),
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1453, in _send
+    self.end_headers()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1457, in _json
+    self._send(code, json.dumps(obj, ensure_ascii=False, default=str).encode("utf-8"),
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1453, in _send
+    self.end_headers()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 840, in write
+    self._sock.sendall(b)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+ConnectionResetError: [WinError 10054] 远程主机强迫关闭了一个现有的连接。
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+----------------------------------------
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 840, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] 远程主机强迫关闭了一个现有的连接。
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 61033)
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1483, in do_GET
+    self._json({"error": "image not found"}, 404)
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1457, in _json
+    self._send(code, json.dumps(obj, ensure_ascii=False, default=str).encode("utf-8"),
+  File "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project\webui.py", line 1453, in _send
+    self.end_headers()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 840, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] 远程主机强迫关闭了一个现有的连接。
+----------------------------------------

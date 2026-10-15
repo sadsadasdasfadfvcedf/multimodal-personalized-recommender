@@ -1,0 +1,1416 @@
+{
+  "stage": "06",
+  "title": "系统联调、故障降级、隐私安全与验收记录",
+  "generated_at": "2026-10-15T05:55:21+00:00",
+  "config": {
+    "project_root": "C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project",
+    "seed": 42,
+    "runtime_mode": "offline",
+    "allow_real_models": false,
+    "recommender_root_found": true,
+    "recommender_root": "C:\\Users\\Administrator\\Desktop\\推荐系统",
+    "multimodal_root_found": true,
+    "multimodal_root": "E:\\MovedFromC\\Documents\\trae_projects\\multimodal_ai",
+    "recommender_strategy_order": [
+      "http",
+      "local_artifacts",
+      "offline_snapshot"
+    ],
+    "recall_sources": [
+      "personalized",
+      "similar",
+      "category_hot",
+      "session_focus",
+      "popular",
+      "history"
+    ],
+    "top_k": 8
+  },
+  "scenarios": [
+    {
+      "chain": "voice",
+      "kind": "成功",
+      "desc": "语音链路：ASR 文本 → 意图 → 推荐 → 解释 → 语音播报",
+      "result": {
+        "scenario_id": "E2E-01",
+        "chain": "voice",
+        "recorded_at": "2026-10-15T05:55:11+00:00",
+        "trace_id": "tr-917dc46e3888488c",
+        "status": "ok",
+        "session_id": "e2e-voice",
+        "recommendations": [
+          {
+            "rank": 1,
+            "item_id": "20829",
+            "title": "闪粉悬挂蝴蝶串",
+            "price": 2.1,
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": "推荐理由：它属于「装饰品」品类。参考价 £2.1（来源：historical_mode）。符合你的预算要求：价格 2.1 不超过 500.0。符合你的品类要求：装饰品（要求 装饰品）。它来自「推荐系统 v146 个性化精排」这一路的候选。知"
+          },
+          {
+            "rank": 2,
+            "item_id": "21175",
+            "title": "金汤力饮食金属标牌",
+            "price": 2.55,
+            "score": 0.69915,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": "推荐理由：它属于「装饰品」品类。参考价 £2.55（来源：historical_mode）。符合你的预算要求：价格 2.55 不超过 500.0。符合你的品类要求：装饰品（要求 装饰品）。它来自「推荐系统 v146 个性化精排」这一路的候选"
+          },
+          {
+            "rank": 3,
+            "item_id": "20828",
+            "title": "闪粉蝴蝶发夹",
+            "price": 2.55,
+            "score": 0.6887,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回"
+            ],
+            "explanation": "推荐理由：它属于「装饰品」品类。参考价 £2.55（来源：historical_mode）。符合你的预算要求：价格 2.55 不超过 500.0。符合你的品类要求：装饰品（要求 装饰品）。它来自「推荐系统 v146 个性化精排」这一路的候选"
+          },
+          {
+            "rank": 4,
+            "item_id": "21166",
+            "title": "用酒烹饪金属标志",
+            "price": 2.08,
+            "score": 0.67275,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 5,
+            "item_id": "21169",
+            "title": "你把我搞糊涂了金属标志",
+            "price": 1.69,
+            "score": 0.6227,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 6,
+            "item_id": "22335",
+            "title": "彩绘锌心形装饰",
+            "price": 0.65,
+            "score": 0.59685,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 7,
+            "item_id": "35961",
+            "title": "民间艺术锌心圣诞装饰",
+            "price": 0.85,
+            "score": 0.5853,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 8,
+            "item_id": "84836",
+            "title": "锌金属心形装饰",
+            "price": 1.25,
+            "score": 0.571,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          }
+        ],
+        "latency_ms": {
+          "event_ms": 0.044,
+          "intent_ms": 0.658,
+          "recall_ms": 1.931,
+          "rank_ms": 0.368,
+          "present_ms": 2706.201,
+          "dispatch_ms": 2709.093,
+          "total_ms": 2710.117
+        },
+        "modes": {
+          "runtime_mode": "offline",
+          "multimodal": "offline_stub",
+          "recommender": "offline_snapshot",
+          "catalog_origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline",
+          "catalog_products": 3642,
+          "llm_explain": "template"
+        },
+        "degradations": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "error": null,
+        "presentation": {
+          "voice_available": true,
+          "engine": "windows-sapi",
+          "text": "按你的条件（婚礼场景装饰品）筛选结果：\n1. 闪粉悬挂蝴蝶串（参考价 £2.1） —— 它属于「装饰品」品类。参考价 £2.1（来源：historical_mode）。符合你的预算要求：价格 2.1 不超过…\n2. 金汤力饮食金属标牌（参考价 £2.55） —— 它属于「装饰品」品类。参考价 £2.55（来源：historical_mode）。符合你的预算要求：价格 2.55 不…\n3. 闪粉蝴蝶发夹（参考价 £2.55） —— 它属于「装饰品」品类。参考价 £2.55（来源：historical_mode）。符合你的预算要求：价格 2.55 不…\n4. 用酒烹饪金属标志（参考价 £2.08）\n5. 你把我搞糊涂了金属标志（参考价 £1.69）"
+        }
+      }
+    },
+    {
+      "chain": "vision",
+      "kind": "成功",
+      "desc": "视觉链路：画面标签 → 颜色槽位 → 推荐 → 解释",
+      "result": {
+        "scenario_id": "E2E-02",
+        "chain": "vision",
+        "recorded_at": "2026-10-15T05:55:13+00:00",
+        "trace_id": "tr-9b50e547ad614b19",
+        "status": "ok",
+        "session_id": "e2e-vision",
+        "recommendations": [
+          {
+            "rank": 1,
+            "item_id": "82494L",
+            "title": "仿古白色木框",
+            "price": 2.95,
+            "score": 0.8513,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": "推荐理由：它属于「家居装饰」品类。参考价 £2.95（来源：historical_mode）。符合你的品类要求：家居装饰（要求 None）。符合你的颜色要求：命中「白」（要求 ['白色']）。它来自「推荐系统 v146 个性化精排」这一路的"
+          },
+          {
+            "rank": 2,
+            "item_id": "82482",
+            "title": "白色木质相框",
+            "price": 2.55,
+            "score": 0.80895,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ],
+            "explanation": "推荐理由：它属于「家居装饰」品类。参考价 £2.55（来源：historical_mode）。符合你的品类要求：家居装饰（要求 None）。符合你的颜色要求：命中「白」（要求 ['白色']）。它来自「推荐系统 v146 个性化精排」这一路的"
+          },
+          {
+            "rank": 3,
+            "item_id": "84029E",
+            "title": "红色羊毛暖宝宝白色爱心",
+            "price": 3.75,
+            "score": 0.7096,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": "推荐理由：它属于「生活用品」品类。参考价 £3.75（来源：historical_mode）。符合你的颜色要求：命中「白」（要求 ['白色']）。它来自「推荐系统 v146 个性化精排」这一路的候选。画面识别到「白色桌面」（置信度 0.90"
+          },
+          {
+            "rank": 4,
+            "item_id": "85123a",
+            "title": "白色悬挂心形茶烛台",
+            "price": 6.63,
+            "score": 0.64,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 5,
+            "item_id": "23412",
+            "title": "爱心镜子 仿古白色",
+            "price": 7.5,
+            "score": 0.63,
+            "sources": [
+              "相似商品召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 6,
+            "item_id": "21488",
+            "title": "红白条纹热水袋套",
+            "price": 8.47,
+            "score": 0.58365,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 7,
+            "item_id": "71038",
+            "title": "白色悬挂珠串烛台",
+            "price": 5.45,
+            "score": 0.5025,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 8,
+            "item_id": "79323W",
+            "title": "白色樱桃灯串",
+            "price": 2.46,
+            "score": 0.5025,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          }
+        ],
+        "latency_ms": {
+          "event_ms": 0.148,
+          "intent_ms": 2.151,
+          "recall_ms": 6.597,
+          "rank_ms": 1.045,
+          "present_ms": 1880.79,
+          "dispatch_ms": 1889.402,
+          "total_ms": 1892.182
+        },
+        "modes": {
+          "runtime_mode": "offline",
+          "multimodal": "offline_stub",
+          "recommender": "offline_snapshot",
+          "catalog_origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline",
+          "catalog_products": 3642,
+          "llm_explain": "template"
+        },
+        "degradations": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "error": null,
+        "presentation": {
+          "voice_available": true,
+          "engine": "windows-sapi",
+          "text": "家居装饰推荐：\n1. 仿古白色木框（参考价 £2.95） —— 它属于「家居装饰」品类。参考价 £2.95（来源：historical_mode）。符合你的品类要求：家居装饰（要求 …\n2. 白色木质相框（参考价 £2.55） —— 它属于「家居装饰」品类。参考价 £2.55（来源：historical_mode）。符合你的品类要求：家居装饰（要求 …\n3. 红色羊毛暖宝宝白色爱心（参考价 £3.75） —— 它属于「生活用品」品类。参考价 £3.75（来源：historical_mode）。符合你的颜色要求：命中「白」（要求…\n4. 白色悬挂心形茶烛台（参考价 £6.63）\n5. 爱心镜子 仿古白色（参考价 £7.5）"
+        }
+      }
+    },
+    {
+      "chain": "gesture",
+      "kind": "成功",
+      "desc": "手势链路：thumbs_up → 正反馈 → 会话偏好 → 重新排序",
+      "result": {
+        "scenario_id": "E2E-03",
+        "chain": "gesture",
+        "recorded_at": "2026-10-15T05:55:17+00:00",
+        "trace_id": "tr-a0c81610c4b74460",
+        "status": "ok",
+        "session_id": "e2e-gesture",
+        "recommendations": [
+          {
+            "rank": 1,
+            "item_id": "22625",
+            "title": "红色厨房秤",
+            "price": 8.5,
+            "score": 0.957689,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "会话关注召回"
+            ],
+            "explanation": "推荐理由：它属于「厨房用品」品类。参考价 £8.5（来源：historical_mode）。符合你的品类要求：厨房用品（要求 None）。命中约束 scene=厨房。它来自「推荐系统 v146 个性化精排」这一路的候选。它来自「会话关注召回"
+          },
+          {
+            "rank": 2,
+            "item_id": "22624",
+            "title": "象牙白厨房秤",
+            "price": 8.5,
+            "score": 0.919457,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回"
+            ],
+            "explanation": "推荐理由：它属于「厨房用品」品类。参考价 £8.5（来源：historical_mode）。符合你的品类要求：厨房用品（要求 None）。命中约束 scene=厨房。它来自「推荐系统 v146 个性化精排」这一路的候选。它来自「相似商品召回"
+          },
+          {
+            "rank": 3,
+            "item_id": "22423",
+            "title": "摄政风格三层蛋糕架",
+            "price": 12.75,
+            "score": 0.855,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回",
+              "历史购买相似召回"
+            ],
+            "explanation": "推荐理由：它属于「厨房用品」品类。参考价 £12.75（来源：historical_mode）。符合你的品类要求：厨房用品（要求 None）。它来自「推荐系统 v146 个性化精排」这一路的候选。它来自「品类热门召回」这一路的候选。它来自「"
+          },
+          {
+            "rank": 4,
+            "item_id": "20914",
+            "title": "套装/5个红点盖玻璃碗",
+            "price": 2.95,
+            "score": 0.847736,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回",
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 5,
+            "item_id": "22699",
+            "title": "玫瑰摄政风格茶杯碟",
+            "price": 2.95,
+            "score": 0.840472,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 6,
+            "item_id": "22847",
+            "title": "象牙色餐厅风格面包箱",
+            "price": 16.95,
+            "score": 0.838656,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 7,
+            "item_id": "22617",
+            "title": "太空男孩设计烘焙套装",
+            "price": 4.95,
+            "score": 0.81842,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 8,
+            "item_id": "22698",
+            "title": "粉色摄政风格茶杯和茶碟",
+            "price": 2.95,
+            "score": 0.806227,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          }
+        ],
+        "latency_ms": {
+          "event_ms": 0.045,
+          "intent_ms": 0.093,
+          "feedback_ms": 0.012,
+          "recall_ms": 1.953,
+          "rank_ms": 0.93,
+          "present_ms": 2114.06,
+          "dispatch_ms": 2117.557,
+          "total_ms": 2117.879
+        },
+        "modes": {
+          "runtime_mode": "offline",
+          "multimodal": "offline_stub",
+          "recommender": "offline_snapshot",
+          "catalog_origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline",
+          "catalog_products": 3642,
+          "llm_explain": "template"
+        },
+        "degradations": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "error": null,
+        "presentation": {
+          "voice_available": true,
+          "engine": "windows-sapi",
+          "text": "厨房场景厨房用品推荐：\n1. 红色厨房秤（参考价 £8.5） —— 它属于「厨房用品」品类。参考价 £8.5（来源：historical_mode）。符合你的品类要求：厨房用品（要求 N…\n2. 象牙白厨房秤（参考价 £8.5） —— 它属于「厨房用品」品类。参考价 £8.5（来源：historical_mode）。符合你的品类要求：厨房用品（要求 N…\n3. 摄政风格三层蛋糕架（参考价 £12.75） —— 它属于「厨房用品」品类。参考价 £12.75（来源：historical_mode）。符合你的品类要求：厨房用品（要求…\n4. 套装/5个红点盖玻璃碗（参考价 £2.95）\n5. 玫瑰摄政风格茶杯碟（参考价 £2.95）"
+        },
+        "setup_status": "ok",
+        "setup_top1": "22625",
+        "feedback": {
+          "item_id": "22625",
+          "polarity": "positive",
+          "replaced_previous": false,
+          "likes": {
+            "22625": 1
+          },
+          "dislikes": {},
+          "target_title": "红色厨房秤"
+        },
+        "before_after": {
+          "before_topk": [
+            "22625",
+            "22624",
+            "22423",
+            "20914",
+            "22699",
+            "22847",
+            "22617",
+            "22698"
+          ],
+          "after_topk": [
+            "22625",
+            "22624",
+            "22423",
+            "20914",
+            "22699",
+            "22847",
+            "22617",
+            "22698"
+          ],
+          "changed": false
+        }
+      }
+    },
+    {
+      "chain": "fault",
+      "kind": "边界",
+      "desc": "推荐系统 HTTP 不可用 → 自动降级到发布制品/内置快照",
+      "result": {
+        "scenario_id": "FAULT-01",
+        "active_mode": "local_artifacts",
+        "degradations": {
+          "adapter": "recommender_adapter",
+          "requested_mode": "online",
+          "active_mode": "local_artifacts",
+          "degraded": true,
+          "events": [
+            {
+              "adapter": "recommender_adapter",
+              "level": "L1",
+              "reason": "缺少演示账号环境变量 INTEGRATED_DEMO_USER/INTEGRATED_DEMO_PASSWORD，跳过 HTTP 策略",
+              "from": "http",
+              "to": "next"
+            }
+          ]
+        },
+        "ok": true
+      }
+    },
+    {
+      "chain": "fault",
+      "kind": "边界",
+      "desc": "个性化召回超时 → 其余召回来源继续，链路不中断",
+      "result": {
+        "scenario_id": "FAULT-02",
+        "chain": "fault",
+        "recorded_at": "2026-10-15T05:55:20+00:00",
+        "trace_id": "tr-293b371ae5f947e5",
+        "status": "ok",
+        "session_id": "e2e-timeout",
+        "recommendations": [
+          {
+            "rank": 1,
+            "item_id": "16156S",
+            "title": "粉色仙女蛋糕包装纸",
+            "price": 0.42,
+            "score": 0.51,
+            "sources": [
+              "品类热门召回",
+              "全局热门兜底"
+            ],
+            "explanation": "推荐理由：它属于「派对用品」品类。参考价 £0.42（来源：historical_mode）。符合你的品类要求：派对用品（要求 None）。它来自「品类热门召回」这一路的候选。它来自「全局热门兜底」这一路的候选。知识库依据（03_场景搭配建"
+          },
+          {
+            "rank": 2,
+            "item_id": "21169",
+            "title": "你把我搞糊涂了金属标志",
+            "price": 1.69,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": "推荐理由：它属于「装饰品」品类。参考价 £1.69（来源：historical_mode）。它来自「历史购买相似召回」这一路的候选。知识库依据（03_场景搭配建议#2）：礼：装饰品与家居装饰为主，白色与奶油色主题最受欢迎，常见搭配为茶烛台、"
+          },
+          {
+            "rank": 3,
+            "item_id": "21181",
+            "title": "请一次一人金属标志",
+            "price": 2.1,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": "推荐理由：它属于「家居装饰」品类。参考价 £2.1（来源：historical_mode）。它来自「历史购买相似召回」这一路的候选。知识库依据（03_场景搭配建议#1）：客厅：以家居装饰为主，茶烛台、相框、灯串组合陈列效果好；白色、奶油色最"
+          },
+          {
+            "rank": 4,
+            "item_id": "21462",
+            "title": "幼儿园ABC彩绘字母",
+            "price": 6.75,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 5,
+            "item_id": "21757",
+            "title": "灯塔印刷金属标志",
+            "price": 4.95,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 6,
+            "item_id": "21770",
+            "title": "营业中/休息中金属标志",
+            "price": 4.95,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 7,
+            "item_id": "21904",
+            "title": "房屋拆除金属标志",
+            "price": 2.1,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 8,
+            "item_id": "21910",
+            "title": "复古风格金属标志牌",
+            "price": 1.65,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          }
+        ],
+        "latency_ms": {
+          "event_ms": 0.066,
+          "intent_ms": 1.309,
+          "recall_ms": 2.354,
+          "rank_ms": 12.683,
+          "present_ms": 2002.023,
+          "dispatch_ms": 2017.892,
+          "total_ms": 2019.558
+        },
+        "modes": {
+          "runtime_mode": "offline",
+          "multimodal": "offline_stub",
+          "recommender": "offline_snapshot",
+          "catalog_origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline",
+          "catalog_products": 3642,
+          "llm_explain": "template"
+        },
+        "degradations": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "error": null,
+        "presentation": {
+          "voice_available": true,
+          "engine": "windows-sapi",
+          "text": "派对场景派对用品推荐：\n1. 粉色仙女蛋糕包装纸（参考价 £0.42） —— 它属于「派对用品」品类。参考价 £0.42（来源：historical_mode）。符合你的品类要求：派对用品（要求 …\n2. 你把我搞糊涂了金属标志（参考价 £1.69） —— 它属于「装饰品」品类。参考价 £1.69（来源：historical_mode）。它来自「历史购买相似召回」这一路的候…\n3. 请一次一人金属标志（参考价 £2.1） —— 它属于「家居装饰」品类。参考价 £2.1（来源：historical_mode）。它来自「历史购买相似召回」这一路的候…\n4. 幼儿园ABC彩绘字母（参考价 £6.75）\n5. 灯塔印刷金属标志（参考价 £4.95）"
+        },
+        "failed_sources": [
+          "personalized"
+        ]
+      }
+    },
+    {
+      "chain": "fault",
+      "kind": "边界",
+      "desc": "语音合成不可用 → 降级为纯文本呈现",
+      "result": {
+        "scenario_id": "FAULT-03",
+        "chain": "fault",
+        "recorded_at": "2026-10-15T05:55:20+00:00",
+        "trace_id": "tr-8343ac4cd835491a",
+        "status": "ok",
+        "session_id": "e2e-tts",
+        "recommendations": [
+          {
+            "rank": 1,
+            "item_id": "21181",
+            "title": "请一次一人金属标志",
+            "price": 2.1,
+            "score": 0.86065,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": "推荐理由：它属于「家居装饰」品类。参考价 £2.1（来源：historical_mode）。符合你的品类要求：家居装饰（要求 None）。它来自「推荐系统 v146 个性化精排」这一路的候选。知识库依据（03_场景搭配建议#1）：客厅：以家"
+          },
+          {
+            "rank": 2,
+            "item_id": "22508",
+            "title": "复古圆点心形门挡",
+            "price": 3.75,
+            "score": 0.85515,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": "推荐理由：它属于「家居装饰」品类。参考价 £3.75（来源：historical_mode）。符合你的品类要求：家居装饰（要求 None）。它来自「推荐系统 v146 个性化精排」这一路的候选。知识库依据（03_场景搭配建议#2）：礼：装饰"
+          },
+          {
+            "rank": 3,
+            "item_id": "82494L",
+            "title": "仿古白色木框",
+            "price": 2.95,
+            "score": 0.8513,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": "推荐理由：它属于「家居装饰」品类。参考价 £2.95（来源：historical_mode）。符合你的品类要求：家居装饰（要求 None）。它来自「推荐系统 v146 个性化精排」这一路的候选。知识库依据（03_场景搭配建议#1）：客厅：以"
+          },
+          {
+            "rank": 4,
+            "item_id": "85152",
+            "title": "交出巧克力标志牌",
+            "price": 2.1,
+            "score": 0.84415,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 5,
+            "item_id": "85174",
+            "title": "仙人掌蜡烛4件套",
+            "price": 4.95,
+            "score": 0.8436,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 6,
+            "item_id": "82482",
+            "title": "白色木质相框",
+            "price": 2.55,
+            "score": 0.80895,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 7,
+            "item_id": "20829",
+            "title": "闪粉悬挂蝴蝶串",
+            "price": 2.1,
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 8,
+            "item_id": "85175",
+            "title": "亚马逊销售套装",
+            "price": 0.42,
+            "score": 0.71675,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          }
+        ],
+        "latency_ms": {
+          "event_ms": 0.035,
+          "intent_ms": 0.637,
+          "recall_ms": 2.21,
+          "rank_ms": 0.687,
+          "present_ms": 0.332,
+          "dispatch_ms": 3.774,
+          "total_ms": 4.573
+        },
+        "modes": {
+          "runtime_mode": "offline",
+          "multimodal": "offline_stub",
+          "recommender": "offline_snapshot",
+          "catalog_origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline",
+          "catalog_products": 3642,
+          "llm_explain": "template"
+        },
+        "degradations": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          },
+          "presentation": {
+            "adapter": "presentation",
+            "degraded": true,
+            "events": [
+              {
+                "level": "L2",
+                "reason": "语音呈现不可用，已降级为纯文本: edge-tts: 故障注入：edge-tts 不可用; windows-sapi: 故障注入：SAPI 不可用",
+                "from": "voice+text",
+                "to": "text"
+              }
+            ]
+          }
+        },
+        "error": null,
+        "presentation": {
+          "voice_available": false,
+          "engine": null,
+          "text": "家居装饰推荐：\n1. 请一次一人金属标志（参考价 £2.1） —— 它属于「家居装饰」品类。参考价 £2.1（来源：historical_mode）。符合你的品类要求：家居装饰（要求 N…\n2. 复古圆点心形门挡（参考价 £3.75） —— 它属于「家居装饰」品类。参考价 £3.75（来源：historical_mode）。符合你的品类要求：家居装饰（要求 …\n3. 仿古白色木框（参考价 £2.95） —— 它属于「家居装饰」品类。参考价 £2.95（来源：historical_mode）。符合你的品类要求：家居装饰（要求 …\n4. 交出巧克力标志牌（参考价 £2.1）\n5. 仙人掌蜡烛4件套（参考价 £4.95）"
+        }
+      }
+    },
+    {
+      "chain": "fault",
+      "kind": "失败",
+      "desc": "ASR 结果为空 → 返回 E_EMPTY_TRANSCRIPT，不做意图推测",
+      "result": {
+        "scenario_id": "FAULT-04",
+        "chain": "fault",
+        "recorded_at": "2026-10-15T05:55:20+00:00",
+        "trace_id": "tr-error-779314396971",
+        "status": "error",
+        "session_id": "e2e-empty",
+        "recommendations": [],
+        "latency_ms": {
+          "event_ms": 0.01,
+          "total_ms": 0.052
+        },
+        "modes": {
+          "runtime_mode": "offline",
+          "multimodal": "offline_stub",
+          "recommender": "offline_snapshot",
+          "catalog_origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline",
+          "catalog_products": 3642,
+          "llm_explain": "template"
+        },
+        "degradations": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "error": {
+          "code": "E_EMPTY_TRANSCRIPT",
+          "message": "语音识别结果为空或过短（< 2 字符），不做意图推测",
+          "field": "text",
+          "context": {}
+        },
+        "presentation": {
+          "voice_available": null,
+          "engine": null,
+          "text": null
+        },
+        "expected_code": "E_EMPTY_TRANSCRIPT"
+      }
+    }
+  ],
+  "fault_injections": [
+    {
+      "chain": "fault",
+      "kind": "边界",
+      "desc": "推荐系统 HTTP 不可用 → 自动降级到发布制品/内置快照",
+      "result": {
+        "scenario_id": "FAULT-01",
+        "active_mode": "local_artifacts",
+        "degradations": {
+          "adapter": "recommender_adapter",
+          "requested_mode": "online",
+          "active_mode": "local_artifacts",
+          "degraded": true,
+          "events": [
+            {
+              "adapter": "recommender_adapter",
+              "level": "L1",
+              "reason": "缺少演示账号环境变量 INTEGRATED_DEMO_USER/INTEGRATED_DEMO_PASSWORD，跳过 HTTP 策略",
+              "from": "http",
+              "to": "next"
+            }
+          ]
+        },
+        "ok": true
+      }
+    },
+    {
+      "chain": "fault",
+      "kind": "边界",
+      "desc": "个性化召回超时 → 其余召回来源继续，链路不中断",
+      "result": {
+        "scenario_id": "FAULT-02",
+        "chain": "fault",
+        "recorded_at": "2026-10-15T05:55:20+00:00",
+        "trace_id": "tr-293b371ae5f947e5",
+        "status": "ok",
+        "session_id": "e2e-timeout",
+        "recommendations": [
+          {
+            "rank": 1,
+            "item_id": "16156S",
+            "title": "粉色仙女蛋糕包装纸",
+            "price": 0.42,
+            "score": 0.51,
+            "sources": [
+              "品类热门召回",
+              "全局热门兜底"
+            ],
+            "explanation": "推荐理由：它属于「派对用品」品类。参考价 £0.42（来源：historical_mode）。符合你的品类要求：派对用品（要求 None）。它来自「品类热门召回」这一路的候选。它来自「全局热门兜底」这一路的候选。知识库依据（03_场景搭配建"
+          },
+          {
+            "rank": 2,
+            "item_id": "21169",
+            "title": "你把我搞糊涂了金属标志",
+            "price": 1.69,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": "推荐理由：它属于「装饰品」品类。参考价 £1.69（来源：historical_mode）。它来自「历史购买相似召回」这一路的候选。知识库依据（03_场景搭配建议#2）：礼：装饰品与家居装饰为主，白色与奶油色主题最受欢迎，常见搭配为茶烛台、"
+          },
+          {
+            "rank": 3,
+            "item_id": "21181",
+            "title": "请一次一人金属标志",
+            "price": 2.1,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": "推荐理由：它属于「家居装饰」品类。参考价 £2.1（来源：historical_mode）。它来自「历史购买相似召回」这一路的候选。知识库依据（03_场景搭配建议#1）：客厅：以家居装饰为主，茶烛台、相框、灯串组合陈列效果好；白色、奶油色最"
+          },
+          {
+            "rank": 4,
+            "item_id": "21462",
+            "title": "幼儿园ABC彩绘字母",
+            "price": 6.75,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 5,
+            "item_id": "21757",
+            "title": "灯塔印刷金属标志",
+            "price": 4.95,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 6,
+            "item_id": "21770",
+            "title": "营业中/休息中金属标志",
+            "price": 4.95,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 7,
+            "item_id": "21904",
+            "title": "房屋拆除金属标志",
+            "price": 2.1,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 8,
+            "item_id": "21910",
+            "title": "复古风格金属标志牌",
+            "price": 1.65,
+            "score": 0.44,
+            "sources": [
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          }
+        ],
+        "latency_ms": {
+          "event_ms": 0.066,
+          "intent_ms": 1.309,
+          "recall_ms": 2.354,
+          "rank_ms": 12.683,
+          "present_ms": 2002.023,
+          "dispatch_ms": 2017.892,
+          "total_ms": 2019.558
+        },
+        "modes": {
+          "runtime_mode": "offline",
+          "multimodal": "offline_stub",
+          "recommender": "offline_snapshot",
+          "catalog_origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline",
+          "catalog_products": 3642,
+          "llm_explain": "template"
+        },
+        "degradations": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "error": null,
+        "presentation": {
+          "voice_available": true,
+          "engine": "windows-sapi",
+          "text": "派对场景派对用品推荐：\n1. 粉色仙女蛋糕包装纸（参考价 £0.42） —— 它属于「派对用品」品类。参考价 £0.42（来源：historical_mode）。符合你的品类要求：派对用品（要求 …\n2. 你把我搞糊涂了金属标志（参考价 £1.69） —— 它属于「装饰品」品类。参考价 £1.69（来源：historical_mode）。它来自「历史购买相似召回」这一路的候…\n3. 请一次一人金属标志（参考价 £2.1） —— 它属于「家居装饰」品类。参考价 £2.1（来源：historical_mode）。它来自「历史购买相似召回」这一路的候…\n4. 幼儿园ABC彩绘字母（参考价 £6.75）\n5. 灯塔印刷金属标志（参考价 £4.95）"
+        },
+        "failed_sources": [
+          "personalized"
+        ]
+      }
+    },
+    {
+      "chain": "fault",
+      "kind": "边界",
+      "desc": "语音合成不可用 → 降级为纯文本呈现",
+      "result": {
+        "scenario_id": "FAULT-03",
+        "chain": "fault",
+        "recorded_at": "2026-10-15T05:55:20+00:00",
+        "trace_id": "tr-8343ac4cd835491a",
+        "status": "ok",
+        "session_id": "e2e-tts",
+        "recommendations": [
+          {
+            "rank": 1,
+            "item_id": "21181",
+            "title": "请一次一人金属标志",
+            "price": 2.1,
+            "score": 0.86065,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": "推荐理由：它属于「家居装饰」品类。参考价 £2.1（来源：historical_mode）。符合你的品类要求：家居装饰（要求 None）。它来自「推荐系统 v146 个性化精排」这一路的候选。知识库依据（03_场景搭配建议#1）：客厅：以家"
+          },
+          {
+            "rank": 2,
+            "item_id": "22508",
+            "title": "复古圆点心形门挡",
+            "price": 3.75,
+            "score": 0.85515,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": "推荐理由：它属于「家居装饰」品类。参考价 £3.75（来源：historical_mode）。符合你的品类要求：家居装饰（要求 None）。它来自「推荐系统 v146 个性化精排」这一路的候选。知识库依据（03_场景搭配建议#2）：礼：装饰"
+          },
+          {
+            "rank": 3,
+            "item_id": "82494L",
+            "title": "仿古白色木框",
+            "price": 2.95,
+            "score": 0.8513,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": "推荐理由：它属于「家居装饰」品类。参考价 £2.95（来源：historical_mode）。符合你的品类要求：家居装饰（要求 None）。它来自「推荐系统 v146 个性化精排」这一路的候选。知识库依据（03_场景搭配建议#1）：客厅：以"
+          },
+          {
+            "rank": 4,
+            "item_id": "85152",
+            "title": "交出巧克力标志牌",
+            "price": 2.1,
+            "score": 0.84415,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 5,
+            "item_id": "85174",
+            "title": "仙人掌蜡烛4件套",
+            "price": 4.95,
+            "score": 0.8436,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 6,
+            "item_id": "82482",
+            "title": "白色木质相框",
+            "price": 2.55,
+            "score": 0.80895,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 7,
+            "item_id": "20829",
+            "title": "闪粉悬挂蝴蝶串",
+            "price": 2.1,
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          },
+          {
+            "rank": 8,
+            "item_id": "85175",
+            "title": "亚马逊销售套装",
+            "price": 0.42,
+            "score": 0.71675,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ],
+            "explanation": ""
+          }
+        ],
+        "latency_ms": {
+          "event_ms": 0.035,
+          "intent_ms": 0.637,
+          "recall_ms": 2.21,
+          "rank_ms": 0.687,
+          "present_ms": 0.332,
+          "dispatch_ms": 3.774,
+          "total_ms": 4.573
+        },
+        "modes": {
+          "runtime_mode": "offline",
+          "multimodal": "offline_stub",
+          "recommender": "offline_snapshot",
+          "catalog_origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline",
+          "catalog_products": 3642,
+          "llm_explain": "template"
+        },
+        "degradations": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          },
+          "presentation": {
+            "adapter": "presentation",
+            "degraded": true,
+            "events": [
+              {
+                "level": "L2",
+                "reason": "语音呈现不可用，已降级为纯文本: edge-tts: 故障注入：edge-tts 不可用; windows-sapi: 故障注入：SAPI 不可用",
+                "from": "voice+text",
+                "to": "text"
+              }
+            ]
+          }
+        },
+        "error": null,
+        "presentation": {
+          "voice_available": false,
+          "engine": null,
+          "text": "家居装饰推荐：\n1. 请一次一人金属标志（参考价 £2.1） —— 它属于「家居装饰」品类。参考价 £2.1（来源：historical_mode）。符合你的品类要求：家居装饰（要求 N…\n2. 复古圆点心形门挡（参考价 £3.75） —— 它属于「家居装饰」品类。参考价 £3.75（来源：historical_mode）。符合你的品类要求：家居装饰（要求 …\n3. 仿古白色木框（参考价 £2.95） —— 它属于「家居装饰」品类。参考价 £2.95（来源：historical_mode）。符合你的品类要求：家居装饰（要求 …\n4. 交出巧克力标志牌（参考价 £2.1）\n5. 仙人掌蜡烛4件套（参考价 £4.95）"
+        }
+      }
+    },
+    {
+      "chain": "fault",
+      "kind": "失败",
+      "desc": "ASR 结果为空 → 返回 E_EMPTY_TRANSCRIPT，不做意图推测",
+      "result": {
+        "scenario_id": "FAULT-04",
+        "chain": "fault",
+        "recorded_at": "2026-10-15T05:55:20+00:00",
+        "trace_id": "tr-error-779314396971",
+        "status": "error",
+        "session_id": "e2e-empty",
+        "recommendations": [],
+        "latency_ms": {
+          "event_ms": 0.01,
+          "total_ms": 0.052
+        },
+        "modes": {
+          "runtime_mode": "offline",
+          "multimodal": "offline_stub",
+          "recommender": "offline_snapshot",
+          "catalog_origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline",
+          "catalog_products": 3642,
+          "llm_explain": "template"
+        },
+        "degradations": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "error": {
+          "code": "E_EMPTY_TRANSCRIPT",
+          "message": "语音识别结果为空或过短（< 2 字符），不做意图推测",
+          "field": "text",
+          "context": {}
+        },
+        "presentation": {
+          "voice_available": null,
+          "engine": null,
+          "text": null
+        },
+        "expected_code": "E_EMPTY_TRANSCRIPT"
+      }
+    }
+  ],
+  "cleanup": {
+    "removed_dirs": [
+      "scripts\\__pycache__"
+    ],
+    "removed_files": [
+      "scripts\\__pycache__\\_bootstrap.cpython-312.pyc"
+    ],
+    "note": "运行脚本会重新生成 __pycache__；提交前执行 scripts/clean_workspace.py 即可"
+  },
+  "privacy_scan": {
+    "root": "C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project",
+    "files_scanned": 197,
+    "verdict": "PASS",
+    "forbidden_files": [],
+    "sensitive_literals": [],
+    "absolute_path_literals": [],
+    "allowed_evidence_dirs": [
+      "artifacts",
+      "docs",
+      "outputs"
+    ]
+  },
+  "privacy_policy": {
+    "禁止文件类型": [
+      "__pycache__",
+      "*.pyc",
+      "*.pyo",
+      "*.pth",
+      "*.pt",
+      "*.safetensors",
+      "*.bin",
+      "*.onnx",
+      "*.mp3",
+      "*.wav",
+      "*.mp4",
+      "*.avi",
+      "*.jpg",
+      "*.png",
+      ".env",
+      "*.log",
+      "*.zip",
+      "*.sqlite",
+      "*.db"
+    ],
+    "敏感键名": [
+      "password",
+      "passwd",
+      "secret",
+      "token",
+      "api_key",
+      "apikey",
+      "cookie"
+    ],
+    "允许的证据目录": [
+      "artifacts",
+      "docs",
+      "outputs"
+    ]
+  },
+  "package_manifest": {
+    "entries": 105,
+    "total_bytes": 3743336,
+    "total_mb": 3.57,
+    "excluded_dirs": [
+      "artifacts (可再生的语音产物)",
+      "__pycache__",
+      "*.pyc"
+    ]
+  },
+  "degradation_matrix": [
+    {
+      "scenario": "推荐系统 HTTP 不可用",
+      "trigger": "连接失败/超时/未登录",
+      "fallback": "local_artifacts（读取发布制品）→ offline_snapshot（内置快照）",
+      "level": "L1"
+    },
+    {
+      "scenario": "推荐系统制品缺失",
+      "trigger": "文件不存在",
+      "fallback": "offline_snapshot 内置快照",
+      "level": "L2"
+    },
+    {
+      "scenario": "真实多模态模型不可用",
+      "trigger": "torch/mediapipe 缺失或未授权",
+      "fallback": "离线场景桩（data/cases 中的模态输入）",
+      "level": "L1"
+    },
+    {
+      "scenario": "ASR 文本为空/过短",
+      "trigger": "有效时长 < 400ms 或文本长度 < 2",
+      "fallback": "返回 E_EMPTY_TRANSCRIPT，不臆测意图",
+      "level": "L2"
+    },
+    {
+      "scenario": "RAG 无命中",
+      "trigger": "最高相似度 < min_score",
+      "fallback": "仅用结构化字段解释，不编造",
+      "level": "L2"
+    },
+    {
+      "scenario": "硬约束过滤后无结果",
+      "trigger": "candidates = 0",
+      "fallback": "放宽为软约束 + 热门兜底，并标记 degraded=true",
+      "level": "L1"
+    },
+    {
+      "scenario": "语音呈现不可用",
+      "trigger": "TTS 合成失败/超时",
+      "fallback": "仅文本呈现，voice_available=false",
+      "level": "L2"
+    }
+  ],
+  "scenario_types": {
+    "成功": [
+      "E2E-01",
+      "E2E-02",
+      "E2E-03"
+    ],
+    "边界": [
+      "FAULT-01",
+      "FAULT-02",
+      "FAULT-03"
+    ],
+    "失败": [
+      "FAULT-04"
+    ]
+  },
+  "acceptance_checklist": {
+    "三类输入链路可运行": true,
+    "成功/边界/失败三类用例齐备": true,
+    "至少一种故障可降级": true,
+    "报告数字可追溯": true,
+    "无缓存、模型和敏感数据进入提交包": true
+  },
+  "demo_script": [
+    "1. python scripts/00_check_env.py       # 运行环境检查",
+    "2. python scripts/01_contract_test.py   # 接口契约与降级矩阵",
+    "3. python scripts/02_context_test.py    # 意图理解与会话上下文",
+    "4. python scripts/03_orchestrator_demo.py # 编排 / 召回 / 精排 / 降级",
+    "5. python scripts/04_explanation_test.py  # 证据包与 RAG 解释",
+    "6. python scripts/05_feedback_ab.py      # 反馈闭环 A/B",
+    "7. python scripts/06_e2e_acceptance.py   # 端到端与故障降级",
+    "8. python scripts/clean_workspace.py     # 清理缓存后打包"
+  ]
+}

@@ -1,0 +1,155 @@
+[
+  {
+    "id": "E-01",
+    "kind": "normal",
+    "desc": "正常：证据充足，价格与属性一致",
+    "user_id": "15547",
+    "item_id": "85123A",
+    "spec": {
+      "source": "voice",
+      "text": "500以内的白色家居装饰"
+    },
+    "visual_tags": [
+      {
+        "tag": "白色茶杯",
+        "confidence": 0.92
+      }
+    ],
+    "use_kb": true,
+    "expect": {
+      "status": "ok",
+      "consistent": true,
+      "min_evidence": 1,
+      "visual_used": [
+        "白色茶杯"
+      ]
+    }
+  },
+  {
+    "id": "E-02",
+    "kind": "insufficient",
+    "desc": "证据不足：商品无任何可用字段 → 不编造",
+    "user_id": "15547",
+    "item_id": "EDGE-NO-FACTS",
+    "product_override": {
+      "title": "",
+      "english_title": "",
+      "category": "",
+      "price": null,
+      "transactions": 0
+    },
+    "spec": {
+      "source": "text",
+      "text": "随便看看"
+    },
+    "use_kb": false,
+    "expect": {
+      "status": "no_evidence",
+      "min_evidence": 0
+    }
+  },
+  {
+    "id": "E-03",
+    "kind": "missing_fields",
+    "desc": "商品字段缺失（无价格）→ 降级为其余证据，仍不编造",
+    "user_id": "15547",
+    "item_id": "85123A",
+    "product_override": {
+      "price": null,
+      "price_source": "missing"
+    },
+    "spec": {
+      "source": "text",
+      "text": "500以内的白色家居装饰"
+    },
+    "use_kb": true,
+    "expect": {
+      "status": "ok",
+      "min_evidence": 1
+    }
+  },
+  {
+    "id": "E-04",
+    "kind": "low_conf_visual",
+    "desc": "低置信度视觉标签 → 降权后忽略",
+    "user_id": "15547",
+    "item_id": "85123A",
+    "spec": {
+      "source": "vision",
+      "text": "推荐一些家居装饰",
+      "visual_tags": [
+        {
+          "tag": "红色",
+          "confidence": 0.48
+        }
+      ]
+    },
+    "visual_tags": [
+      {
+        "tag": "红色",
+        "confidence": 0.48
+      }
+    ],
+    "use_kb": true,
+    "expect": {
+      "status": "ok",
+      "visual_used": []
+    }
+  },
+  {
+    "id": "E-05",
+    "kind": "high_conf_visual",
+    "desc": "高置信度视觉标签 → 作为证据引用并标注来源",
+    "user_id": "15547",
+    "item_id": "85123A",
+    "spec": {
+      "source": "vision",
+      "text": "推荐一些家居装饰"
+    },
+    "visual_tags": [
+      {
+        "tag": "白色",
+        "confidence": 0.88
+      }
+    ],
+    "use_kb": true,
+    "expect": {
+      "status": "ok",
+      "visual_used": [
+        "白色"
+      ]
+    }
+  },
+  {
+    "id": "E-06",
+    "kind": "not_found",
+    "desc": "商品不在目录 → 明确 E_ITEM_NOT_FOUND",
+    "user_id": "15547",
+    "item_id": "NOT-IN-CATALOG",
+    "spec": {
+      "source": "text",
+      "text": "随便看看"
+    },
+    "use_kb": true,
+    "expect": {
+      "status": "item_not_found"
+    }
+  },
+  {
+    "id": "E-07",
+    "kind": "inconsistent",
+    "desc": "解释所用价格与目录不一致 → 标记并修正口径",
+    "user_id": "15547",
+    "item_id": "85123A",
+    "item_price_override": 99.99,
+    "spec": {
+      "source": "text",
+      "text": "500以内的白色家居装饰"
+    },
+    "use_kb": true,
+    "expect": {
+      "status": "ok",
+      "consistent": false
+    }
+  }
+]

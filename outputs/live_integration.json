@@ -1,0 +1,279 @@
+{
+  "checked_at": "2026-10-14T11:19:08+00:00",
+  "base_url": "http://127.0.0.1:8010",
+  "probe": {
+    "reachable": true,
+    "status_code": 200
+  },
+  "credentials_configured": true,
+  "credential_env_names": [
+    "INTEGRATED_DEMO_USER",
+    "INTEGRATED_DEMO_PASSWORD"
+  ],
+  "mode": "http",
+  "results": [
+    {
+      "turn": "voice",
+      "trace_id": "tr-6d510e9862214ed3",
+      "status": "ok",
+      "intent": "filter",
+      "top": [
+        {
+          "rank": 1,
+          "item_id": "22158",
+          "title": "3个心形悬挂装饰 乡村风格",
+          "price": 2.95,
+          "score": 0.56275,
+          "sources": [
+            "推荐系统 v146 个性化精排"
+          ]
+        },
+        {
+          "rank": 2,
+          "item_id": "22943",
+          "title": "10个复古彩球圣诞灯",
+          "price": 4.95,
+          "score": 0.52975,
+          "sources": [
+            "推荐系统 v146 个性化精排",
+            "相似商品召回"
+          ]
+        },
+        {
+          "rank": 3,
+          "item_id": "22809",
+          "title": "6个圣诞老人小烛灯套装",
+          "price": 2.95,
+          "score": 0.48135,
+          "sources": [
+            "推荐系统 v146 个性化精排",
+            "品类热门召回"
+          ]
+        }
+      ],
+      "recall_sources": [
+        {
+          "source": "personalized",
+          "status": "ok",
+          "count": 44
+        },
+        {
+          "source": "similar",
+          "status": "ok",
+          "count": 36
+        },
+        {
+          "source": "category_hot",
+          "status": "ok",
+          "count": 61
+        },
+        {
+          "source": "history",
+          "status": "ok",
+          "count": 80
+        },
+        {
+          "source": "popular",
+          "status": "ok",
+          "count": 80
+        }
+      ],
+      "latency_ms": {
+        "event_ms": 0.047,
+        "intent_ms": 0.721,
+        "recall_ms": 13.214,
+        "rank_ms": 0.335,
+        "present_ms": 0.025,
+        "dispatch_ms": 14.264,
+        "total_ms": 15.257
+      }
+    },
+    {
+      "turn": "gesture",
+      "trace_id": "tr-a9df7a614d2d4b73",
+      "status": "ok",
+      "intent": "feedback",
+      "top": [
+        {
+          "rank": 1,
+          "item_id": "22158",
+          "title": "3个心形悬挂装饰 乡村风格",
+          "price": 2.95,
+          "score": 0.61775,
+          "sources": [
+            "推荐系统 v146 个性化精排",
+            "会话关注召回"
+          ]
+        },
+        {
+          "rank": 2,
+          "item_id": "22943",
+          "title": "10个复古彩球圣诞灯",
+          "price": 4.95,
+          "score": 0.55975,
+          "sources": [
+            "推荐系统 v146 个性化精排",
+            "相似商品召回"
+          ]
+        },
+        {
+          "rank": 3,
+          "item_id": "22809",
+          "title": "6个圣诞老人小烛灯套装",
+          "price": 2.95,
+          "score": 0.51135,
+          "sources": [
+            "推荐系统 v146 个性化精排",
+            "品类热门召回"
+          ]
+        }
+      ],
+      "recall_sources": [
+        {
+          "source": "personalized",
+          "status": "ok",
+          "count": 44
+        },
+        {
+          "source": "similar",
+          "status": "ok",
+          "count": 36
+        },
+        {
+          "source": "category_hot",
+          "status": "ok",
+          "count": 61
+        },
+        {
+          "source": "session_focus",
+          "status": "ok",
+          "count": 1
+        },
+        {
+          "source": "history",
+          "status": "ok",
+          "count": 80
+        },
+        {
+          "source": "popular",
+          "status": "ok",
+          "count": 80
+        }
+      ],
+      "latency_ms": {
+        "event_ms": 0.032,
+        "intent_ms": 0.062,
+        "feedback_ms": 0.009,
+        "recall_ms": 11.473,
+        "rank_ms": 0.342,
+        "present_ms": 0.02,
+        "dispatch_ms": 12.543,
+        "total_ms": 12.834
+      }
+    },
+    {
+      "turn": "text",
+      "trace_id": "tr-ff386134cfab4bad",
+      "status": "ok",
+      "intent": "explain",
+      "top": [
+        {
+          "rank": null,
+          "item_id": "22158",
+          "title": "3个心形悬挂装饰 乡村风格",
+          "price": 2.95,
+          "score": null,
+          "sources": [
+            "用户指定商品"
+          ]
+        }
+      ],
+      "recall_sources": [],
+      "latency_ms": {
+        "event_ms": 0.037,
+        "intent_ms": 0.519,
+        "explain_ms": 0.16,
+        "present_ms": 0.007,
+        "dispatch_ms": 0.186,
+        "total_ms": 0.906
+      }
+    }
+  ],
+  "adapter": {
+    "active_mode": "http",
+    "degradations": [],
+    "health": {
+      "adapter": "recommender_adapter",
+      "active_mode": "http",
+      "http_base": "http://127.0.0.1:8010",
+      "http_available": true,
+      "catalog": {
+        "origin": "offline_snapshot:C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project\\data\\offline",
+        "model_version": "v146_xgb_pairwise_deep",
+        "products": 3642,
+        "users_with_scores": 736,
+        "categories": 23,
+        "currency": "GBP"
+      }
+    }
+  },
+  "http_candidates": {
+    "ok": true,
+    "count": 8,
+    "sample": [
+      {
+        "item_id": "22632",
+        "score": 0.902,
+        "reason": "v146 精排"
+      },
+      {
+        "item_id": "22941",
+        "score": 0.724,
+        "reason": "v146 精排"
+      },
+      {
+        "item_id": "22158",
+        "score": 0.705,
+        "reason": "v146 精排"
+      },
+      {
+        "item_id": "85014A",
+        "score": 0.683,
+        "reason": "v146 精排"
+      },
+      {
+        "item_id": "21484",
+        "score": 0.653,
+        "reason": "v146 精排"
+      }
+    ],
+    "error": null
+  },
+  "comparison": {
+    "query": {
+      "source": "text",
+      "text": "推荐一些家居装饰"
+    },
+    "http": {
+      "mode": "http",
+      "top5": [
+        "22675",
+        "22798",
+        "22632",
+        "20893",
+        "22217"
+      ]
+    },
+    "snapshot": {
+      "mode": "offline_snapshot",
+      "top5": [
+        "21181",
+        "22508",
+        "82494L",
+        "85152",
+        "85174"
+      ]
+    },
+    "note": "两种模式的召回来源与分数口径不同（在线实时接口 vs 离线快照），TopK 不完全一致属预期；两者共用同一套排序与解释逻辑。"
+  }
+}

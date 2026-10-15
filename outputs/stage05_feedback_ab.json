@@ -1,0 +1,5812 @@
+{
+  "stage": "05",
+  "title": "反馈闭环 / 反馈前后 A-B 对照",
+  "generated_at": "2026-10-15T05:55:07+00:00",
+  "config": {
+    "feedback": {
+      "mutual_exclusion": true,
+      "positive": "positive",
+      "negative": "negative",
+      "scope": "session",
+      "ab": {
+        "top_k": 8,
+        "compare_metric": "topk_order",
+        "min_score_delta": 1e-06
+      }
+    },
+    "session_preference": {
+      "like_category_boost": 0.12,
+      "dislike_category_penalty": 0.25,
+      "like_item_boost": 0.1,
+      "view_item_boost": 0.04,
+      "view_category_boost": 0.03,
+      "view_max_count": 2,
+      "seen_penalty": 0.0,
+      "dislike_category_min_count": 2,
+      "max_boost": 0.3
+    },
+    "compare_metric": "topk_order"
+  },
+  "case_type_summary": {
+    "成功": {
+      "count": 3,
+      "cases": [
+        "F-01",
+        "F-02",
+        "F-04"
+      ]
+    },
+    "无变化": {
+      "count": 3,
+      "cases": [
+        "F-03",
+        "F-06",
+        "F-08"
+      ]
+    },
+    "失败": {
+      "count": 1,
+      "cases": [
+        "F-05"
+      ]
+    },
+    "反向变化": {
+      "count": 1,
+      "cases": [
+        "F-07"
+      ]
+    }
+  },
+  "degradation_records": [
+    {
+      "case_id": "F-01",
+      "after_status": "ok",
+      "degraded": false,
+      "degrade_reason": null,
+      "adapter_degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        }
+      }
+    },
+    {
+      "case_id": "F-02",
+      "after_status": "ok",
+      "degraded": false,
+      "degrade_reason": null,
+      "adapter_degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        }
+      }
+    },
+    {
+      "case_id": "F-03",
+      "after_status": "degraded",
+      "degraded": true,
+      "degrade_reason": "硬约束（类目）过滤后为空，已放宽类目约束并保留预算/颜色硬约束",
+      "adapter_degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        }
+      }
+    },
+    {
+      "case_id": "F-04",
+      "after_status": "degraded",
+      "degraded": true,
+      "degrade_reason": "全部硬约束过滤后为空，已降级为热门兜底",
+      "adapter_degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        }
+      }
+    },
+    {
+      "case_id": "F-06",
+      "after_status": "ok",
+      "degraded": false,
+      "degrade_reason": null,
+      "adapter_degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        }
+      }
+    },
+    {
+      "case_id": "F-07",
+      "after_status": "ok",
+      "degraded": false,
+      "degrade_reason": null,
+      "adapter_degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        }
+      }
+    },
+    {
+      "case_id": "F-08",
+      "after_status": "ok",
+      "degraded": false,
+      "degrade_reason": null,
+      "adapter_degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        }
+      }
+    }
+  ],
+  "pool_signatures": [
+    {
+      "case_id": "F-01",
+      "pool_signature": "positive|8|21181,22508,82494L,85152,85174,82482,20829,85175"
+    },
+    {
+      "case_id": "F-02",
+      "pool_signature": "negative|8|21181,22508,82494L,85152,85174,82482,20829,85175"
+    },
+    {
+      "case_id": "F-03",
+      "pool_signature": "positive|1|85170B"
+    },
+    {
+      "case_id": "F-04",
+      "pool_signature": "negative|1|85170B"
+    },
+    {
+      "case_id": "F-06",
+      "pool_signature": "positive|8|22625,22624,22423,20914,22699,22847,22617,22698"
+    },
+    {
+      "case_id": "F-07",
+      "pool_signature": "positive|8|22941,84992,16156S,21977,22045,22039,23048,16169P"
+    },
+    {
+      "case_id": "F-08",
+      "pool_signature": "negative|8|20829,21175,20828,21166,21169,22335,35961,84836"
+    }
+  ],
+  "comparison_table": [
+    {
+      "case_id": "F-01",
+      "desc": "点赞后排序变化（成功案例）",
+      "polarity": "positive",
+      "case_type": "成功",
+      "target_rank_before": 1,
+      "target_rank_after": 1,
+      "target": "请一次一人金属标志",
+      "before_topk": [
+        "21181",
+        "22508",
+        "82494L",
+        "85152",
+        "85174",
+        "82482",
+        "20829",
+        "85175"
+      ],
+      "after_topk": [
+        "21181",
+        "22508",
+        "82494L",
+        "85152",
+        "85174",
+        "82482",
+        "22338",
+        "20829"
+      ],
+      "order_changed": true,
+      "max_score_delta": 0.055,
+      "entered": [
+        "22338"
+      ],
+      "left": [
+        "85175"
+      ],
+      "explanation": "新进入 TopK：['22338']（会话偏好加分或负反馈移除后腾出位置）。；离开 TopK：['85175']（被负反馈屏蔽或相对分数下降）。；名次变化：20829 7→8"
+    },
+    {
+      "case_id": "F-02",
+      "desc": "倒赞后目标商品被移除并重排（反向变化）",
+      "polarity": "negative",
+      "case_type": "成功",
+      "target_rank_before": 1,
+      "target_rank_after": null,
+      "target": "请一次一人金属标志",
+      "before_topk": [
+        "21181",
+        "22508",
+        "82494L",
+        "85152",
+        "85174",
+        "82482",
+        "20829",
+        "85175"
+      ],
+      "after_topk": [
+        "22508",
+        "82494L",
+        "85152",
+        "85174",
+        "82482",
+        "20829",
+        "85175",
+        "22338"
+      ],
+      "order_changed": true,
+      "max_score_delta": 0.0,
+      "entered": [
+        "22338"
+      ],
+      "left": [
+        "21181"
+      ],
+      "explanation": "新进入 TopK：['22338']（会话偏好加分或负反馈移除后腾出位置）。；离开 TopK：['21181']（被负反馈屏蔽或相对分数下降）。；名次变化：22508 2→1；82494L 3→2；85152 4→3"
+    },
+    {
+      "case_id": "F-03",
+      "desc": "无变化案例：唯一候选被点赞，TopK 顺序不变",
+      "polarity": "positive",
+      "case_type": "无变化",
+      "target_rank_before": 1,
+      "target_rank_after": 1,
+      "target": "一套6个黑鸟小蜡烛",
+      "before_topk": [
+        "85170B"
+      ],
+      "after_topk": [
+        "85170B"
+      ],
+      "order_changed": false,
+      "max_score_delta": 0.055,
+      "entered": [],
+      "left": [],
+      "explanation": "TopK 顺序未变，但分数发生变化（最大位移 0.0550）：目标商品本就在第 1 位，同类商品获得同等的类目加成，因此相对顺序保持稳定。"
+    },
+    {
+      "case_id": "F-04",
+      "desc": "对照：同一查询下倒赞唯一候选导致结果消失",
+      "polarity": "negative",
+      "case_type": "成功",
+      "target_rank_before": 1,
+      "target_rank_after": null,
+      "target": "一套6个黑鸟小蜡烛",
+      "before_topk": [
+        "85170B"
+      ],
+      "after_topk": [
+        "20829",
+        "85175",
+        "84029E",
+        "22649",
+        "20914",
+        "21175",
+        "20828",
+        "22111"
+      ],
+      "order_changed": true,
+      "max_score_delta": 0.0,
+      "entered": [
+        "20829",
+        "85175",
+        "84029E",
+        "22649",
+        "20914",
+        "21175",
+        "20828",
+        "22111"
+      ],
+      "left": [
+        "85170B"
+      ],
+      "explanation": "新进入 TopK：['20829', '85175', '84029E', '22649', '20914', '21175', '20828', '22111']（会话偏好加分或负反馈移除后腾出位置）。；离开 TopK：['85170B']（被负反馈屏蔽或相对分数下降）。"
+    },
+    {
+      "case_id": "F-05",
+      "desc": "失败案例：反馈目标商品不存在",
+      "polarity": "positive",
+      "case_type": "失败",
+      "target_rank_before": null,
+      "target_rank_after": null,
+      "target": "NOT-IN-CATALOG",
+      "before_topk": [
+        "21181",
+        "22508",
+        "82494L",
+        "85152",
+        "85174",
+        "82482",
+        "20829",
+        "85175"
+      ],
+      "after_topk": [],
+      "order_changed": false,
+      "max_score_delta": 0.0,
+      "entered": [],
+      "left": [],
+      "explanation": "反馈写入失败：目标商品不存在或状态非法。"
+    },
+    {
+      "case_id": "F-06",
+      "desc": "隔离复核：另一用户点赞不应影响本用户会话",
+      "polarity": "positive",
+      "case_type": "无变化",
+      "target_rank_before": 1,
+      "target_rank_after": 1,
+      "target": "红色厨房秤",
+      "before_topk": [
+        "22625",
+        "22624",
+        "22423",
+        "20914",
+        "22699",
+        "22847",
+        "22617",
+        "22698"
+      ],
+      "after_topk": [
+        "22625",
+        "22624",
+        "22423",
+        "20914",
+        "22699",
+        "22847",
+        "22617",
+        "22698"
+      ],
+      "order_changed": false,
+      "max_score_delta": 0.055,
+      "entered": [],
+      "left": [],
+      "explanation": "TopK 顺序未变，但分数发生变化（最大位移 0.0550）：目标商品本就在第 1 位，同类商品获得同等的类目加成，因此相对顺序保持稳定。"
+    },
+    {
+      "case_id": "F-07",
+      "desc": "反向变化：点赞首位后，其相似商品因命中场景约束反超，目标反降到第 2",
+      "polarity": "positive",
+      "case_type": "反向变化",
+      "target_rank_before": 1,
+      "target_rank_after": 2,
+      "target": "圣诞灯串 10只驯鹿",
+      "before_topk": [
+        "22941",
+        "84992",
+        "16156S",
+        "21977",
+        "22045",
+        "22039",
+        "23048",
+        "16169P"
+      ],
+      "after_topk": [
+        "79161A",
+        "22941",
+        "84992",
+        "23353",
+        "23354",
+        "23603",
+        "23625",
+        "16156S"
+      ],
+      "order_changed": true,
+      "max_score_delta": 0.055,
+      "entered": [
+        "79161A",
+        "23353",
+        "23354",
+        "23603",
+        "23625"
+      ],
+      "left": [
+        "21977",
+        "22045",
+        "22039",
+        "23048",
+        "16169P"
+      ],
+      "explanation": "新进入 TopK：['79161A', '23353', '23354', '23603', '23625']（会话偏好加分或负反馈移除后腾出位置）。；离开 TopK：['21977', '22045', '22039', '23048', '16169P']（被负反馈屏蔽或相对分数下降）。；名次变化：16156S 3→8；22941 1→2；84992 2→3"
+    },
+    {
+      "case_id": "F-08",
+      "desc": "边界：倒赞一个不在候选池内的商品，TopK 应完全不变",
+      "polarity": "negative",
+      "case_type": "无变化",
+      "target_rank_before": null,
+      "target_rank_after": null,
+      "target": "6只装复古圣诞礼品标签",
+      "before_topk": [
+        "20829",
+        "21175",
+        "20828",
+        "21166",
+        "21169",
+        "22335",
+        "35961",
+        "84836"
+      ],
+      "after_topk": [
+        "20829",
+        "21175",
+        "20828",
+        "21166",
+        "21169",
+        "22335",
+        "35961",
+        "84836"
+      ],
+      "order_changed": false,
+      "max_score_delta": 0.0,
+      "entered": [],
+      "left": [],
+      "explanation": "反馈未改变 TopK，且分数无变化：目标商品不在当前候选池内。"
+    }
+  ],
+  "isolation_checks": [
+    {
+      "case_id": "F-01",
+      "identical_to_before": true,
+      "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+    },
+    {
+      "case_id": "F-02",
+      "identical_to_before": true,
+      "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+    },
+    {
+      "case_id": "F-03",
+      "identical_to_before": true,
+      "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+    },
+    {
+      "case_id": "F-04",
+      "identical_to_before": true,
+      "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+    },
+    {
+      "case_id": "F-05",
+      "identical_to_before": null,
+      "conclusion": "反馈写入失败，未做隔离验证"
+    },
+    {
+      "case_id": "F-06",
+      "identical_to_before": true,
+      "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+    },
+    {
+      "case_id": "F-07",
+      "identical_to_before": true,
+      "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+    },
+    {
+      "case_id": "F-08",
+      "identical_to_before": true,
+      "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+    }
+  ],
+  "browse_weak_feedback": {
+    "query": {
+      "source": "text",
+      "text": "500以内的婚礼装饰品"
+    },
+    "target_item": "20828",
+    "target_title": "闪粉蝴蝶发夹",
+    "base_score": 0.6887,
+    "score_after_view": 0.7062,
+    "score_after_like": 0.7437,
+    "delta_view": 0.0175,
+    "delta_like": 0.055,
+    "view_weaker_than_like": true,
+    "browse_record": {
+      "item_id": "20828",
+      "category": "装饰品",
+      "view_count": 1,
+      "distinct_viewed": 1,
+      "title": "闪粉蝴蝶发夹",
+      "preference": {
+        "score": 0.07,
+        "reasons": [
+          "你浏览过该商品 1 次(+0.04)",
+          "你浏览过类目「装饰品」(+0.03)"
+        ]
+      },
+      "rank_after_view": 3
+    },
+    "analysis": {
+      "view_count": 1,
+      "preference_reasons": [
+        "你浏览过该商品 1 次(+0.04)",
+        "你浏览过类目「装饰品」(+0.03)"
+      ],
+      "likes_untouched": {},
+      "dislikes_untouched": {},
+      "viewed_items": {
+        "20828": 1
+      }
+    },
+    "结论": "浏览为弱正反馈：分数上浮但幅度小于点赞，且不改变正负反馈状态"
+  },
+  "performance_and_failures": {
+    "cases": 8,
+    "passed": 8,
+    "failed": 0,
+    "failure_cases": [],
+    "error_cases": [
+      {
+        "case_id": "F-05",
+        "status": "error",
+        "error": {
+          "code": "E_ITEM_NOT_FOUND",
+          "message": "商品 NOT-IN-CATALOG 不在目录中，无法写入反馈",
+          "field": "feedback_target",
+          "context": {}
+        },
+        "desc": "失败案例：反馈目标商品不存在"
+      }
+    ],
+    "no_change_cases": [
+      "F-03",
+      "F-05",
+      "F-06",
+      "F-08"
+    ],
+    "isolation_all_clean": true,
+    "orchestrator_call_log": {
+      "adapter": "recommender_adapter",
+      "calls": 130,
+      "failed": 6,
+      "success_rate": 0.9538,
+      "latency_ms": {
+        "avg": 0.083,
+        "max": 0.2
+      },
+      "calls_detail": [
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.075,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.07,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.083,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.13,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.105,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.05,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.07,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.076,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.09,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.124,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.047,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.051,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.07,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.08,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.113,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.054,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.056,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.078,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.092,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.12,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.05,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.071,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.078,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.09,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.128,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.053,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.055,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.081,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.093,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.164,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.054,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.055,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": false,
+          "latency_ms": 0.162,
+          "error": {
+            "code": "E_INTERNAL_ERROR",
+            "message": "TypeError: unhashable type: 'dict'",
+            "field": null,
+            "context": {}
+          },
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.096,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.094,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.046,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.061,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": false,
+          "latency_ms": 0.124,
+          "error": {
+            "code": "E_INTERNAL_ERROR",
+            "message": "TypeError: unhashable type: 'dict'",
+            "field": null,
+            "context": {}
+          },
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.086,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.118,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.054,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.05,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": false,
+          "latency_ms": 0.146,
+          "error": {
+            "code": "E_INTERNAL_ERROR",
+            "message": "TypeError: unhashable type: 'dict'",
+            "field": null,
+            "context": {}
+          },
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.087,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.088,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.05,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.051,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": false,
+          "latency_ms": 0.184,
+          "error": {
+            "code": "E_INTERNAL_ERROR",
+            "message": "TypeError: unhashable type: 'dict'",
+            "field": null,
+            "context": {}
+          },
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.093,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.09,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.05,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.064,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": false,
+          "latency_ms": 0.149,
+          "error": {
+            "code": "E_INTERNAL_ERROR",
+            "message": "TypeError: unhashable type: 'dict'",
+            "field": null,
+            "context": {}
+          },
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.097,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.13,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.055,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.054,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": false,
+          "latency_ms": 0.138,
+          "error": {
+            "code": "E_INTERNAL_ERROR",
+            "message": "TypeError: unhashable type: 'dict'",
+            "field": null,
+            "context": {}
+          },
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.098,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.142,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.054,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.054,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.081,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.091,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.122,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.074,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.049,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.048,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.095,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.081,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.2,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.071,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.052,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.098,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.124,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.072,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.045,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.051,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.083,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.12,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.048,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.049,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.064,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.083,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.111,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.053,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.067,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.066,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.116,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.088,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.051,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.051,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.066,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.086,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.127,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.05,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.051,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.059,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.083,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.112,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.049,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.066,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.057,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.081,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.121,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.056,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.057,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.062,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.093,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.134,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.05,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.051,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.06,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.086,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.118,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.054,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.058,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.069,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.102,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.145,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.052,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.052,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.06,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.089,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.131,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.054,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.062,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.062,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.09,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.117,
+          "error": null,
+          "detail": {}
+        }
+      ]
+    },
+    "latency_ms": {
+      "samples": 14,
+      "avg": 3.219,
+      "max": 6.661
+    }
+  },
+  "acceptance_checklist": {
+    "反馈后排序变化可解释": true,
+    "负反馈不会永久污染其他会话": true,
+    "对照口径一致": true,
+    "至少包含一个无变化或失败案例": true,
+    "成功/无变化/反向变化三类案例齐备": true,
+    "继续浏览类反馈写入会话偏好": true
+  },
+  "records": [
+    {
+      "case_id": "F-01",
+      "status": "ok",
+      "user_id": "15547",
+      "query": {
+        "source": "text",
+        "text": "推荐一些家居装饰"
+      },
+      "feedback": {
+        "polarity": "positive",
+        "target": "21181",
+        "target_title": "请一次一人金属标志",
+        "target_in_before_pool": true
+      },
+      "before": {
+        "topk": [
+          {
+            "item_id": "21181",
+            "rank": 1,
+            "title": "请一次一人金属标志",
+            "score": 0.86065,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22508",
+            "rank": 2,
+            "title": "复古圆点心形门挡",
+            "score": 0.85515,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "82494L",
+            "rank": 3,
+            "title": "仿古白色木框",
+            "score": 0.8513,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85152",
+            "rank": 4,
+            "title": "交出巧克力标志牌",
+            "score": 0.84415,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85174",
+            "rank": 5,
+            "title": "仙人掌蜡烛4件套",
+            "score": 0.8436,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "82482",
+            "rank": 6,
+            "title": "白色木质相框",
+            "score": 0.80895,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "20829",
+            "rank": 7,
+            "title": "闪粉悬挂蝴蝶串",
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85175",
+            "rank": 8,
+            "title": "亚马逊销售套装",
+            "score": 0.71675,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-01-f1fe78203a",
+        "latency_ms": {
+          "event_ms": 0.033,
+          "intent_ms": 0.551,
+          "recall_ms": 2.047,
+          "rank_ms": 0.84,
+          "present_ms": 0.023,
+          "dispatch_ms": 3.451,
+          "total_ms": 4.223
+        },
+        "session_state": {
+          "session_id": "ab-A-F-01-f1fe78203a",
+          "user_id": "15547",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 0,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "家居装饰",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「家居装饰」"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "家居装饰",
+              "kind": "soft",
+              "source": "slot:category"
+            }
+          ],
+          "focus_item_id": "21181",
+          "last_item_ids": [
+            "21181",
+            "22508",
+            "82494L",
+            "85152",
+            "85174",
+            "82482",
+            "20829",
+            "85175"
+          ],
+          "seen_item_ids": [
+            "21181",
+            "22508",
+            "82494L",
+            "85152",
+            "85174",
+            "82482",
+            "20829",
+            "85175"
+          ],
+          "likes": {},
+          "dislikes": {},
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {},
+          "disliked_categories": {},
+          "pending_clarification": null
+        }
+      },
+      "after": {
+        "topk": [
+          {
+            "item_id": "21181",
+            "rank": 1,
+            "title": "请一次一人金属标志",
+            "score": 0.91565,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "会话关注召回"
+            ]
+          },
+          {
+            "item_id": "22508",
+            "rank": 2,
+            "title": "复古圆点心形门挡",
+            "score": 0.88515,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "82494L",
+            "rank": 3,
+            "title": "仿古白色木框",
+            "score": 0.8813,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85152",
+            "rank": 4,
+            "title": "交出巧克力标志牌",
+            "score": 0.87415,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85174",
+            "rank": 5,
+            "title": "仙人掌蜡烛4件套",
+            "score": 0.8736,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "82482",
+            "rank": 6,
+            "title": "白色木质相框",
+            "score": 0.83895,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "22338",
+            "rank": 7,
+            "title": "锌制星星装饰",
+            "score": 0.74655,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "20829",
+            "rank": 8,
+            "title": "闪粉悬挂蝴蝶串",
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-01-f1fe78203a",
+        "latency_ms": {
+          "event_ms": 0.034,
+          "intent_ms": 0.065,
+          "feedback_ms": 0.009,
+          "recall_ms": 1.1,
+          "rank_ms": 0.608,
+          "present_ms": 0.018,
+          "dispatch_ms": 2.177,
+          "total_ms": 2.387
+        },
+        "session_state": {
+          "session_id": "ab-A-F-01-f1fe78203a",
+          "user_id": "15547",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 1,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "家居装饰",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「家居装饰」"
+              ]
+            },
+            "polarity": {
+              "name": "polarity",
+              "value": "positive",
+              "confidence": 0.9,
+              "evidence": [
+                "手势 thumbs_up(0.92)"
+              ]
+            },
+            "feedback_target": {
+              "name": "feedback_target",
+              "value": "21181",
+              "confidence": 0.7,
+              "evidence": [
+                "反馈指向当前焦点商品"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "家居装饰",
+              "kind": "soft",
+              "source": "slot:category"
+            }
+          ],
+          "focus_item_id": "21181",
+          "last_item_ids": [
+            "21181",
+            "22508",
+            "82494L",
+            "85152",
+            "85174",
+            "82482",
+            "22338",
+            "20829"
+          ],
+          "seen_item_ids": [
+            "21181",
+            "22508",
+            "82494L",
+            "85152",
+            "85174",
+            "82482",
+            "20829",
+            "85175",
+            "22338"
+          ],
+          "likes": {
+            "21181": 1
+          },
+          "dislikes": {},
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {
+            "家居装饰": 1
+          },
+          "disliked_categories": {},
+          "pending_clarification": null
+        },
+        "likes": {
+          "21181": 1
+        },
+        "dislikes": {}
+      },
+      "comparison": {
+        "order_changed": true,
+        "entered": [
+          "22338"
+        ],
+        "left": [
+          "85175"
+        ],
+        "moved": [
+          {
+            "item_id": "20829",
+            "rank_before": 7,
+            "rank_after": 8,
+            "move": 1,
+            "score_delta": 0.0
+          }
+        ],
+        "score_deltas": {
+          "21181": 0.055,
+          "22508": 0.03,
+          "82494L": 0.03,
+          "85152": 0.03,
+          "85174": 0.03,
+          "82482": 0.03,
+          "20829": 0.0
+        },
+        "shared_count": 7,
+        "max_abs_delta": 0.055,
+        "score_shifted": true,
+        "significant": true
+      },
+      "isolation_check": {
+        "session_id": "ab-C-F-01-f1fe78203a",
+        "topk": [
+          {
+            "item_id": "21181",
+            "rank": 1,
+            "title": "请一次一人金属标志",
+            "score": 0.86065,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22508",
+            "rank": 2,
+            "title": "复古圆点心形门挡",
+            "score": 0.85515,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "82494L",
+            "rank": 3,
+            "title": "仿古白色木框",
+            "score": 0.8513,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85152",
+            "rank": 4,
+            "title": "交出巧克力标志牌",
+            "score": 0.84415,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85174",
+            "rank": 5,
+            "title": "仙人掌蜡烛4件套",
+            "score": 0.8436,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "82482",
+            "rank": 6,
+            "title": "白色木质相框",
+            "score": 0.80895,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "20829",
+            "rank": 7,
+            "title": "闪粉悬挂蝴蝶串",
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85175",
+            "rank": 8,
+            "title": "亚马逊销售套装",
+            "score": 0.71675,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          }
+        ],
+        "identical_to_before": true,
+        "comparison": {
+          "order_changed": false,
+          "entered": [],
+          "left": [],
+          "moved": [],
+          "score_deltas": {
+            "21181": 0.0,
+            "22508": 0.0,
+            "82494L": 0.0,
+            "85152": 0.0,
+            "85174": 0.0,
+            "82482": 0.0,
+            "20829": 0.0,
+            "85175": 0.0
+          },
+          "shared_count": 8,
+          "max_abs_delta": 0.0,
+          "score_shifted": false,
+          "significant": false
+        },
+        "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+      },
+      "ranking_change_explanations": [
+        "新进入 TopK：['22338']（会话偏好加分或负反馈移除后腾出位置）。",
+        "离开 TopK：['85175']（被负反馈屏蔽或相对分数下降）。",
+        "名次变化：20829 7→8"
+      ],
+      "case": {
+        "case_type": "成功",
+        "target_rank_before": 1,
+        "target_rank_after": 1,
+        "target_movement": "same",
+        "order_changed": true
+      },
+      "case_type": "成功",
+      "pool_signature": "positive|8|21181,22508,82494L,85152,85174,82482,20829,85175",
+      "degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after_status": "ok",
+        "after_degraded": false,
+        "after_degrade_reason": null
+      },
+      "expect": "changed",
+      "passed": true,
+      "note": "",
+      "desc": "点赞后排序变化（成功案例）"
+    },
+    {
+      "case_id": "F-02",
+      "status": "ok",
+      "user_id": "15547",
+      "query": {
+        "source": "text",
+        "text": "推荐一些家居装饰"
+      },
+      "feedback": {
+        "polarity": "negative",
+        "target": "21181",
+        "target_title": "请一次一人金属标志",
+        "target_in_before_pool": true
+      },
+      "before": {
+        "topk": [
+          {
+            "item_id": "21181",
+            "rank": 1,
+            "title": "请一次一人金属标志",
+            "score": 0.86065,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22508",
+            "rank": 2,
+            "title": "复古圆点心形门挡",
+            "score": 0.85515,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "82494L",
+            "rank": 3,
+            "title": "仿古白色木框",
+            "score": 0.8513,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85152",
+            "rank": 4,
+            "title": "交出巧克力标志牌",
+            "score": 0.84415,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85174",
+            "rank": 5,
+            "title": "仙人掌蜡烛4件套",
+            "score": 0.8436,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "82482",
+            "rank": 6,
+            "title": "白色木质相框",
+            "score": 0.80895,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "20829",
+            "rank": 7,
+            "title": "闪粉悬挂蝴蝶串",
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85175",
+            "rank": 8,
+            "title": "亚马逊销售套装",
+            "score": 0.71675,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-02-7d087fc29d",
+        "latency_ms": {
+          "event_ms": 0.018,
+          "intent_ms": 0.599,
+          "recall_ms": 1.097,
+          "rank_ms": 0.651,
+          "present_ms": 0.017,
+          "dispatch_ms": 2.224,
+          "total_ms": 2.948
+        },
+        "session_state": {
+          "session_id": "ab-A-F-02-7d087fc29d",
+          "user_id": "15547",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 0,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "家居装饰",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「家居装饰」"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "家居装饰",
+              "kind": "soft",
+              "source": "slot:category"
+            }
+          ],
+          "focus_item_id": "21181",
+          "last_item_ids": [
+            "21181",
+            "22508",
+            "82494L",
+            "85152",
+            "85174",
+            "82482",
+            "20829",
+            "85175"
+          ],
+          "seen_item_ids": [
+            "21181",
+            "22508",
+            "82494L",
+            "85152",
+            "85174",
+            "82482",
+            "20829",
+            "85175"
+          ],
+          "likes": {},
+          "dislikes": {},
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {},
+          "disliked_categories": {},
+          "pending_clarification": null
+        }
+      },
+      "after": {
+        "topk": [
+          {
+            "item_id": "22508",
+            "rank": 1,
+            "title": "复古圆点心形门挡",
+            "score": 0.85515,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "82494L",
+            "rank": 2,
+            "title": "仿古白色木框",
+            "score": 0.8513,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85152",
+            "rank": 3,
+            "title": "交出巧克力标志牌",
+            "score": 0.84415,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85174",
+            "rank": 4,
+            "title": "仙人掌蜡烛4件套",
+            "score": 0.8436,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "82482",
+            "rank": 5,
+            "title": "白色木质相框",
+            "score": 0.80895,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "20829",
+            "rank": 6,
+            "title": "闪粉悬挂蝴蝶串",
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85175",
+            "rank": 7,
+            "title": "亚马逊销售套装",
+            "score": 0.71675,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22338",
+            "rank": 8,
+            "title": "锌制星星装饰",
+            "score": 0.71655,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-02-7d087fc29d",
+        "latency_ms": {
+          "event_ms": 0.024,
+          "intent_ms": 0.056,
+          "feedback_ms": 0.009,
+          "recall_ms": 1.169,
+          "rank_ms": 0.667,
+          "present_ms": 0.018,
+          "dispatch_ms": 2.326,
+          "total_ms": 2.504
+        },
+        "session_state": {
+          "session_id": "ab-A-F-02-7d087fc29d",
+          "user_id": "15547",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 1,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "家居装饰",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「家居装饰」"
+              ]
+            },
+            "polarity": {
+              "name": "polarity",
+              "value": "negative",
+              "confidence": 0.9,
+              "evidence": [
+                "手势 thumbs_down(0.93)"
+              ]
+            },
+            "feedback_target": {
+              "name": "feedback_target",
+              "value": "21181",
+              "confidence": 0.7,
+              "evidence": [
+                "反馈指向当前焦点商品"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "家居装饰",
+              "kind": "soft",
+              "source": "slot:category"
+            }
+          ],
+          "focus_item_id": "22508",
+          "last_item_ids": [
+            "22508",
+            "82494L",
+            "85152",
+            "85174",
+            "82482",
+            "20829",
+            "85175",
+            "22338"
+          ],
+          "seen_item_ids": [
+            "21181",
+            "22508",
+            "82494L",
+            "85152",
+            "85174",
+            "82482",
+            "20829",
+            "85175",
+            "22338"
+          ],
+          "likes": {},
+          "dislikes": {
+            "21181": 1
+          },
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {},
+          "disliked_categories": {
+            "家居装饰": 1
+          },
+          "pending_clarification": null
+        },
+        "likes": {},
+        "dislikes": {
+          "21181": 1
+        }
+      },
+      "comparison": {
+        "order_changed": true,
+        "entered": [
+          "22338"
+        ],
+        "left": [
+          "21181"
+        ],
+        "moved": [
+          {
+            "item_id": "22508",
+            "rank_before": 2,
+            "rank_after": 1,
+            "move": -1,
+            "score_delta": 0.0
+          },
+          {
+            "item_id": "82494L",
+            "rank_before": 3,
+            "rank_after": 2,
+            "move": -1,
+            "score_delta": 0.0
+          },
+          {
+            "item_id": "85152",
+            "rank_before": 4,
+            "rank_after": 3,
+            "move": -1,
+            "score_delta": 0.0
+          },
+          {
+            "item_id": "85174",
+            "rank_before": 5,
+            "rank_after": 4,
+            "move": -1,
+            "score_delta": 0.0
+          },
+          {
+            "item_id": "82482",
+            "rank_before": 6,
+            "rank_after": 5,
+            "move": -1,
+            "score_delta": 0.0
+          },
+          {
+            "item_id": "20829",
+            "rank_before": 7,
+            "rank_after": 6,
+            "move": -1,
+            "score_delta": 0.0
+          },
+          {
+            "item_id": "85175",
+            "rank_before": 8,
+            "rank_after": 7,
+            "move": -1,
+            "score_delta": 0.0
+          }
+        ],
+        "score_deltas": {
+          "22508": 0.0,
+          "82494L": 0.0,
+          "85152": 0.0,
+          "85174": 0.0,
+          "82482": 0.0,
+          "20829": 0.0,
+          "85175": 0.0
+        },
+        "shared_count": 7,
+        "max_abs_delta": 0.0,
+        "score_shifted": false,
+        "significant": true
+      },
+      "isolation_check": {
+        "session_id": "ab-C-F-02-7d087fc29d",
+        "topk": [
+          {
+            "item_id": "21181",
+            "rank": 1,
+            "title": "请一次一人金属标志",
+            "score": 0.86065,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22508",
+            "rank": 2,
+            "title": "复古圆点心形门挡",
+            "score": 0.85515,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "82494L",
+            "rank": 3,
+            "title": "仿古白色木框",
+            "score": 0.8513,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85152",
+            "rank": 4,
+            "title": "交出巧克力标志牌",
+            "score": 0.84415,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85174",
+            "rank": 5,
+            "title": "仙人掌蜡烛4件套",
+            "score": 0.8436,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "82482",
+            "rank": 6,
+            "title": "白色木质相框",
+            "score": 0.80895,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "20829",
+            "rank": 7,
+            "title": "闪粉悬挂蝴蝶串",
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85175",
+            "rank": 8,
+            "title": "亚马逊销售套装",
+            "score": 0.71675,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          }
+        ],
+        "identical_to_before": true,
+        "comparison": {
+          "order_changed": false,
+          "entered": [],
+          "left": [],
+          "moved": [],
+          "score_deltas": {
+            "21181": 0.0,
+            "22508": 0.0,
+            "82494L": 0.0,
+            "85152": 0.0,
+            "85174": 0.0,
+            "82482": 0.0,
+            "20829": 0.0,
+            "85175": 0.0
+          },
+          "shared_count": 8,
+          "max_abs_delta": 0.0,
+          "score_shifted": false,
+          "significant": false
+        },
+        "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+      },
+      "ranking_change_explanations": [
+        "新进入 TopK：['22338']（会话偏好加分或负反馈移除后腾出位置）。",
+        "离开 TopK：['21181']（被负反馈屏蔽或相对分数下降）。",
+        "名次变化：22508 2→1；82494L 3→2；85152 4→3"
+      ],
+      "case": {
+        "case_type": "成功",
+        "target_rank_before": 1,
+        "target_rank_after": null,
+        "target_movement": "removed",
+        "order_changed": true
+      },
+      "case_type": "成功",
+      "pool_signature": "negative|8|21181,22508,82494L,85152,85174,82482,20829,85175",
+      "degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after_status": "ok",
+        "after_degraded": false,
+        "after_degrade_reason": null
+      },
+      "expect": "changed",
+      "passed": true,
+      "note": "",
+      "desc": "倒赞后目标商品被移除并重排（反向变化）"
+    },
+    {
+      "case_id": "F-03",
+      "status": "ok",
+      "user_id": "15547",
+      "query": {
+        "source": "text",
+        "text": "4.2以内黑色的文具用品"
+      },
+      "feedback": {
+        "polarity": "positive",
+        "target": "85170B",
+        "target_title": "一套6个黑鸟小蜡烛",
+        "target_in_before_pool": true
+      },
+      "before": {
+        "topk": [
+          {
+            "item_id": "85170B",
+            "rank": 1,
+            "title": "一套6个黑鸟小蜡烛",
+            "score": 0.64,
+            "sources": [
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-03-70123547fb",
+        "latency_ms": {
+          "event_ms": 0.022,
+          "intent_ms": 0.607,
+          "recall_ms": 1.067,
+          "rank_ms": 0.855,
+          "present_ms": 0.01,
+          "dispatch_ms": 2.168,
+          "total_ms": 2.965
+        },
+        "session_state": {
+          "session_id": "ab-A-F-03-70123547fb",
+          "user_id": "15547",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 0,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "文具用品",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「文具用品」"
+              ]
+            },
+            "colors": {
+              "name": "colors",
+              "value": [
+                "黑色"
+              ],
+              "confidence": 0.8,
+              "evidence": [
+                "文本命中颜色词「黑色」"
+              ]
+            },
+            "budget_max": {
+              "name": "budget_max",
+              "value": 4.2,
+              "confidence": 0.85,
+              "evidence": [
+                "文本预算表达 「以内4.2」 → 上限 4.2"
+              ]
+            },
+            "budget_raw": {
+              "name": "budget_raw",
+              "value": {
+                "min": null,
+                "max": 4.2,
+                "target": 4.2,
+                "direction": "under",
+                "raw": "「以内4.2」",
+                "evidence": "文本预算表达 「以内4.2」"
+              },
+              "confidence": 0.7,
+              "evidence": [
+                "文本预算表达 「以内4.2」"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "price",
+              "op": "lte",
+              "value": 4.2,
+              "kind": "hard",
+              "source": "slot:budget_max"
+            },
+            {
+              "field": "color",
+              "op": "in",
+              "value": [
+                "黑色"
+              ],
+              "kind": "hard",
+              "source": "slot:colors"
+            },
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "文具用品",
+              "kind": "hard",
+              "source": "slot:category"
+            }
+          ],
+          "focus_item_id": "85170B",
+          "last_item_ids": [
+            "85170B"
+          ],
+          "seen_item_ids": [
+            "85170B"
+          ],
+          "likes": {},
+          "dislikes": {},
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {},
+          "disliked_categories": {},
+          "pending_clarification": null
+        }
+      },
+      "after": {
+        "topk": [
+          {
+            "item_id": "85170B",
+            "rank": 1,
+            "title": "一套6个黑鸟小蜡烛",
+            "score": 0.695,
+            "sources": [
+              "会话关注召回",
+              "历史购买相似召回"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-03-70123547fb",
+        "latency_ms": {
+          "event_ms": 0.023,
+          "intent_ms": 0.476,
+          "feedback_ms": 0.007,
+          "recall_ms": 0.983,
+          "rank_ms": 0.992,
+          "present_ms": 0.01,
+          "dispatch_ms": 2.242,
+          "total_ms": 2.882
+        },
+        "session_state": {
+          "session_id": "ab-A-F-03-70123547fb",
+          "user_id": "15547",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 1,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "文具用品",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「文具用品」"
+              ]
+            },
+            "colors": {
+              "name": "colors",
+              "value": [
+                "黑色"
+              ],
+              "confidence": 0.8,
+              "evidence": [
+                "文本命中颜色词「黑色」"
+              ]
+            },
+            "budget_max": {
+              "name": "budget_max",
+              "value": 4.2,
+              "confidence": 0.85,
+              "evidence": [
+                "文本预算表达 「以内4.2」 → 上限 4.2"
+              ]
+            },
+            "budget_raw": {
+              "name": "budget_raw",
+              "value": {
+                "min": null,
+                "max": 4.2,
+                "target": 4.2,
+                "direction": "under",
+                "raw": "「以内4.2」",
+                "evidence": "文本预算表达 「以内4.2」"
+              },
+              "confidence": 0.7,
+              "evidence": [
+                "文本预算表达 「以内4.2」"
+              ]
+            },
+            "target": {
+              "name": "target",
+              "value": "85170B",
+              "confidence": 0.7,
+              "evidence": [
+                "文本指代词 + 会话焦点商品"
+              ]
+            },
+            "targets": {
+              "name": "targets",
+              "value": [
+                "85170B"
+              ],
+              "confidence": 0.6,
+              "evidence": [
+                "会话焦点商品"
+              ]
+            },
+            "polarity": {
+              "name": "polarity",
+              "value": "positive",
+              "confidence": 0.7,
+              "evidence": [
+                "文本肯定词「不错」"
+              ]
+            },
+            "feedback_target": {
+              "name": "feedback_target",
+              "value": "85170B",
+              "confidence": 0.7,
+              "evidence": [
+                "反馈指向会话焦点商品"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "price",
+              "op": "lte",
+              "value": 4.2,
+              "kind": "hard",
+              "source": "slot:budget_max"
+            },
+            {
+              "field": "color",
+              "op": "in",
+              "value": [
+                "黑色"
+              ],
+              "kind": "hard",
+              "source": "slot:colors"
+            },
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "文具用品",
+              "kind": "hard",
+              "source": "slot:category"
+            }
+          ],
+          "focus_item_id": "85170B",
+          "last_item_ids": [
+            "85170B"
+          ],
+          "seen_item_ids": [
+            "85170B"
+          ],
+          "likes": {
+            "85170B": 1
+          },
+          "dislikes": {},
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {
+            "家居装饰": 1
+          },
+          "disliked_categories": {},
+          "pending_clarification": null
+        },
+        "likes": {
+          "85170B": 1
+        },
+        "dislikes": {}
+      },
+      "comparison": {
+        "order_changed": false,
+        "entered": [],
+        "left": [],
+        "moved": [],
+        "score_deltas": {
+          "85170B": 0.055
+        },
+        "shared_count": 1,
+        "max_abs_delta": 0.055,
+        "score_shifted": true,
+        "significant": false
+      },
+      "isolation_check": {
+        "session_id": "ab-C-F-03-70123547fb",
+        "topk": [
+          {
+            "item_id": "85170B",
+            "rank": 1,
+            "title": "一套6个黑鸟小蜡烛",
+            "score": 0.64,
+            "sources": [
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          }
+        ],
+        "identical_to_before": true,
+        "comparison": {
+          "order_changed": false,
+          "entered": [],
+          "left": [],
+          "moved": [],
+          "score_deltas": {
+            "85170B": 0.0
+          },
+          "shared_count": 1,
+          "max_abs_delta": 0.0,
+          "score_shifted": false,
+          "significant": false
+        },
+        "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+      },
+      "ranking_change_explanations": [
+        "TopK 顺序未变，但分数发生变化（最大位移 0.0550）：目标商品本就在第 1 位，同类商品获得同等的类目加成，因此相对顺序保持稳定。"
+      ],
+      "case": {
+        "case_type": "无变化",
+        "target_rank_before": 1,
+        "target_rank_after": 1,
+        "target_movement": "same",
+        "order_changed": false
+      },
+      "case_type": "无变化",
+      "pool_signature": "positive|1|85170B",
+      "degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after_status": "degraded",
+        "after_degraded": true,
+        "after_degrade_reason": "硬约束（类目）过滤后为空，已放宽类目约束并保留预算/颜色硬约束"
+      },
+      "expect": "no_change",
+      "passed": true,
+      "note": "",
+      "desc": "无变化案例：唯一候选被点赞，TopK 顺序不变"
+    },
+    {
+      "case_id": "F-04",
+      "status": "ok",
+      "user_id": "15547",
+      "query": {
+        "source": "text",
+        "text": "4.2以内黑色的文具用品"
+      },
+      "feedback": {
+        "polarity": "negative",
+        "target": "85170B",
+        "target_title": "一套6个黑鸟小蜡烛",
+        "target_in_before_pool": true
+      },
+      "before": {
+        "topk": [
+          {
+            "item_id": "85170B",
+            "rank": 1,
+            "title": "一套6个黑鸟小蜡烛",
+            "score": 0.64,
+            "sources": [
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-04-30ff823d06",
+        "latency_ms": {
+          "event_ms": 0.017,
+          "intent_ms": 0.558,
+          "recall_ms": 1.052,
+          "rank_ms": 0.846,
+          "present_ms": 0.01,
+          "dispatch_ms": 2.133,
+          "total_ms": 2.84
+        },
+        "session_state": {
+          "session_id": "ab-A-F-04-30ff823d06",
+          "user_id": "15547",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 0,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "文具用品",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「文具用品」"
+              ]
+            },
+            "colors": {
+              "name": "colors",
+              "value": [
+                "黑色"
+              ],
+              "confidence": 0.8,
+              "evidence": [
+                "文本命中颜色词「黑色」"
+              ]
+            },
+            "budget_max": {
+              "name": "budget_max",
+              "value": 4.2,
+              "confidence": 0.85,
+              "evidence": [
+                "文本预算表达 「以内4.2」 → 上限 4.2"
+              ]
+            },
+            "budget_raw": {
+              "name": "budget_raw",
+              "value": {
+                "min": null,
+                "max": 4.2,
+                "target": 4.2,
+                "direction": "under",
+                "raw": "「以内4.2」",
+                "evidence": "文本预算表达 「以内4.2」"
+              },
+              "confidence": 0.7,
+              "evidence": [
+                "文本预算表达 「以内4.2」"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "price",
+              "op": "lte",
+              "value": 4.2,
+              "kind": "hard",
+              "source": "slot:budget_max"
+            },
+            {
+              "field": "color",
+              "op": "in",
+              "value": [
+                "黑色"
+              ],
+              "kind": "hard",
+              "source": "slot:colors"
+            },
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "文具用品",
+              "kind": "hard",
+              "source": "slot:category"
+            }
+          ],
+          "focus_item_id": "85170B",
+          "last_item_ids": [
+            "85170B"
+          ],
+          "seen_item_ids": [
+            "85170B"
+          ],
+          "likes": {},
+          "dislikes": {},
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {},
+          "disliked_categories": {},
+          "pending_clarification": null
+        }
+      },
+      "after": {
+        "topk": [
+          {
+            "item_id": "20829",
+            "rank": 1,
+            "title": "闪粉悬挂蝴蝶串",
+            "score": 0.9228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85175",
+            "rank": 2,
+            "title": "亚马逊销售套装",
+            "score": 0.91675,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "84029E",
+            "rank": 3,
+            "title": "红色羊毛暖宝宝白色爱心",
+            "score": 0.9096,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22649",
+            "rank": 4,
+            "title": "草莓仙女蛋糕茶壶",
+            "score": 0.90795,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "20914",
+            "rank": 5,
+            "title": "套装/5个红点盖玻璃碗",
+            "score": 0.9052,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "21175",
+            "rank": 6,
+            "title": "金汤力饮食金属标牌",
+            "score": 0.89915,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "20828",
+            "rank": 7,
+            "title": "闪粉蝴蝶发夹",
+            "score": 0.8887,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回"
+            ]
+          },
+          {
+            "item_id": "22111",
+            "rank": 8,
+            "title": "苏格兰狗热水袋",
+            "score": 0.8799,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-04-30ff823d06",
+        "latency_ms": {
+          "event_ms": 0.023,
+          "intent_ms": 0.493,
+          "feedback_ms": 0.009,
+          "recall_ms": 1.085,
+          "rank_ms": 1.739,
+          "present_ms": 0.02,
+          "dispatch_ms": 3.458,
+          "total_ms": 4.123
+        },
+        "session_state": {
+          "session_id": "ab-A-F-04-30ff823d06",
+          "user_id": "15547",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 1,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "文具用品",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「文具用品」"
+              ]
+            },
+            "colors": {
+              "name": "colors",
+              "value": [
+                "黑色"
+              ],
+              "confidence": 0.8,
+              "evidence": [
+                "文本命中颜色词「黑色」"
+              ]
+            },
+            "budget_max": {
+              "name": "budget_max",
+              "value": 4.2,
+              "confidence": 0.85,
+              "evidence": [
+                "文本预算表达 「以内4.2」 → 上限 4.2"
+              ]
+            },
+            "budget_raw": {
+              "name": "budget_raw",
+              "value": {
+                "min": null,
+                "max": 4.2,
+                "target": 4.2,
+                "direction": "under",
+                "raw": "「以内4.2」",
+                "evidence": "文本预算表达 「以内4.2」"
+              },
+              "confidence": 0.7,
+              "evidence": [
+                "文本预算表达 「以内4.2」"
+              ]
+            },
+            "target": {
+              "name": "target",
+              "value": "85170B",
+              "confidence": 0.7,
+              "evidence": [
+                "文本指代词 + 会话焦点商品"
+              ]
+            },
+            "targets": {
+              "name": "targets",
+              "value": [
+                "85170B"
+              ],
+              "confidence": 0.6,
+              "evidence": [
+                "会话焦点商品"
+              ]
+            },
+            "polarity": {
+              "name": "polarity",
+              "value": "negative",
+              "confidence": 0.7,
+              "evidence": [
+                "文本否定词「不行」"
+              ]
+            },
+            "feedback_target": {
+              "name": "feedback_target",
+              "value": "85170B",
+              "confidence": 0.7,
+              "evidence": [
+                "反馈指向会话焦点商品"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "price",
+              "op": "lte",
+              "value": 4.2,
+              "kind": "hard",
+              "source": "slot:budget_max"
+            },
+            {
+              "field": "color",
+              "op": "in",
+              "value": [
+                "黑色"
+              ],
+              "kind": "hard",
+              "source": "slot:colors"
+            },
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "文具用品",
+              "kind": "hard",
+              "source": "slot:category"
+            }
+          ],
+          "focus_item_id": "20829",
+          "last_item_ids": [
+            "20829",
+            "85175",
+            "84029E",
+            "22649",
+            "20914",
+            "21175",
+            "20828",
+            "22111"
+          ],
+          "seen_item_ids": [
+            "85170B",
+            "20829",
+            "85175",
+            "84029E",
+            "22649",
+            "20914",
+            "21175",
+            "20828",
+            "22111"
+          ],
+          "likes": {},
+          "dislikes": {
+            "85170B": 1
+          },
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {},
+          "disliked_categories": {
+            "家居装饰": 1
+          },
+          "pending_clarification": null
+        },
+        "likes": {},
+        "dislikes": {
+          "85170B": 1
+        }
+      },
+      "comparison": {
+        "order_changed": true,
+        "entered": [
+          "20829",
+          "85175",
+          "84029E",
+          "22649",
+          "20914",
+          "21175",
+          "20828",
+          "22111"
+        ],
+        "left": [
+          "85170B"
+        ],
+        "moved": [],
+        "score_deltas": {},
+        "shared_count": 0,
+        "max_abs_delta": 0.0,
+        "score_shifted": false,
+        "significant": true
+      },
+      "isolation_check": {
+        "session_id": "ab-C-F-04-30ff823d06",
+        "topk": [
+          {
+            "item_id": "85170B",
+            "rank": 1,
+            "title": "一套6个黑鸟小蜡烛",
+            "score": 0.64,
+            "sources": [
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          }
+        ],
+        "identical_to_before": true,
+        "comparison": {
+          "order_changed": false,
+          "entered": [],
+          "left": [],
+          "moved": [],
+          "score_deltas": {
+            "85170B": 0.0
+          },
+          "shared_count": 1,
+          "max_abs_delta": 0.0,
+          "score_shifted": false,
+          "significant": false
+        },
+        "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+      },
+      "ranking_change_explanations": [
+        "新进入 TopK：['20829', '85175', '84029E', '22649', '20914', '21175', '20828', '22111']（会话偏好加分或负反馈移除后腾出位置）。",
+        "离开 TopK：['85170B']（被负反馈屏蔽或相对分数下降）。"
+      ],
+      "case": {
+        "case_type": "成功",
+        "target_rank_before": 1,
+        "target_rank_after": null,
+        "target_movement": "removed",
+        "order_changed": true
+      },
+      "case_type": "成功",
+      "pool_signature": "negative|1|85170B",
+      "degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after_status": "degraded",
+        "after_degraded": true,
+        "after_degrade_reason": "全部硬约束过滤后为空，已降级为热门兜底"
+      },
+      "expect": "changed",
+      "passed": true,
+      "note": "",
+      "desc": "对照：同一查询下倒赞唯一候选导致结果消失"
+    },
+    {
+      "case_id": "F-05",
+      "user_id": "15547",
+      "query": {
+        "source": "text",
+        "text": "推荐一些家居装饰"
+      },
+      "status": "error",
+      "error": {
+        "code": "E_ITEM_NOT_FOUND",
+        "message": "商品 NOT-IN-CATALOG 不在目录中，无法写入反馈",
+        "field": "feedback_target",
+        "context": {}
+      },
+      "feedback": {
+        "polarity": "positive",
+        "target": "NOT-IN-CATALOG"
+      },
+      "before": {
+        "topk": [
+          {
+            "item_id": "21181",
+            "rank": 1,
+            "title": "请一次一人金属标志",
+            "score": 0.86065,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22508",
+            "rank": 2,
+            "title": "复古圆点心形门挡",
+            "score": 0.85515,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "82494L",
+            "rank": 3,
+            "title": "仿古白色木框",
+            "score": 0.8513,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85152",
+            "rank": 4,
+            "title": "交出巧克力标志牌",
+            "score": 0.84415,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85174",
+            "rank": 5,
+            "title": "仙人掌蜡烛4件套",
+            "score": 0.8436,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "82482",
+            "rank": 6,
+            "title": "白色木质相框",
+            "score": 0.80895,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "20829",
+            "rank": 7,
+            "title": "闪粉悬挂蝴蝶串",
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "85175",
+            "rank": 8,
+            "title": "亚马逊销售套装",
+            "score": 0.71675,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-05-d01359f01d"
+      },
+      "after": {
+        "topk": [],
+        "session_id": "ab-A-F-05-d01359f01d"
+      },
+      "comparison": {
+        "order_changed": false,
+        "significant": false,
+        "score_shifted": false,
+        "max_abs_delta": 0.0,
+        "entered": [],
+        "left": [],
+        "moved": [],
+        "score_deltas": {},
+        "shared_count": 0
+      },
+      "isolation_check": {
+        "session_id": "ab-C-F-05-d01359f01d",
+        "topk": [],
+        "identical_to_before": null,
+        "comparison": null,
+        "conclusion": "反馈写入失败，未做隔离验证"
+      },
+      "ranking_change_explanations": [
+        "反馈写入失败：目标商品不存在或状态非法。"
+      ],
+      "case": {
+        "case_type": "失败",
+        "target_movement": "error"
+      },
+      "case_type": "失败",
+      "expect": "failure",
+      "passed": true,
+      "note": "",
+      "desc": "失败案例：反馈目标商品不存在"
+    },
+    {
+      "case_id": "F-06",
+      "status": "ok",
+      "user_id": "14156",
+      "query": {
+        "source": "text",
+        "text": "推荐一些厨房用品"
+      },
+      "feedback": {
+        "polarity": "positive",
+        "target": "22625",
+        "target_title": "红色厨房秤",
+        "target_in_before_pool": true
+      },
+      "before": {
+        "topk": [
+          {
+            "item_id": "22625",
+            "rank": 1,
+            "title": "红色厨房秤",
+            "score": 0.902689,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22624",
+            "rank": 2,
+            "title": "象牙白厨房秤",
+            "score": 0.889457,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22423",
+            "rank": 3,
+            "title": "摄政风格三层蛋糕架",
+            "score": 0.825,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "20914",
+            "rank": 4,
+            "title": "套装/5个红点盖玻璃碗",
+            "score": 0.817736,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "22699",
+            "rank": 5,
+            "title": "玫瑰摄政风格茶杯碟",
+            "score": 0.810472,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22847",
+            "rank": 6,
+            "title": "象牙色餐厅风格面包箱",
+            "score": 0.808656,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22617",
+            "rank": 7,
+            "title": "太空男孩设计烘焙套装",
+            "score": 0.78842,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22698",
+            "rank": 8,
+            "title": "粉色摄政风格茶杯和茶碟",
+            "score": 0.776227,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-06-6c0c021d01",
+        "latency_ms": {
+          "event_ms": 0.014,
+          "intent_ms": 0.482,
+          "recall_ms": 0.958,
+          "rank_ms": 0.916,
+          "present_ms": 0.018,
+          "dispatch_ms": 2.362,
+          "total_ms": 2.944
+        },
+        "session_state": {
+          "session_id": "ab-A-F-06-6c0c021d01",
+          "user_id": "14156",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 0,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "厨房用品",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「厨房用品」"
+              ]
+            },
+            "scene": {
+              "name": "scene",
+              "value": "厨房",
+              "confidence": 0.7,
+              "evidence": [
+                "文本命中场景词「厨房」"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "厨房用品",
+              "kind": "soft",
+              "source": "slot:category"
+            },
+            {
+              "field": "scene",
+              "op": "eq",
+              "value": "厨房",
+              "kind": "soft",
+              "source": "slot:scene"
+            }
+          ],
+          "focus_item_id": "22625",
+          "last_item_ids": [
+            "22625",
+            "22624",
+            "22423",
+            "20914",
+            "22699",
+            "22847",
+            "22617",
+            "22698"
+          ],
+          "seen_item_ids": [
+            "22625",
+            "22624",
+            "22423",
+            "20914",
+            "22699",
+            "22847",
+            "22617",
+            "22698"
+          ],
+          "likes": {},
+          "dislikes": {},
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {},
+          "disliked_categories": {},
+          "pending_clarification": null
+        }
+      },
+      "after": {
+        "topk": [
+          {
+            "item_id": "22625",
+            "rank": 1,
+            "title": "红色厨房秤",
+            "score": 0.957689,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "会话关注召回"
+            ]
+          },
+          {
+            "item_id": "22624",
+            "rank": 2,
+            "title": "象牙白厨房秤",
+            "score": 0.919457,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回"
+            ]
+          },
+          {
+            "item_id": "22423",
+            "rank": 3,
+            "title": "摄政风格三层蛋糕架",
+            "score": 0.855,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "20914",
+            "rank": 4,
+            "title": "套装/5个红点盖玻璃碗",
+            "score": 0.847736,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "22699",
+            "rank": 5,
+            "title": "玫瑰摄政风格茶杯碟",
+            "score": 0.840472,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22847",
+            "rank": 6,
+            "title": "象牙色餐厅风格面包箱",
+            "score": 0.838656,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22617",
+            "rank": 7,
+            "title": "太空男孩设计烘焙套装",
+            "score": 0.81842,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22698",
+            "rank": 8,
+            "title": "粉色摄政风格茶杯和茶碟",
+            "score": 0.806227,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-06-6c0c021d01",
+        "latency_ms": {
+          "event_ms": 0.022,
+          "intent_ms": 0.052,
+          "feedback_ms": 0.008,
+          "recall_ms": 1.137,
+          "rank_ms": 0.889,
+          "present_ms": 0.017,
+          "dispatch_ms": 2.538,
+          "total_ms": 2.715
+        },
+        "session_state": {
+          "session_id": "ab-A-F-06-6c0c021d01",
+          "user_id": "14156",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 1,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "厨房用品",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「厨房用品」"
+              ]
+            },
+            "scene": {
+              "name": "scene",
+              "value": "厨房",
+              "confidence": 0.7,
+              "evidence": [
+                "文本命中场景词「厨房」"
+              ]
+            },
+            "polarity": {
+              "name": "polarity",
+              "value": "positive",
+              "confidence": 0.9,
+              "evidence": [
+                "手势 thumbs_up(0.92)"
+              ]
+            },
+            "feedback_target": {
+              "name": "feedback_target",
+              "value": "22625",
+              "confidence": 0.7,
+              "evidence": [
+                "反馈指向当前焦点商品"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "厨房用品",
+              "kind": "soft",
+              "source": "slot:category"
+            },
+            {
+              "field": "scene",
+              "op": "eq",
+              "value": "厨房",
+              "kind": "soft",
+              "source": "slot:scene"
+            }
+          ],
+          "focus_item_id": "22625",
+          "last_item_ids": [
+            "22625",
+            "22624",
+            "22423",
+            "20914",
+            "22699",
+            "22847",
+            "22617",
+            "22698"
+          ],
+          "seen_item_ids": [
+            "22625",
+            "22624",
+            "22423",
+            "20914",
+            "22699",
+            "22847",
+            "22617",
+            "22698"
+          ],
+          "likes": {
+            "22625": 1
+          },
+          "dislikes": {},
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {
+            "厨房用品": 1
+          },
+          "disliked_categories": {},
+          "pending_clarification": null
+        },
+        "likes": {
+          "22625": 1
+        },
+        "dislikes": {}
+      },
+      "comparison": {
+        "order_changed": false,
+        "entered": [],
+        "left": [],
+        "moved": [],
+        "score_deltas": {
+          "22625": 0.055,
+          "22624": 0.03,
+          "22423": 0.03,
+          "20914": 0.03,
+          "22699": 0.03,
+          "22847": 0.03,
+          "22617": 0.03,
+          "22698": 0.03
+        },
+        "shared_count": 8,
+        "max_abs_delta": 0.055,
+        "score_shifted": true,
+        "significant": false
+      },
+      "isolation_check": {
+        "session_id": "ab-C-F-06-6c0c021d01",
+        "topk": [
+          {
+            "item_id": "22625",
+            "rank": 1,
+            "title": "红色厨房秤",
+            "score": 0.902689,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22624",
+            "rank": 2,
+            "title": "象牙白厨房秤",
+            "score": 0.889457,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22423",
+            "rank": 3,
+            "title": "摄政风格三层蛋糕架",
+            "score": 0.825,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "20914",
+            "rank": 4,
+            "title": "套装/5个红点盖玻璃碗",
+            "score": 0.817736,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回",
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "22699",
+            "rank": 5,
+            "title": "玫瑰摄政风格茶杯碟",
+            "score": 0.810472,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22847",
+            "rank": 6,
+            "title": "象牙色餐厅风格面包箱",
+            "score": 0.808656,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22617",
+            "rank": 7,
+            "title": "太空男孩设计烘焙套装",
+            "score": 0.78842,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22698",
+            "rank": 8,
+            "title": "粉色摄政风格茶杯和茶碟",
+            "score": 0.776227,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回",
+              "历史购买相似召回"
+            ]
+          }
+        ],
+        "identical_to_before": true,
+        "comparison": {
+          "order_changed": false,
+          "entered": [],
+          "left": [],
+          "moved": [],
+          "score_deltas": {
+            "22625": 0.0,
+            "22624": 0.0,
+            "22423": 0.0,
+            "20914": 0.0,
+            "22699": 0.0,
+            "22847": 0.0,
+            "22617": 0.0,
+            "22698": 0.0
+          },
+          "shared_count": 8,
+          "max_abs_delta": 0.0,
+          "score_shifted": false,
+          "significant": false
+        },
+        "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+      },
+      "ranking_change_explanations": [
+        "TopK 顺序未变，但分数发生变化（最大位移 0.0550）：目标商品本就在第 1 位，同类商品获得同等的类目加成，因此相对顺序保持稳定。"
+      ],
+      "case": {
+        "case_type": "无变化",
+        "target_rank_before": 1,
+        "target_rank_after": 1,
+        "target_movement": "same",
+        "order_changed": false
+      },
+      "case_type": "无变化",
+      "pool_signature": "positive|8|22625,22624,22423,20914,22699,22847,22617,22698",
+      "degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after_status": "ok",
+        "after_degraded": false,
+        "after_degrade_reason": null
+      },
+      "expect": "any",
+      "passed": true,
+      "note": "",
+      "desc": "隔离复核：另一用户点赞不应影响本用户会话"
+    },
+    {
+      "case_id": "F-07",
+      "status": "ok",
+      "user_id": "15547",
+      "query": {
+        "source": "text",
+        "text": "只看派对用品"
+      },
+      "feedback": {
+        "polarity": "positive",
+        "target": "22941",
+        "target_title": "圣诞灯串 10只驯鹿",
+        "target_in_before_pool": true
+      },
+      "before": {
+        "topk": [
+          {
+            "item_id": "22941",
+            "rank": 1,
+            "title": "圣诞灯串 10只驯鹿",
+            "score": 0.5732,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "84992",
+            "rank": 2,
+            "title": "72个甜心仙女蛋糕纸杯",
+            "score": 0.55285,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "16156S",
+            "rank": 3,
+            "title": "粉色仙女蛋糕包装纸",
+            "score": 0.41,
+            "sources": [
+              "品类热门召回",
+              "全局热门兜底"
+            ]
+          },
+          {
+            "item_id": "21977",
+            "rank": 4,
+            "title": "60个粉色佩斯利蛋糕纸杯套装",
+            "score": 0.330161,
+            "sources": [
+              "品类热门召回",
+              "全局热门兜底"
+            ]
+          },
+          {
+            "item_id": "22045",
+            "rank": 5,
+            "title": "太空男孩礼品包装纸",
+            "score": 0.330161,
+            "sources": [
+              "品类热门召回",
+              "全局热门兜底"
+            ]
+          },
+          {
+            "item_id": "22039",
+            "rank": 6,
+            "title": "植物百合礼品包装纸",
+            "score": 0.3025,
+            "sources": [
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "23048",
+            "rank": 7,
+            "title": "10个装星星仙女灯灯笼",
+            "score": 0.3025,
+            "sources": [
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "16169P",
+            "rank": 8,
+            "title": "绿色俄罗斯民间艺术包装纸",
+            "score": 0.294677,
+            "sources": [
+              "品类热门召回",
+              "全局热门兜底"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-07-57feea328d",
+        "latency_ms": {
+          "event_ms": 0.016,
+          "intent_ms": 0.466,
+          "recall_ms": 5.361,
+          "rank_ms": 0.214,
+          "present_ms": 0.017,
+          "dispatch_ms": 6.082,
+          "total_ms": 6.661
+        },
+        "session_state": {
+          "session_id": "ab-A-F-07-57feea328d",
+          "user_id": "15547",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 0,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "派对用品",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「派对用品」"
+              ]
+            },
+            "scene": {
+              "name": "scene",
+              "value": "派对",
+              "confidence": 0.7,
+              "evidence": [
+                "文本命中场景词「派对」"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "派对用品",
+              "kind": "hard",
+              "source": "slot:category"
+            },
+            {
+              "field": "scene",
+              "op": "eq",
+              "value": "派对",
+              "kind": "soft",
+              "source": "slot:scene"
+            }
+          ],
+          "focus_item_id": "22941",
+          "last_item_ids": [
+            "22941",
+            "84992",
+            "16156S",
+            "21977",
+            "22045",
+            "22039",
+            "23048",
+            "16169P"
+          ],
+          "seen_item_ids": [
+            "22941",
+            "84992",
+            "16156S",
+            "21977",
+            "22045",
+            "22039",
+            "23048",
+            "16169P"
+          ],
+          "likes": {},
+          "dislikes": {},
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {},
+          "disliked_categories": {},
+          "pending_clarification": null
+        }
+      },
+      "after": {
+        "topk": [
+          {
+            "item_id": "79161A",
+            "rank": 1,
+            "title": "圣乔治派对灯串套装10个",
+            "score": 0.66,
+            "sources": [
+              "相似商品召回"
+            ]
+          },
+          {
+            "item_id": "22941",
+            "rank": 2,
+            "title": "圣诞灯串 10只驯鹿",
+            "score": 0.6282,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "会话关注召回"
+            ]
+          },
+          {
+            "item_id": "84992",
+            "rank": 3,
+            "title": "72个甜心仙女蛋糕纸杯",
+            "score": 0.58285,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "23353",
+            "rank": 4,
+            "title": "6只装复古圣诞礼品标签",
+            "score": 0.46,
+            "sources": [
+              "相似商品召回"
+            ]
+          },
+          {
+            "item_id": "23354",
+            "rank": 5,
+            "title": "6只装50年代圣诞礼品标签",
+            "score": 0.46,
+            "sources": [
+              "相似商品召回"
+            ]
+          },
+          {
+            "item_id": "23603",
+            "rank": 6,
+            "title": "套装10张卡片牛皮纸驯鹿 17084",
+            "score": 0.46,
+            "sources": [
+              "相似商品召回"
+            ]
+          },
+          {
+            "item_id": "23625",
+            "rank": 7,
+            "title": "6张闪亮驯鹿卡片套装 17262",
+            "score": 0.46,
+            "sources": [
+              "相似商品召回"
+            ]
+          },
+          {
+            "item_id": "16156S",
+            "rank": 8,
+            "title": "粉色仙女蛋糕包装纸",
+            "score": 0.44,
+            "sources": [
+              "品类热门召回",
+              "全局热门兜底"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-07-57feea328d",
+        "latency_ms": {
+          "event_ms": 0.025,
+          "intent_ms": 0.485,
+          "feedback_ms": 0.007,
+          "recall_ms": 1.065,
+          "rank_ms": 0.362,
+          "present_ms": 0.024,
+          "dispatch_ms": 2.063,
+          "total_ms": 2.704
+        },
+        "session_state": {
+          "session_id": "ab-A-F-07-57feea328d",
+          "user_id": "15547",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 1,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "派对用品",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「派对用品」"
+              ]
+            },
+            "scene": {
+              "name": "scene",
+              "value": "派对",
+              "confidence": 0.7,
+              "evidence": [
+                "文本命中场景词「派对」"
+              ]
+            },
+            "target": {
+              "name": "target",
+              "value": "22941",
+              "confidence": 0.7,
+              "evidence": [
+                "文本指代词 + 会话焦点商品"
+              ]
+            },
+            "targets": {
+              "name": "targets",
+              "value": [
+                "22941"
+              ],
+              "confidence": 0.6,
+              "evidence": [
+                "会话焦点商品"
+              ]
+            },
+            "polarity": {
+              "name": "polarity",
+              "value": "positive",
+              "confidence": 0.7,
+              "evidence": [
+                "文本肯定词「不错」"
+              ]
+            },
+            "feedback_target": {
+              "name": "feedback_target",
+              "value": "22941",
+              "confidence": 0.7,
+              "evidence": [
+                "反馈指向会话焦点商品"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "派对用品",
+              "kind": "hard",
+              "source": "slot:category"
+            },
+            {
+              "field": "scene",
+              "op": "eq",
+              "value": "派对",
+              "kind": "soft",
+              "source": "slot:scene"
+            }
+          ],
+          "focus_item_id": "79161A",
+          "last_item_ids": [
+            "79161A",
+            "22941",
+            "84992",
+            "23353",
+            "23354",
+            "23603",
+            "23625",
+            "16156S"
+          ],
+          "seen_item_ids": [
+            "22941",
+            "84992",
+            "16156S",
+            "21977",
+            "22045",
+            "22039",
+            "23048",
+            "16169P",
+            "79161A",
+            "23353",
+            "23354",
+            "23603",
+            "23625"
+          ],
+          "likes": {
+            "22941": 1
+          },
+          "dislikes": {},
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {
+            "派对用品": 1
+          },
+          "disliked_categories": {},
+          "pending_clarification": null
+        },
+        "likes": {
+          "22941": 1
+        },
+        "dislikes": {}
+      },
+      "comparison": {
+        "order_changed": true,
+        "entered": [
+          "79161A",
+          "23353",
+          "23354",
+          "23603",
+          "23625"
+        ],
+        "left": [
+          "21977",
+          "22045",
+          "22039",
+          "23048",
+          "16169P"
+        ],
+        "moved": [
+          {
+            "item_id": "22941",
+            "rank_before": 1,
+            "rank_after": 2,
+            "move": 1,
+            "score_delta": 0.055
+          },
+          {
+            "item_id": "84992",
+            "rank_before": 2,
+            "rank_after": 3,
+            "move": 1,
+            "score_delta": 0.03
+          },
+          {
+            "item_id": "16156S",
+            "rank_before": 3,
+            "rank_after": 8,
+            "move": 5,
+            "score_delta": 0.03
+          }
+        ],
+        "score_deltas": {
+          "22941": 0.055,
+          "84992": 0.03,
+          "16156S": 0.03
+        },
+        "shared_count": 3,
+        "max_abs_delta": 0.055,
+        "score_shifted": true,
+        "significant": true
+      },
+      "isolation_check": {
+        "session_id": "ab-C-F-07-57feea328d",
+        "topk": [
+          {
+            "item_id": "22941",
+            "rank": 1,
+            "title": "圣诞灯串 10只驯鹿",
+            "score": 0.5732,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "84992",
+            "rank": 2,
+            "title": "72个甜心仙女蛋糕纸杯",
+            "score": 0.55285,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "16156S",
+            "rank": 3,
+            "title": "粉色仙女蛋糕包装纸",
+            "score": 0.41,
+            "sources": [
+              "品类热门召回",
+              "全局热门兜底"
+            ]
+          },
+          {
+            "item_id": "21977",
+            "rank": 4,
+            "title": "60个粉色佩斯利蛋糕纸杯套装",
+            "score": 0.330161,
+            "sources": [
+              "品类热门召回",
+              "全局热门兜底"
+            ]
+          },
+          {
+            "item_id": "22045",
+            "rank": 5,
+            "title": "太空男孩礼品包装纸",
+            "score": 0.330161,
+            "sources": [
+              "品类热门召回",
+              "全局热门兜底"
+            ]
+          },
+          {
+            "item_id": "22039",
+            "rank": 6,
+            "title": "植物百合礼品包装纸",
+            "score": 0.3025,
+            "sources": [
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "23048",
+            "rank": 7,
+            "title": "10个装星星仙女灯灯笼",
+            "score": 0.3025,
+            "sources": [
+              "历史购买相似召回"
+            ]
+          },
+          {
+            "item_id": "16169P",
+            "rank": 8,
+            "title": "绿色俄罗斯民间艺术包装纸",
+            "score": 0.294677,
+            "sources": [
+              "品类热门召回",
+              "全局热门兜底"
+            ]
+          }
+        ],
+        "identical_to_before": true,
+        "comparison": {
+          "order_changed": false,
+          "entered": [],
+          "left": [],
+          "moved": [],
+          "score_deltas": {
+            "22941": 0.0,
+            "84992": 0.0,
+            "16156S": 0.0,
+            "21977": 0.0,
+            "22045": 0.0,
+            "22039": 0.0,
+            "23048": 0.0,
+            "16169P": 0.0
+          },
+          "shared_count": 8,
+          "max_abs_delta": 0.0,
+          "score_shifted": false,
+          "significant": false
+        },
+        "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+      },
+      "ranking_change_explanations": [
+        "新进入 TopK：['79161A', '23353', '23354', '23603', '23625']（会话偏好加分或负反馈移除后腾出位置）。",
+        "离开 TopK：['21977', '22045', '22039', '23048', '16169P']（被负反馈屏蔽或相对分数下降）。",
+        "名次变化：16156S 3→8；22941 1→2；84992 2→3"
+      ],
+      "case": {
+        "case_type": "反向变化",
+        "target_rank_before": 1,
+        "target_rank_after": 2,
+        "target_movement": "down",
+        "order_changed": true
+      },
+      "case_type": "反向变化",
+      "pool_signature": "positive|8|22941,84992,16156S,21977,22045,22039,23048,16169P",
+      "degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after_status": "ok",
+        "after_degraded": false,
+        "after_degrade_reason": null
+      },
+      "expect": "any",
+      "passed": true,
+      "note": "",
+      "desc": "反向变化：点赞首位后，其相似商品因命中场景约束反超，目标反降到第 2"
+    },
+    {
+      "case_id": "F-08",
+      "status": "ok",
+      "user_id": "15547",
+      "query": {
+        "source": "text",
+        "text": "500以内的婚礼装饰品"
+      },
+      "feedback": {
+        "polarity": "negative",
+        "target": "23353",
+        "target_title": "6只装复古圣诞礼品标签",
+        "target_in_before_pool": false
+      },
+      "before": {
+        "topk": [
+          {
+            "item_id": "20829",
+            "rank": 1,
+            "title": "闪粉悬挂蝴蝶串",
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "21175",
+            "rank": 2,
+            "title": "金汤力饮食金属标牌",
+            "score": 0.69915,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "20828",
+            "rank": 3,
+            "title": "闪粉蝴蝶发夹",
+            "score": 0.6887,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回"
+            ]
+          },
+          {
+            "item_id": "21166",
+            "rank": 4,
+            "title": "用酒烹饪金属标志",
+            "score": 0.67275,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "21169",
+            "rank": 5,
+            "title": "你把我搞糊涂了金属标志",
+            "score": 0.6227,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22335",
+            "rank": 6,
+            "title": "彩绘锌心形装饰",
+            "score": 0.59685,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "35961",
+            "rank": 7,
+            "title": "民间艺术锌心圣诞装饰",
+            "score": 0.5853,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "84836",
+            "rank": 8,
+            "title": "锌金属心形装饰",
+            "score": 0.571,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-08-7e36ff158d",
+        "latency_ms": {
+          "event_ms": 0.016,
+          "intent_ms": 0.544,
+          "recall_ms": 1.084,
+          "rank_ms": 0.285,
+          "present_ms": 0.016,
+          "dispatch_ms": 1.842,
+          "total_ms": 2.535
+        },
+        "session_state": {
+          "session_id": "ab-A-F-08-7e36ff158d",
+          "user_id": "15547",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 0,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "装饰品",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「装饰品」"
+              ]
+            },
+            "category_alt": {
+              "name": "category_alt",
+              "value": [
+                "饰品",
+                "家居装饰"
+              ],
+              "confidence": 0.5,
+              "evidence": [
+                "文本命中多个类目词"
+              ]
+            },
+            "scene": {
+              "name": "scene",
+              "value": "婚礼",
+              "confidence": 0.7,
+              "evidence": [
+                "文本命中场景词「婚礼」"
+              ]
+            },
+            "budget_max": {
+              "name": "budget_max",
+              "value": 500.0,
+              "confidence": 0.85,
+              "evidence": [
+                "文本预算表达 「以内500.0」 → 上限 500.0"
+              ]
+            },
+            "budget_raw": {
+              "name": "budget_raw",
+              "value": {
+                "min": null,
+                "max": 500.0,
+                "target": 500.0,
+                "direction": "under",
+                "raw": "「以内500.0」",
+                "evidence": "文本预算表达 「以内500.0」"
+              },
+              "confidence": 0.7,
+              "evidence": [
+                "文本预算表达 「以内500.0」"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "price",
+              "op": "lte",
+              "value": 500.0,
+              "kind": "hard",
+              "source": "slot:budget_max"
+            },
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "装饰品",
+              "kind": "hard",
+              "source": "slot:category"
+            },
+            {
+              "field": "scene",
+              "op": "eq",
+              "value": "婚礼",
+              "kind": "soft",
+              "source": "slot:scene"
+            }
+          ],
+          "focus_item_id": "20829",
+          "last_item_ids": [
+            "20829",
+            "21175",
+            "20828",
+            "21166",
+            "21169",
+            "22335",
+            "35961",
+            "84836"
+          ],
+          "seen_item_ids": [
+            "20829",
+            "21175",
+            "20828",
+            "21166",
+            "21169",
+            "22335",
+            "35961",
+            "84836"
+          ],
+          "likes": {},
+          "dislikes": {},
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {},
+          "disliked_categories": {},
+          "pending_clarification": null
+        }
+      },
+      "after": {
+        "topk": [
+          {
+            "item_id": "20829",
+            "rank": 1,
+            "title": "闪粉悬挂蝴蝶串",
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "21175",
+            "rank": 2,
+            "title": "金汤力饮食金属标牌",
+            "score": 0.69915,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "20828",
+            "rank": 3,
+            "title": "闪粉蝴蝶发夹",
+            "score": 0.6887,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回"
+            ]
+          },
+          {
+            "item_id": "21166",
+            "rank": 4,
+            "title": "用酒烹饪金属标志",
+            "score": 0.67275,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "21169",
+            "rank": 5,
+            "title": "你把我搞糊涂了金属标志",
+            "score": 0.6227,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22335",
+            "rank": 6,
+            "title": "彩绘锌心形装饰",
+            "score": 0.59685,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "35961",
+            "rank": 7,
+            "title": "民间艺术锌心圣诞装饰",
+            "score": 0.5853,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "84836",
+            "rank": 8,
+            "title": "锌金属心形装饰",
+            "score": 0.571,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          }
+        ],
+        "session_id": "ab-A-F-08-7e36ff158d",
+        "latency_ms": {
+          "event_ms": 0.021,
+          "intent_ms": 0.446,
+          "feedback_ms": 0.009,
+          "recall_ms": 1.137,
+          "rank_ms": 0.332,
+          "present_ms": 0.02,
+          "dispatch_ms": 2.022,
+          "total_ms": 2.64
+        },
+        "session_state": {
+          "session_id": "ab-A-F-08-7e36ff158d",
+          "user_id": "15547",
+          "created_at": "2026-10-15T05:55:07+00:00",
+          "updated_at": "2026-10-15T05:55:07+00:00",
+          "ended": false,
+          "turns": 1,
+          "slot_state": {
+            "category": {
+              "name": "category",
+              "value": "装饰品",
+              "confidence": 0.85,
+              "evidence": [
+                "文本命中类目词「装饰品」"
+              ]
+            },
+            "category_alt": {
+              "name": "category_alt",
+              "value": [
+                "饰品",
+                "家居装饰"
+              ],
+              "confidence": 0.5,
+              "evidence": [
+                "文本命中多个类目词"
+              ]
+            },
+            "scene": {
+              "name": "scene",
+              "value": "婚礼",
+              "confidence": 0.7,
+              "evidence": [
+                "文本命中场景词「婚礼」"
+              ]
+            },
+            "budget_max": {
+              "name": "budget_max",
+              "value": 500.0,
+              "confidence": 0.85,
+              "evidence": [
+                "文本预算表达 「以内500.0」 → 上限 500.0"
+              ]
+            },
+            "budget_raw": {
+              "name": "budget_raw",
+              "value": {
+                "min": null,
+                "max": 500.0,
+                "target": 500.0,
+                "direction": "under",
+                "raw": "「以内500.0」",
+                "evidence": "文本预算表达 「以内500.0」"
+              },
+              "confidence": 0.7,
+              "evidence": [
+                "文本预算表达 「以内500.0」"
+              ]
+            },
+            "target": {
+              "name": "target",
+              "value": "23353",
+              "confidence": 0.7,
+              "evidence": [
+                "文本指代词 + 会话焦点商品"
+              ]
+            },
+            "targets": {
+              "name": "targets",
+              "value": [
+                "23353"
+              ],
+              "confidence": 0.6,
+              "evidence": [
+                "会话焦点商品"
+              ]
+            },
+            "polarity": {
+              "name": "polarity",
+              "value": "negative",
+              "confidence": 0.7,
+              "evidence": [
+                "文本否定词「不行」"
+              ]
+            },
+            "feedback_target": {
+              "name": "feedback_target",
+              "value": "23353",
+              "confidence": 0.7,
+              "evidence": [
+                "反馈指向会话焦点商品"
+              ]
+            }
+          },
+          "constraints": [
+            {
+              "field": "price",
+              "op": "lte",
+              "value": 500.0,
+              "kind": "hard",
+              "source": "slot:budget_max"
+            },
+            {
+              "field": "category",
+              "op": "eq",
+              "value": "装饰品",
+              "kind": "hard",
+              "source": "slot:category"
+            },
+            {
+              "field": "scene",
+              "op": "eq",
+              "value": "婚礼",
+              "kind": "soft",
+              "source": "slot:scene"
+            }
+          ],
+          "focus_item_id": "20829",
+          "last_item_ids": [
+            "20829",
+            "21175",
+            "20828",
+            "21166",
+            "21169",
+            "22335",
+            "35961",
+            "84836"
+          ],
+          "seen_item_ids": [
+            "20829",
+            "21175",
+            "20828",
+            "21166",
+            "21169",
+            "22335",
+            "35961",
+            "84836",
+            "23353"
+          ],
+          "likes": {},
+          "dislikes": {
+            "23353": 1
+          },
+          "viewed_items": {},
+          "viewed_categories": {},
+          "liked_categories": {},
+          "disliked_categories": {
+            "派对用品": 1
+          },
+          "pending_clarification": null
+        },
+        "likes": {},
+        "dislikes": {
+          "23353": 1
+        }
+      },
+      "comparison": {
+        "order_changed": false,
+        "entered": [],
+        "left": [],
+        "moved": [],
+        "score_deltas": {
+          "20829": 0.0,
+          "21175": 0.0,
+          "20828": 0.0,
+          "21166": 0.0,
+          "21169": 0.0,
+          "22335": 0.0,
+          "35961": 0.0,
+          "84836": 0.0
+        },
+        "shared_count": 8,
+        "max_abs_delta": 0.0,
+        "score_shifted": false,
+        "significant": false
+      },
+      "isolation_check": {
+        "session_id": "ab-C-F-08-7e36ff158d",
+        "topk": [
+          {
+            "item_id": "20829",
+            "rank": 1,
+            "title": "闪粉悬挂蝴蝶串",
+            "score": 0.7228,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "21175",
+            "rank": 2,
+            "title": "金汤力饮食金属标牌",
+            "score": 0.69915,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "20828",
+            "rank": 3,
+            "title": "闪粉蝴蝶发夹",
+            "score": 0.6887,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "相似商品召回"
+            ]
+          },
+          {
+            "item_id": "21166",
+            "rank": 4,
+            "title": "用酒烹饪金属标志",
+            "score": 0.67275,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "21169",
+            "rank": 5,
+            "title": "你把我搞糊涂了金属标志",
+            "score": 0.6227,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "22335",
+            "rank": 6,
+            "title": "彩绘锌心形装饰",
+            "score": 0.59685,
+            "sources": [
+              "推荐系统 v146 个性化精排",
+              "品类热门召回"
+            ]
+          },
+          {
+            "item_id": "35961",
+            "rank": 7,
+            "title": "民间艺术锌心圣诞装饰",
+            "score": 0.5853,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          },
+          {
+            "item_id": "84836",
+            "rank": 8,
+            "title": "锌金属心形装饰",
+            "score": 0.571,
+            "sources": [
+              "推荐系统 v146 个性化精排"
+            ]
+          }
+        ],
+        "identical_to_before": true,
+        "comparison": {
+          "order_changed": false,
+          "entered": [],
+          "left": [],
+          "moved": [],
+          "score_deltas": {
+            "20829": 0.0,
+            "21175": 0.0,
+            "20828": 0.0,
+            "21166": 0.0,
+            "21169": 0.0,
+            "22335": 0.0,
+            "35961": 0.0,
+            "84836": 0.0
+          },
+          "shared_count": 8,
+          "max_abs_delta": 0.0,
+          "score_shifted": false,
+          "significant": false
+        },
+        "conclusion": "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+      },
+      "ranking_change_explanations": [
+        "反馈未改变 TopK，且分数无变化：目标商品不在当前候选池内。"
+      ],
+      "case": {
+        "case_type": "无变化",
+        "target_rank_before": null,
+        "target_rank_after": null,
+        "target_movement": "absent",
+        "order_changed": false
+      },
+      "case_type": "无变化",
+      "pool_signature": "negative|8|20829,21175,20828,21166,21169,22335,35961,84836",
+      "degradations": {
+        "before": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after": {
+          "multimodal": {
+            "adapter": "multimodal_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_stub",
+            "degraded": false,
+            "events": []
+          },
+          "recommender": {
+            "adapter": "recommender_adapter",
+            "requested_mode": "offline",
+            "active_mode": "offline_snapshot",
+            "degraded": false,
+            "events": []
+          }
+        },
+        "after_status": "ok",
+        "after_degraded": false,
+        "after_degrade_reason": null
+      },
+      "expect": "any",
+      "passed": true,
+      "note": "",
+      "desc": "边界：倒赞一个不在候选池内的商品，TopK 应完全不变"
+    }
+  ]
+}

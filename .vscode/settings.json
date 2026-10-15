@@ -1,0 +1,54 @@
+{
+  // ============ 解释器 ============
+  // 本项目离线链路零第三方依赖，用系统 Python 即可；
+  // 若你建了虚拟环境（.venv），改成 "${workspaceFolder}/.venv/Scripts/python.exe"
+  "python.defaultInterpreterPath": "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+  "python.terminal.activateEnvironment": false,
+
+  // ============ 让 src / config 能被正确解析 ============
+  // 从项目根运行脚本时，`from config import settings` / `from src.x import y` 才找得到
+  "python.analysis.extraPaths": ["${workspaceFolder}"],
+  "python.autoComplete.extraPaths": ["${workspaceFolder}"],
+
+  // ============ 中文输出不乱码（本项目大量中文日志） ============
+  // Windows 控制台默认 GBK，不设这个会看到「��ģ̬」这种乱码
+  "terminal.integrated.env.windows": {
+    "PYTHONIOENCODING": "utf-8",
+    "PYTHONUTF8": "1"
+  },
+
+  // ============ 文件与编码 ============
+  "files.encoding": "utf8",
+  "files.eol": "\r\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/*.pyo": true
+  },
+  "search.exclude": {
+    "**/outputs": true,      // 证据文件很长，搜索时排除
+    "**/artifacts": true,
+    "**/data/offline": true  // 离线快照是数据，不是代码
+  },
+  "files.watcherExclude": {
+    "**/artifacts/**": true
+  },
+
+  // ============ 编辑器 ============
+  "editor.rulers": [100],
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+  "editor.formatOnSave": false,   // 未强制引入 black/isort，保持零依赖
+  "[python]": {
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "never"
+    }
+  },
+
+  // ============ JSON / Markdown ============
+  "[json]": { "editor.tabSize": 2 },
+  "[jsonc]": { "editor.tabSize": 2 },
+  "markdown.preview.breaks": true
+}

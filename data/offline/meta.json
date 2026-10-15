@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-10-13T09:09:15+00:00",
+  "source_root_found": true,
+  "cutoff": "2011-10-31",
+  "currency": "GBP",
+  "symbol": "£",
+  "model_version": "v146_xgb_pairwise_deep",
+  "counts": {
+    "catalog": 3642,
+    "similar": 3642,
+    "users_with_scores": 736,
+    "score_rows": 52432,
+    "categories": 10
+  },
+  "categories": [
+    "其他",
+    "办公用品",
+    "厨房用品",
+    "园艺用品",
+    "婴儿用品",
+    "宠物用品",
+    "家具",
+    "家居装饰",
+    "工具",
+    "手工用品",
+    "收纳用品",
+    "文具用品",
+    "洗浴用品",
+    "派对用品",
+    "浴室用品",
+    "玩具",
+    "生活用品",
+    "类别",
+    "花园用品",
+    "装饰品",
+    "购物袋",
+    "配饰",
+    "饰品"
+  ]
+}

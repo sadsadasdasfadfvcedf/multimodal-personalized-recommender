@@ -1,0 +1,515 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "★ 一键跑完整离线套件",
+      "detail": "依次运行 00~06、08、12 并汇总通过情况",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/run_all_offline.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "group": "stages"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "环境检查",
+      "detail": "检查解释器、外部系统探测、离线快照、依赖状态",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/00_check_env.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "阶段1 · 契约测试",
+      "detail": "25 个契约/边界/失败用例 + 降级矩阵自检",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/01_contract_test.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "阶段2 · 意图与会话",
+      "detail": "26 条意图样例 + 10 项会话行为",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/02_context_test.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "阶段3 · 编排演示",
+      "detail": "NORMAL/EMPTY/DEGRADED/TIMEOUT 四条 trace",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/03_orchestrator_demo.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "阶段4 · 证据与解释",
+      "detail": "7 类解释用例 + 文本/语音一致性",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/04_explanation_test.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "阶段5 · 反馈A/B",
+      "detail": "反馈前后对照 + 浏览弱反馈 + 会话隔离",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/05_feedback_ab.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "阶段6 · 端到端验收",
+      "detail": "三类链路 + 4 类故障注入 + 隐私扫描",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/06_e2e_acceptance.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "文档生成",
+      "detail": "从 outputs/ 证据生成 5 份文档",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/08_gen_docs.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "文本规范化检查",
+      "detail": "繁简/中英混排/循环复读 10 项",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/12_text_norm_check.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "网页改版验收（需 webui 在跑）",
+      "detail": "10 项：溢出实测 / 对比 / 术语 / 可访问性",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/13_webui_acceptance.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "clear": false,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "在线联调（需推荐系统在跑）",
+      "detail": "HTTP 适配器对接真实推荐系统",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/07_live_integration_check.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "clear": false,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "真机多模态（需设备+模型）",
+      "detail": "真实 ASR / VL / MediaPipe 手势",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/09_real_multimodal_check.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "clear": false,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "真实 LLM 解释（需模型）",
+      "detail": "Qwen3-4B 生成解释 + 三道门控",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/10_real_llm_check.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "clear": false,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "LLM 选型对比（需模型）",
+      "detail": "同批证据下比较不同模型通过率",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/11_llm_model_compare.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "clear": false,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "运行 · 网页对话界面",
+      "detail": "打开 http://127.0.0.1:8020（电商风界面）",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "webui.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "clear": false,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "运行 · 网页界面（真实模式）",
+      "detail": "启用真实麦克风/摄像头/模型 + 语音播报",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "webui.py",
+        "--real",
+        "--voice"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "clear": false,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "运行 · 终端对话",
+      "detail": "命令行对话，支持 /voice /gesture /view 等命令",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "chat.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "clear": false,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "运行 · 一键端到端演示",
+      "detail": "写死的三轮演示，用于验收取证",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "main.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "clear": false,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "清理缓存（打包前）",
+      "detail": "删除 __pycache__ / *.pyc",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/clean_workspace.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "重建离线快照",
+      "detail": "从推荐系统发布制品重新导出快照",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-B",
+        "scripts/build_offline_snapshot.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONIOENCODING": "utf-8",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "group": "stages"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

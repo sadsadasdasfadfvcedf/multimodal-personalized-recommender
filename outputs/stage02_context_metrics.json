@@ -1,0 +1,186 @@
+{
+  "stage": "02",
+  "title": "多模态意图理解与会话上下文指标",
+  "generated_at": "2026-10-15T05:55:00+00:00",
+  "intent_cases": {
+    "total": 26,
+    "passed": 26,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "threshold": 0.8,
+    "meets_threshold": true,
+    "by_intent": {
+      "discover": {
+        "total": 5,
+        "passed": 5
+      },
+      "filter": {
+        "total": 7,
+        "passed": 7
+      },
+      "similar": {
+        "total": 3,
+        "passed": 3
+      },
+      "compare": {
+        "total": 2,
+        "passed": 2
+      },
+      "explain": {
+        "total": 2,
+        "passed": 2
+      },
+      "feedback": {
+        "total": 4,
+        "passed": 4
+      },
+      "unknown": {
+        "total": 3,
+        "passed": 3
+      }
+    },
+    "by_status": {
+      "ok": 20,
+      "clarification": 3,
+      "conflict": 1,
+      "error": 2
+    }
+  },
+  "session_checks": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
+    "by_type": {
+      "成功": {
+        "total": 5,
+        "passed": 5
+      },
+      "边界": {
+        "total": 5,
+        "passed": 5
+      }
+    },
+    "cases": [
+      {
+        "case_id": "B-01",
+        "name": "多轮约束合并（类目 + 预算同时生效）",
+        "kind": "成功",
+        "passed": true,
+        "detail": {
+          "slot_state": {
+            "category": "装饰品",
+            "budget_max": 20.0
+          }
+        }
+      },
+      {
+        "case_id": "B-02",
+        "name": "同名槽位被后一轮覆盖",
+        "kind": "成功",
+        "passed": true,
+        "detail": {
+          "category": "厨房用品"
+        }
+      },
+      {
+        "case_id": "B-03",
+        "name": "撤销回滚到上一轮",
+        "kind": "边界",
+        "passed": true,
+        "detail": {
+          "ok": true,
+          "category": "装饰品",
+          "turns": 0
+        }
+      },
+      {
+        "case_id": "B-04",
+        "name": "预算上下限冲突可检测",
+        "kind": "边界",
+        "passed": true,
+        "detail": {
+          "min": 100.0,
+          "max": 20.0
+        }
+      },
+      {
+        "case_id": "B-05",
+        "name": "正负反馈互斥（同商品只保留最后极性）",
+        "kind": "成功",
+        "passed": true,
+        "detail": {
+          "likes": {},
+          "dislikes": {
+            "85123A": 1
+          },
+          "replaced": true
+        }
+      },
+      {
+        "case_id": "B-06",
+        "name": "负反馈不污染其他会话",
+        "kind": "边界",
+        "passed": true,
+        "detail": {
+          "other_dislikes": {},
+          "other_disliked_categories": {}
+        }
+      },
+      {
+        "case_id": "B-07",
+        "name": "负反馈商品进入本会话屏蔽集合",
+        "kind": "成功",
+        "passed": true,
+        "detail": {
+          "blocked": [
+            "85123A"
+          ]
+        }
+      },
+      {
+        "case_id": "B-08",
+        "name": "点赞产生正向会话偏好信号",
+        "kind": "成功",
+        "passed": true,
+        "detail": {
+          "preference": {
+            "score": 0.22,
+            "reasons": [
+              "你点过赞的商品(+0.10)",
+              "本会话偏好类目「家居装饰」(+0.12)"
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "B-09",
+        "name": "会话结束清理状态",
+        "kind": "边界",
+        "passed": true,
+        "detail": {
+          "ended": true,
+          "slots": []
+        }
+      },
+      {
+        "case_id": "B-10",
+        "name": "新会话从零开始（偏好隔离）",
+        "kind": "边界",
+        "passed": true,
+        "detail": {
+          "likes": {},
+          "slots": []
+        }
+      }
+    ]
+  },
+  "acceptance_checklist": {
+    "必选槽位缺失时不臆测": true,
+    "thumbs_up/down 映射为正负反馈": true,
+    "会话用例含成功/边界/失败三类": true,
+    "约束冲突可检测": true,
+    "20条样例通过率不低于80%": true
+  },
+  "error_cases": [],
+  "root_cause_analysis": []
+}

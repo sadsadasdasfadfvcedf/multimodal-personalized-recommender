@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-10-15T05:55:21+00:00",
+  "documents": [
+    {
+      "doc": "architecture.md#正常样例与边界样例",
+      "bytes": 6809,
+      "statuses": {
+        "normal": "ok",
+        "conflict": "conflict",
+        "no_modality": "error"
+      }
+    },
+    {
+      "doc": "error_case_analysis.md",
+      "bytes": 2740,
+      "unpassed_cases": 0
+    },
+    {
+      "doc": "timeout_and_degradation.md",
+      "bytes": 3263,
+      "scenarios": 4
+    },
+    {
+      "doc": "explanation_anomalies.md",
+      "bytes": 2989,
+      "abnormal": 1
+    },
+    {
+      "doc": "performance_and_failures.md",
+      "bytes": 3343,
+      "cases": 8
+    }
+  ],
+  "generator": "scripts/08_gen_docs.py"
+}

@@ -1,0 +1,14 @@
+# 离线演示：零第三方依赖即可运行全部脚本。
+# 下列为可选增强依赖，存在时自动启用，缺失自动降级（见 README 第 2 节）。
+numpy>=1.24
+jieba>=0.42
+requests>=2.28
+edge-tts>=6.1
+zhconv>=1.4      # 繁转简（缺失时只做检测并回退模板，见 src/text_norm.py）
+
+# 真实多模态模式（--mode auto + INTEGRATED_ALLOW_REAL_MODELS=1）才需要：
+# torch>=2.0
+# mediapipe==0.10.14
+# opencv-python>=4.8
+# PyQt5>=5.15
+# funasr>=1.0

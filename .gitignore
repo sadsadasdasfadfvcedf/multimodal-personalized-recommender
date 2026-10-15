@@ -1,0 +1,38 @@
+# 缓存与字节码
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# 语音产物（可再生）
+artifacts/
+*.wav
+*.mp3
+
+# 模型与权重
+*.pt
+*.pth
+*.safetensors
+*.bin
+*.onnx
+
+# 音视频与图片
+*.mp4
+*.avi
+*.jpg
+*.png
+
+# 数据库与压缩包
+*.sqlite
+*.db
+*.zip
+
+# 密钥与环境
+.env
+*.key
+*.pem
+
+# 编辑器（.vscode/ 是有意提交的共享配置：任务 / 调试 / 设置 / 扩展建议）
+.idea/
+.vscode/*.log

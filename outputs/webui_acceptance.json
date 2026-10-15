@@ -1,0 +1,72 @@
+{
+  "checked_at": "2026-10-14T06:00:28+00:00",
+  "url": "http://127.0.0.1:8020",
+  "checks": [
+    {
+      "no": 1,
+      "check": "横向无溢出（8 档视口 496~1440px）",
+      "passed": true,
+      "detail": "最大溢出 0px（496px 视口）"
+    },
+    {
+      "no": 2,
+      "check": "触屏可反馈（👍/👎 常驻，不依赖 hover）",
+      "passed": true,
+      "detail": "opacity=1"
+    },
+    {
+      "no": 3,
+      "check": "筛选条件可单独移除",
+      "passed": true,
+      "detail": "可移除 chip 3 个"
+    },
+    {
+      "no": 4,
+      "check": "对比可用（加选 → 底栏 → 字段对照）",
+      "passed": true,
+      "detail": "底栏弹出=True，对照单元格 14 个"
+    },
+    {
+      "no": 5,
+      "check": "状态三重编码（圆点 + 图标 + 文字）",
+      "passed": true,
+      "detail": "徽标同时含圆点与中文=True"
+    },
+    {
+      "no": 6,
+      "check": "内部术语已翻译（可见文本无内部枚举）",
+      "passed": true,
+      "detail": "页面可见文本无内部枚举"
+    },
+    {
+      "no": 7,
+      "check": "失败给出可点击的下一步",
+      "passed": true,
+      "detail": "建议按钮 3 个"
+    },
+    {
+      "no": 8,
+      "check": "运行细节默认折叠",
+      "passed": true,
+      "detail": "折叠块 1 个，默认 display=none"
+    },
+    {
+      "no": 9,
+      "check": "原有能力保留（证据条数 / 详情 / 回到最新）",
+      "passed": true,
+      "detail": "证据标签 3 个，关键组件齐全=True"
+    },
+    {
+      "no": 10,
+      "check": "未新增第三方前端依赖（仍为单文件 + 标准库）",
+      "passed": true,
+      "detail": "无外部 CDN / 无 npm 依赖"
+    }
+  ],
+  "verdict": "PASS",
+  "summary": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0
+  }
+}

@@ -1,0 +1,121 @@
+[
+  {
+    "id": "F-01",
+    "desc": "点赞后排序变化（成功案例）",
+    "user_id": "15547",
+    "query": {
+      "source": "text",
+      "text": "推荐一些家居装饰"
+    },
+    "feedback": {
+      "polarity": "positive",
+      "target": "top1",
+      "via_gesture": true
+    },
+    "expect": "changed"
+  },
+  {
+    "id": "F-02",
+    "desc": "倒赞后目标商品被移除并重排（反向变化）",
+    "user_id": "15547",
+    "query": {
+      "source": "text",
+      "text": "推荐一些家居装饰"
+    },
+    "feedback": {
+      "polarity": "negative",
+      "target": "top1",
+      "via_gesture": true,
+      "confidence": 0.93
+    },
+    "expect": "changed"
+  },
+  {
+    "id": "F-03",
+    "desc": "无变化案例：唯一候选被点赞，TopK 顺序不变",
+    "user_id": "15547",
+    "query": {
+      "source": "text",
+      "text": "4.2以内黑色的文具用品"
+    },
+    "feedback": {
+      "polarity": "positive",
+      "target": "top1",
+      "text": "这个不错"
+    },
+    "expect": "no_change"
+  },
+  {
+    "id": "F-04",
+    "desc": "对照：同一查询下倒赞唯一候选导致结果消失",
+    "user_id": "15547",
+    "query": {
+      "source": "text",
+      "text": "4.2以内黑色的文具用品"
+    },
+    "feedback": {
+      "polarity": "negative",
+      "target": "top1",
+      "text": "这个不行"
+    },
+    "expect": "changed"
+  },
+  {
+    "id": "F-05",
+    "desc": "失败案例：反馈目标商品不存在",
+    "user_id": "15547",
+    "query": {
+      "source": "text",
+      "text": "推荐一些家居装饰"
+    },
+    "feedback": {
+      "polarity": "positive",
+      "target": "NOT-IN-CATALOG",
+      "text": "这个不错"
+    },
+    "expect": "failure"
+  },
+  {
+    "id": "F-06",
+    "desc": "隔离复核：另一用户点赞不应影响本用户会话",
+    "user_id": "14156",
+    "query": {
+      "source": "text",
+      "text": "推荐一些厨房用品"
+    },
+    "feedback": {
+      "polarity": "positive",
+      "target": "top1",
+      "via_gesture": true
+    },
+    "expect": "any"
+  },
+  {
+    "id": "F-07",
+    "desc": "反向变化：点赞首位后，其相似商品因命中场景约束反超，目标反降到第 2",
+    "user_id": "15547",
+    "query": {
+      "source": "text",
+      "text": "只看派对用品"
+    },
+    "feedback": {
+      "polarity": "positive",
+      "target": "top1"
+    },
+    "expect": "any"
+  },
+  {
+    "id": "F-08",
+    "desc": "边界：倒赞一个不在候选池内的商品，TopK 应完全不变",
+    "user_id": "15547",
+    "query": {
+      "source": "text",
+      "text": "500以内的婚礼装饰品"
+    },
+    "feedback": {
+      "polarity": "negative",
+      "target": "23353"
+    },
+    "expect": "any"
+  }
+]

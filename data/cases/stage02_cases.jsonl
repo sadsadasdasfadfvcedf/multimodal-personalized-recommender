@@ -1,0 +1,26 @@
+{"id": "S2-01", "user_id": "15547", "spec": {"source": "text", "text": "帮我推荐一些婚礼用的装饰品"}, "expect": {"status": "ok", "intent": "discover", "slots": {"category": "装饰品", "scene": "婚礼"}}}
+{"id": "S2-02", "user_id": "15547", "spec": {"source": "text", "text": "随便看看有什么好东西"}, "expect": {"status": "ok", "intent": "discover", "slots": {}}}
+{"id": "S2-03", "user_id": "14156", "spec": {"source": "text", "text": "推荐一些厨房用品"}, "expect": {"status": "ok", "intent": "discover", "slots": {"category": "厨房用品"}}}
+{"id": "S2-04", "user_id": "17231", "spec": {"source": "text", "text": "圣诞节想买点装饰，推荐一下"}, "expect": {"status": "ok", "intent": "discover", "slots": {"scene": "圣诞"}}}
+{"id": "S2-05", "user_id": "15547", "spec": {"source": "visual", "text": "推荐一些白色的家居装饰", "visual_tags": [{"tag": "白色桌面", "confidence": 0.9}]}, "expect": {"status": "ok", "intent": "discover", "slots": {"category": "家居装饰", "colors": ["白色"]}}}
+{"id": "S2-06", "user_id": "15547", "spec": {"source": "text", "text": "500以内的白色相框"}, "expect": {"status": "ok", "intent": "filter", "slots": {"budget_max": 500.0, "colors": ["白色"], "category": "家居装饰"}}}
+{"id": "S2-07", "user_id": "14156", "spec": {"source": "text", "text": "预算200的杯子"}, "expect": {"status": "ok", "intent": "filter", "slots": {"budget_max": 200.0, "category": "厨房用品"}}}
+{"id": "S2-08", "user_id": "17231", "spec": {"source": "text", "text": "大约30英镑的礼物"}, "expect": {"status": "ok", "intent": "filter", "slots": {"budget_min": 25.5, "budget_max": 34.5}}}
+{"id": "S2-09", "user_id": "15547", "spec": {"source": "text", "text": "只看黑色的收纳用品"}, "expect": {"status": "ok", "intent": "filter", "slots": {"colors": ["黑色"], "category": "收纳用品"}}}
+{"id": "S2-10", "user_id": "14156", "spec": {"source": "text", "text": "价格50以上的厨具"}, "expect": {"status": "ok", "intent": "filter", "slots": {"budget_min": 50.0}}}
+{"id": "S2-11", "user_id": "17231", "spec": {"source": "visual", "text": "不超过20英镑的粉色装饰", "visual_tags": [{"tag": "粉色", "confidence": 0.88}]}, "expect": {"status": "ok", "intent": "filter", "slots": {"budget_max": 20.0, "colors": ["粉色"]}}}
+{"id": "S2-12", "user_id": "15547", "focus_item_id": "85123A", "spec": {"source": "text", "text": "和这个相似的商品"}, "expect": {"status": "ok", "intent": "similar", "slots": {"target": "85123A"}}}
+{"id": "S2-13", "user_id": "15547", "focus_item_id": "71053", "spec": {"source": "vision", "text": "找类似的", "visual_tags": [{"tag": "金属灯笼", "confidence": 0.92}]}, "expect": {"status": "ok", "intent": "similar", "slots": {"target": "71053"}}}
+{"id": "S2-14", "user_id": "15547", "spec": {"source": "text", "text": "和这个相似的商品"}, "expect": {"status": "clarification", "intent": "similar", "missing": ["target"]}}
+{"id": "S2-15", "user_id": "15547", "focus_item_id": "85123A", "spec": {"source": "text", "text": "对比一下这两个"}, "expect": {"status": "clarification", "intent": "compare"}}
+{"id": "S2-16", "user_id": "15547", "focus_item_id": "85123A", "spec": {"source": "text", "text": "比较一下 奶油色悬挂心形茶烛台 和 白色摩洛哥金属灯笼 哪个好"}, "expect": {"status": "ok", "intent": "compare", "slots": {"targets": ["85123A", "71053"]}}}
+{"id": "S2-17", "user_id": "15547", "focus_item_id": "85123A", "spec": {"source": "text", "text": "为什么推荐这个"}, "expect": {"status": "ok", "intent": "explain", "slots": {"target": "85123A"}}}
+{"id": "S2-18", "user_id": "15547", "spec": {"source": "text", "text": "给我解释一下推荐理由"}, "expect": {"status": "clarification", "intent": "explain"}}
+{"id": "S2-19", "user_id": "15547", "focus_item_id": "85123A", "spec": {"source": "gesture", "gesture": {"name": "thumbs_up", "confidence": 0.92}}, "expect": {"status": "ok", "intent": "feedback", "slots": {"polarity": "positive"}}}
+{"id": "S2-20", "user_id": "15547", "focus_item_id": "85123A", "spec": {"source": "gesture", "gesture": {"name": "thumbs_down", "confidence": 0.88}}, "expect": {"status": "ok", "intent": "feedback", "slots": {"polarity": "negative"}}}
+{"id": "S2-21", "user_id": "17231", "focus_item_id": "71053", "spec": {"source": "text", "text": "这个不错，我喜欢"}, "expect": {"status": "ok", "intent": "feedback", "slots": {"polarity": "positive"}}}
+{"id": "S2-22", "user_id": "14156", "focus_item_id": "84970S", "spec": {"source": "text", "text": "这个太贵了不喜欢"}, "expect": {"status": "ok", "intent": "feedback", "slots": {"polarity": "negative"}}}
+{"id": "S2-23", "user_id": "15547", "spec": {"source": "text", "text": "1000以上500以内的东西"}, "expect": {"status": "conflict", "conflicts": ["budget_range"]}}
+{"id": "S2-24", "user_id": "15547", "spec": {"source": "vision", "visual_tags": [{"tag": "模糊物体", "confidence": 0.2}]}, "expect": {"status": "error"}}
+{"id": "S2-25", "user_id": "15547", "spec": {"source": "voice", "text": " "}, "expect": {"status": "error"}}
+{"id": "S2-26", "user_id": "15547", "spec": {"source": "text", "text": "撤销上一步"}, "expect": {"status": "ok", "control": "undo"}}
