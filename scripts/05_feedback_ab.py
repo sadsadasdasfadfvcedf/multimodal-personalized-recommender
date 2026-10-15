@@ -193,6 +193,13 @@ def main() -> int:
             "session_preference": settings.RANKING_CONFIG["session_preference"],
             "compare_metric": settings.FEEDBACK_CONFIG["ab"]["compare_metric"],
         },
+        "summary": {
+            "total": perf["cases"],
+            "passed": perf["passed"],
+            "failed": perf["failed"],
+            "pass_rate": round(perf["passed"] / perf["cases"], 4) if perf["cases"] else 0.0,
+            "by_type": _by_type(records),
+        },
         "case_type_summary": _by_type(records),
         "degradation_records": [
             {

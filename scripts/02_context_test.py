@@ -323,6 +323,16 @@ def main() -> int:
             "约束冲突可检测": any((r["actual"] or {}).get("status") == "conflict" for r in results),
             "20条样例通过率不低于80%": (passed / total) >= PASS_THRESHOLD if total else False,
         },
+        "summary": {
+            "total": total + len(session_results),
+            "passed": passed + session_passed,
+            "failed": (total - passed) + (len(session_results) - session_passed),
+            "pass_rate": round((passed + session_passed) / (total + len(session_results)), 4)
+            if (total + len(session_results))
+            else 0.0,
+            "intent_cases": {"total": total, "passed": passed},
+            "session_checks": {"total": len(session_results), "passed": session_passed},
+        },
         "error_cases": error_cases,
         "root_cause_analysis": [
             {

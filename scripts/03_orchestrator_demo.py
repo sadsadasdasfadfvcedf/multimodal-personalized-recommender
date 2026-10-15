@@ -235,6 +235,20 @@ def main() -> int:
         "故障降级（单路超时不影响主链路）": timeout_ok and degraded_ok,
     }
 
+    # 逐场景期望判定：summary 与 acceptance_checklist 同源，都落在真实返回值上
+    expect_ok = {
+        "NORMAL": normal["status"] == "ok" and bool(normal["recommendations"]),
+        "EMPTY": empty["status"] == "empty" and empty["error"] is not None,
+        "DEGRADED": bool(degraded["ranking"].get("degraded")) and bool(degraded["ranking"].get("degrade_reason")),
+        "TIMEOUT": timeout_ok,
+    }
+    demo["summary"] = {
+        "total": len(expect_ok),
+        "passed": sum(1 for v in expect_ok.values() if v),
+        "failed": sum(1 for v in expect_ok.values() if not v),
+        "verdict": "PASS" if all(expect_ok.values()) else "FAIL",
+        "by_scenario": expect_ok,
+    }
     demo["timeout_and_degradation_notes"] = {
         "超时口径": "适配器调用统一走 AdapterBase.guard；HTTP 层超时 → E_TIMEOUT；"
         "单路召回失败只影响该路，其余来源继续，最终结果在 trace.degradations 中留痕。",

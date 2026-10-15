@@ -4,12 +4,12 @@
   "env_check.json": "7254e3168cbe103ab55a60683f80cd159128f26c4194f5426276029c3e500cff",
   "stage01_contract_report.json": "71fd011d81116e45c88eae888d38301239a03a1837234aa1e26b0b53a4b9e4bd",
   "stage02_context_cases.jsonl": "95877191ff33ea236b4f5d4ebfdc826590066cbe51f7bb3638dfe1dbfa5a8ba6",
-  "stage02_context_metrics.json": "aa456e29214abcd0fffcaf30f9d5c6a97bfee91e976a83f58da43d33c3f01233",
-  "stage03_demo.json": "511cd1a747fbc3879fe7ab8b98ada31bef4e9569372390734bfbc9716b8d51e2",
+  "stage02_context_metrics.json": "4a61c9c258b418433652fdd524a201ddaa0fcafe4d601625cd643636cc57a89b",
+  "stage03_demo.json": "2c108eaff0d1b8a0624c15df35ff1a7844452bc9ae42bc41653248796b93a2a8",
   "stage03_traces.jsonl": "e0b747e8bc9887624cdbff2df0a0fa6a2db4ba59b72ee1e0432f7871d0d9e97d",
   "stage04_explanation_cases.jsonl": "abf1f3c7df262461e92abec28a4fc266f7fbab3b92a331f4f484714725add92f",
   "stage04_explanations.json": "863fd1822247214b60167298b376b644d54ba6a5431082ae0f9b5e56eea60869",
-  "stage05_feedback_ab.json": "8828334d533d0b4e0ad3540bdca835bea843f128b8942197410a96be1ca4a890",
-  "stage06_acceptance.json": "98417f68a23681d0c1e097f32b07a2e1c64ef1d7196d0e406120fccc8f38b736",
-  "text_norm_check.json": "a6c207f180deb2cacd58ac428605cb922c616bc0d8e89af2750d9afb44b19558"
+  "stage05_feedback_ab.json": "14da9ea5ddfbcf8e3d724dff15aaca91e190bac414f9b30001f576bd49d1bea2",
+  "stage06_acceptance.json": "2e7d231aec5ba7857b20da739a64e26d700b8dcb8925df9a5ddba738b4e95bdd",
+  "text_norm_check.json": "6b18a1b08b4c18f42a432457abe8ba22072419f7433fb921c0c35e16a02afff8"
 }

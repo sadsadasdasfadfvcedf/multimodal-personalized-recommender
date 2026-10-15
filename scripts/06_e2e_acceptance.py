@@ -258,6 +258,25 @@ def main() -> int:
         and scenarios[6]["result"]["error"]["code"] == ErrorCode.EMPTY_TRANSCRIPT.value
     )
 
+    def _scenario_verdict(sc: dict) -> bool:
+        """逐场景期望判定：与 acceptance_checklist 同源，都落在真实返回值上。"""
+        res = sc["result"]
+        sid = res.get("scenario_id")
+        if sc["chain"] in ("voice", "vision", "gesture"):
+            return res.get("status") in ("ok", "degraded") and bool(res.get("recommendations"))
+        if sid == "FAULT-01":
+            return res.get("active_mode") in ("local_artifacts", "offline_snapshot")
+        if sid == "FAULT-02":
+            return bool(res.get("failed_sources"))
+        if sid == "FAULT-03":
+            return (res.get("presentation") or {}).get("voice_available") is False
+        if sid == "FAULT-04":
+            return (res.get("error") or {}).get("code") == ErrorCode.EMPTY_TRANSCRIPT.value
+        return False
+
+    verdicts = {sc["result"].get("scenario_id") or sc["desc"]: _scenario_verdict(sc) for sc in scenarios}
+    passed_cases = sum(1 for v in verdicts.values() if v)
+
     report = {
         "stage": "06",
         "title": "系统联调、故障降级、隐私安全与验收记录",
@@ -275,6 +294,14 @@ def main() -> int:
         "package_manifest": {k: v for k, v in manifest.items() if k != "files"},
         "degradation_matrix": settings.DEGRADATION_MATRIX,
         "scenario_types": _by_kind(scenarios),
+        "summary": {
+            "total": len(verdicts),
+            "passed": passed_cases,
+            "failed": len(verdicts) - passed_cases,
+            "pass_rate": round(passed_cases / len(verdicts), 4) if verdicts else 0.0,
+            "verdict": "PASS" if all(verdicts.values()) else "FAIL",
+            "by_scenario": verdicts,
+        },
         "acceptance_checklist": {
             "三类输入链路可运行": chain_ok and chain_runnable,
             "成功/边界/失败三类用例齐备": {"成功", "边界", "失败"} <= set(_by_kind(scenarios)),

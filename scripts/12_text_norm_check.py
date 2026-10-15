@@ -143,6 +143,18 @@ def main() -> int:
         "failed": total - passed,
         "pass_rate": round(passed / total, 4) if total else 0.0,
     }
+    by_id = {r["case_id"]: r["passed"] for r in RESULTS}
+
+    def _all(*ids: str) -> bool:
+        return all(by_id.get(i, False) for i in ids)
+
+    report["acceptance_checklist"] = {
+        "用例全部通过（failed=0）": total > 0 and passed == total,
+        "繁简判定与转换": _all("T-01", "T-02", "T-03"),
+        "中英混排规范化与门控": _all("T-04", "T-05", "T-06b", "T-06c"),
+        "无转换器时安全降级": _all("T-07"),
+        "循环复读截断且不误伤正常文本": _all("T-08", "T-09"),
+    }
     path = write_json(settings.PATHS["outputs"] / "text_norm_check.json", report)
 
     for r in RESULTS:
