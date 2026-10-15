@@ -34,7 +34,7 @@ from .rag import KnowledgeBase
 from .ranking import rank
 from .recall import recall
 from .session import SessionContext, SessionStore, Turn
-from .utils import Timer, contains_any, new_trace_id, now_iso, stable_key
+from .utils import Timer, contains_any, new_trace_id, now_iso, stable_hash_int, stable_key
 
 LEX = settings.SLOT_LEXICON
 EXPLAIN_TOP_N = 3
@@ -687,7 +687,7 @@ class Orchestrator:
         return ok(
             {
                 "schema_version": "1.0.0",
-                "trace_id": f"tr-error-{abs(hash(stable_key(session.session_id, source))) % 10**12:012d}",
+                "trace_id": f"tr-error-{stable_hash_int(session.session_id, source):012d}",
                 "user_id": session.user_id,
                 "timestamp": now_iso(),
                 "source": source,

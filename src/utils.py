@@ -33,6 +33,16 @@ def new_trace_id(seed_hint: str | None = None) -> str:
     return f"{TRACE_PREFIX}-{uuid.uuid4().hex[:16]}"
 
 
+def stable_hash_int(*parts: str, mod: int = 10**12) -> int:
+    """跨进程稳定的数值摘要（用于必须可复现的派生 ID）。
+
+    为什么不能用内置 hash()：str.__hash__ 受 PYTHONHASHSEED 随机化影响，
+    同一输入在不同进程会得到不同结果 —— 会让证据与文档失去可复现性。
+    """
+    digest = hashlib.sha1("\x1f".join(parts).encode("utf-8")).hexdigest()
+    return int(digest, 16) % mod
+
+
 def now_iso() -> str:
     """当前时间（UTC，ISO8601，秒级）。"""
     return datetime.now(UTC).replace(microsecond=0).isoformat()

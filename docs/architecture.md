@@ -249,12 +249,12 @@ flowchart TD
   ],
   "latency_ms": {
     "event_ms": 0.074,
-    "intent_ms": 0.754,
-    "recall_ms": 2.076,
-    "rank_ms": 0.391,
-    "present_ms": 0.026,
-    "dispatch_ms": 3.067,
-    "total_ms": 4.243
+    "intent_ms": 0.704,
+    "recall_ms": 2.17,
+    "rank_ms": 0.509,
+    "present_ms": 0.025,
+    "dispatch_ms": 3.278,
+    "total_ms": 4.301
   }
 }
 ```
@@ -391,7 +391,7 @@ flowchart TD
       }
     ]
   },
-  "trace_id": "tr-error-738058814484",
+  "trace_id": "tr-error-758299321885",
   "status": "error",
   "error": {
     "code": "E_INVALID_INPUT",
