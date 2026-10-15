@@ -109,3 +109,20 @@ def test_english_keywords_match_regardless_of_case(categories):
     lower, _ = _intent_of(_event("recommend something"), categories)
     upper, _ = _intent_of(_event("RECOMMEND SOMETHING"), categories)
     assert lower == upper == "discover"
+
+
+def test_category_scene_conflict_is_detected(categories):
+    """回归锁：这条冲突检测曾把 Slot 对象直接与字符串比较（`scene in ("厨房",)`），
+    条件恒为 False，导致 category_scene 冲突实际上从未触发过 —— 属于「功能静默失效」。
+    正确写法是比对 scene.value。"""
+    _, slots = _intent_of(_event("厨房用的装饰品"), categories)
+    conflict_ids = [c["id"] for c in intent.detect_conflicts(slots)]
+    assert "category_scene" in conflict_ids, f"未触发冲突，实际={conflict_ids}"
+
+
+def test_category_scene_conflict_does_not_over_fire(categories):
+    """修复后不得产生误报。"""
+    for text in ("客厅的装饰品", "厨房的锅"):
+        _, slots = _intent_of(_event(text), categories)
+        conflict_ids = [c["id"] for c in intent.detect_conflicts(slots)]
+        assert "category_scene" not in conflict_ids, f"{text} 误报冲突：{conflict_ids}"

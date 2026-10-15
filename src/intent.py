@@ -372,10 +372,13 @@ def extract_slots(
         slots["polarity"] = Slot(
             "polarity", polarity, confidence=0.9 if gesture.get("is_feedback") else 0.7, evidence=[evidence]
         )
-        target = slots.get("target")
-        if target:
+        target_slot = slots.get("target")
+        if target_slot:
             slots["feedback_target"] = Slot(
-                "feedback_target", target.value, confidence=target.confidence, evidence=["反馈指向会话焦点商品"]
+                "feedback_target",
+                target_slot.value,
+                confidence=target_slot.confidence,
+                evidence=["反馈指向会话焦点商品"],
             )
         elif focus_item_id:
             slots["feedback_target"] = Slot(
@@ -397,6 +400,7 @@ def _resolve_ordinal_target(text: str, session_items: list[str] | None) -> str |
     if not match:
         return None
     raw = match.group(1)
+    index: int | None
     if raw.isdigit():
         index = int(raw)
     else:
@@ -485,7 +489,7 @@ def detect_conflicts(slots: dict[str, Slot]) -> list[dict]:
         )
     cat = slots.get("category")
     scene = slots.get("scene")
-    if cat and scene in ("厨房",) and cat.value in ("装饰品", "购物袋"):
+    if cat and scene is not None and scene.value in ("厨房",) and cat.value in ("装饰品", "购物袋"):
         conflicts.append(
             {
                 "id": "category_scene",

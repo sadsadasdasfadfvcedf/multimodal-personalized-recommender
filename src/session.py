@@ -271,8 +271,12 @@ class SessionContext:
         return ok({"item_id": item_id, "removed": removed})
 
     # ---------------- 偏好信号 ----------------
-    def preference_signal(self, item_id: str, category: str) -> dict[str, float]:
-        """返回某商品的会话偏好分数（正=加分，负=减分）与原因。"""
+    def preference_signal(self, item_id: str, category: str) -> dict[str, Any]:
+        """返回某商品的会话偏好分数（正=加分，负=减分）与原因。
+
+        返回 {"score": float, "reasons": list[str]} —— 值类型不齐，
+        原先标注为 dict[str, float] 与事实不符（reasons 是列表）。
+        """
         cfg = settings.RANKING_CONFIG["session_preference"]
         score = 0.0
         reasons: list[str] = []

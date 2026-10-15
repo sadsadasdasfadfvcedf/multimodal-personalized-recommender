@@ -67,12 +67,15 @@ def classify_case(before_ids: list[str], after_ids: list[str], target: str, pola
     before_rank = before_ids.index(target) + 1 if target in before_ids else None
     after_rank = after_ids.index(target) + 1 if target in after_ids else None
 
-    if before_rank is not None and after_rank is None:
-        actual = "removed"
-    elif before_rank is None and after_rank is not None:
-        actual = "entered"
-    elif before_rank is None and after_rank is None:
-        actual = "absent"
+    # 先穷尽所有「含 None」的组合，随后分支里两值必然非 None —— 这样写
+    # 既让 mypy 能收窄类型，也把不变量摆在明面上。
+    if before_rank is None or after_rank is None:
+        if before_rank is not None:
+            actual = "removed"
+        elif after_rank is not None:
+            actual = "entered"
+        else:
+            actual = "absent"
     elif after_rank < before_rank:
         actual = "up"
     elif after_rank > before_rank:
@@ -178,6 +181,7 @@ def run_ab(
     # B: 写入反馈并重新排序
     # 模拟「用户指认目标商品」这一步（等价于前端点击某件商品），再发送反馈。
     session_ctx = orchestrator.store.get(session_a)
+    assert session_ctx is not None, "会话 A 应已在前面创建"  # 不存在则是调用方的逻辑错误，早炸早好
     session_ctx.focus_item_id = target
     if target not in session_ctx.last_item_ids:
         session_ctx.last_item_ids = [target, *session_ctx.last_item_ids]

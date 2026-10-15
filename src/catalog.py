@@ -253,7 +253,10 @@ class Catalog:
         ids = self._cat_top.get(category)
         if ids:
             return [i for i in ids[:k] if i in self.catalog]
-        return [i for i in self.catalog.values() if i["category"] == category][:k]
+        # 注意：这里必须迭代 items() 取 key（商品 ID），与 global_top 的 fallback 保持一致。
+        # 曾误用 values()，导致「不在 _cat_top 里的类目」（如 玩具/饰品）返回商品 dict 而非 ID，
+        # 调用方 recommender_adapter 拿它当 ID 用时抛 TypeError: unhashable type: 'dict'。
+        return [i for i, p in self.catalog.items() if p["category"] == category][:k]
 
     def purchased(self, user_id: str) -> set[str]:
         payload = self.history.get(str(user_id), {}) or {}

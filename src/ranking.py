@@ -124,21 +124,23 @@ def hard_filter(
                     "reason": "已排除（已购/本会话负反馈/请求显式排除）",
                 }
             )
-        for c in applicable:
-            if c["field"] == "price":
+        # 变量名用 spec 而非 c：上面那个循环里的 c 是 Constraint，
+        # 复用同名会让 mypy 误判类型（运行时无害，但掩盖真实类型错误）。
+        for spec in applicable:
+            if spec["field"] == "price":
                 if price is None:
-                    reasons.append({"constraint": c, "reason": "商品无价格，无法核验预算"})
-                elif c["op"] == "lte" and float(price) > float(c["value"]) + 1e-9:
-                    reasons.append({"constraint": c, "reason": f"价格 {price} > 上限 {c['value']}"})
-                elif c["op"] == "gte" and float(price) < float(c["value"]) - 1e-9:
-                    reasons.append({"constraint": c, "reason": f"价格 {price} < 下限 {c['value']}"})
-            elif c["field"] == "category":
-                if category != c["value"]:
-                    reasons.append({"constraint": c, "reason": f"类目 {category} ≠ {c['value']}"})
-            elif c["field"] == "color":
-                wanted = _color_words(list(c["value"] or []))
+                    reasons.append({"constraint": spec, "reason": "商品无价格，无法核验预算"})
+                elif spec["op"] == "lte" and float(price) > float(spec["value"]) + 1e-9:
+                    reasons.append({"constraint": spec, "reason": f"价格 {price} > 上限 {spec['value']}"})
+                elif spec["op"] == "gte" and float(price) < float(spec["value"]) - 1e-9:
+                    reasons.append({"constraint": spec, "reason": f"价格 {price} < 下限 {spec['value']}"})
+            elif spec["field"] == "category":
+                if category != spec["value"]:
+                    reasons.append({"constraint": spec, "reason": f"类目 {category} ≠ {spec['value']}"})
+            elif spec["field"] == "color":
+                wanted = _color_words(list(spec["value"] or []))
                 if wanted and not any(w.lower() in title.lower() for w in wanted):
-                    reasons.append({"constraint": c, "reason": f"标题未命中颜色 {sorted(wanted)}"})
+                    reasons.append({"constraint": spec, "reason": f"标题未命中颜色 {sorted(wanted)}"})
         if reasons:
             dropped.append(
                 {

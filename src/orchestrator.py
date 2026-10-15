@@ -641,8 +641,12 @@ class Orchestrator:
         self, event, session: SessionContext, timer: Timer, result: Result, spec: dict
     ) -> Result:
         error = result.error
-        code = error.code.value if error else ErrorCode.INTERNAL_ERROR.value
-        context = error.context if error else {}
+        # AppError.code 声明为 ErrorCode | str（__post_init__ 已归一，这里做兜底取值）
+        code = ErrorCode.INTERNAL_ERROR.value
+        context: dict = {}
+        if error is not None:
+            code = error.code.value if isinstance(error.code, ErrorCode) else str(error.code)
+            context = error.context or {}
         status = "conflict" if code == ErrorCode.CONSTRAINT_CONFLICT.value else "clarification"
         question = context.get("clarification") or (error.message if error else "")
         session.set_clarification(question)

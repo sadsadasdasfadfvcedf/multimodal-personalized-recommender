@@ -17,7 +17,9 @@ from __future__ import annotations
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from config import settings
 
@@ -141,7 +143,7 @@ def synthesize(text: str, *, out_dir: Path | None = None, voice: str | None = No
     if not text.strip():
         return {"available": False, "path": None, "engine": None, "error": "待合成文本为空", "bytes": 0}
 
-    attempts: list[tuple[str, Path, callable]] = []
+    attempts: list[tuple[str, Path, Callable[[], tuple[bool, Any]]]] = []
     if prefer == "edge-tts":
         attempts.append(("edge-tts", edge_path, lambda: _edge_tts_synthesize(text, edge_path, zh_voice, timeout_s)))
     attempts.append(("windows-sapi", sapi_path, lambda: _sapi_synthesize(text, sapi_path, timeout_s)))
@@ -175,7 +177,7 @@ def present(
     """统一呈现入口：文本 + 可选语音。"""
     text = build_text(items, header=header)
     spoken = build_spoken_text(items, header=header)
-    result = {
+    result: dict[str, Any] = {
         "channel": channel,
         "text": text,
         "spoken_text": spoken,

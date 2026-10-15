@@ -139,8 +139,8 @@ class KnowledgeBase:
                 continue
             text = path.read_text(encoding="utf-8-sig")
             self._docs.append(path.name)
-            for i, chunk in enumerate(self._split(text)):
-                self.chunks.append(_Chunk(f"{path.stem}#{i}", path.name, chunk))
+            for i, piece in enumerate(self._split(text)):
+                self.chunks.append(_Chunk(f"{path.stem}#{i}", path.name, piece))
         for chunk in self.chunks:
             for token in set(chunk.tokens):
                 self._df[token] += 1

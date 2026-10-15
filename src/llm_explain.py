@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 from config import settings
 
@@ -288,7 +289,15 @@ class LlmExplainer:
         self.adapter = adapter
         self.catalog = catalog
         self.enabled = CFG["enabled"] if enabled is None else enabled
-        self.stats = {"attempted": 0, "accepted": 0, "rejected": 0, "errors": 0, "reject_details": []}
+        # 值类型不齐（计数是 int，reject_details 是 list），显式标注为 Any，
+        # 否则 mypy 推断成 dict[str, object]，后续 += 1 / .append() 全部报错。
+        self.stats: dict[str, Any] = {
+            "attempted": 0,
+            "accepted": 0,
+            "rejected": 0,
+            "errors": 0,
+            "reject_details": [],
+        }
 
     def available(self) -> bool:
         return bool(self.enabled and self.adapter is not None and self.adapter.active_mode == "real")
