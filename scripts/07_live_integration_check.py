@@ -15,6 +15,7 @@ scripts/07_live_integration_check.py
 
 输出：outputs/live_integration.json
 """
+
 from __future__ import annotations
 
 import os
@@ -64,8 +65,7 @@ def main() -> int:
         return 0
 
     if not report["credentials_configured"]:
-        report["reason"] = (f"服务可达，但未设置 {http_cfg['username_env']} / "
-                           f"{http_cfg['password_env']}，跳过 HTTP 登录")
+        report["reason"] = f"服务可达，但未设置 {http_cfg['username_env']} / {http_cfg['password_env']}，跳过 HTTP 登录"
         print(f"跳过：{report['reason']}")
         path = write_json(settings.PATHS["outputs"] / "live_integration.json", report)
         print(f"[07_live_integration_check] 证据已写入 {path}")
@@ -84,8 +84,10 @@ def main() -> int:
     report["http_candidates"] = {
         "ok": http_result.ok,
         "count": len(http_result.data) if http_result.ok else 0,
-        "sample": [{"item_id": r["item_id"], "score": r["score"],
-                    "reason": r["detail"].get("reason")} for r in (http_result.data or [])[:5]],
+        "sample": [
+            {"item_id": r["item_id"], "score": r["score"], "reason": r["detail"].get("reason")}
+            for r in (http_result.data or [])[:5]
+        ],
         "error": http_result.error.to_dict() if http_result.error else None,
     }
     print(f"适配器 active_mode={adapter.active_mode}，HTTP 候选 {report['http_candidates']['count']} 条")
@@ -101,22 +103,36 @@ def main() -> int:
     for label, spec in turns:
         result = orch_http.handle(spec, user_id=user, session_id=session_id)
         if not result.ok:
-            report["results"].append({"turn": label, "status": "error",
-                                      "error": result.error.to_dict() if result.error else None})
+            report["results"].append(
+                {"turn": label, "status": "error", "error": result.error.to_dict() if result.error else None}
+            )
             continue
         resp = result.data
-        report["results"].append({
-            "turn": label, "trace_id": resp.get("trace_id"), "status": resp.get("status"),
-            "intent": (resp.get("intent_result") or {}).get("intent"),
-            "top": [{"rank": r.get("rank"), "item_id": r.get("item_id"), "title": r.get("title"),
-                     "price": r.get("price"), "score": r.get("score"), "sources": r.get("sources")}
-                    for r in resp.get("recommendations", [])[:3]],
-            "recall_sources": [{"source": s["source"], "status": s["status"], "count": s["count"]}
-                               for s in ((resp.get("trace") or {}).get("recall") or {}).get("sources", [])],
-            "latency_ms": (resp.get("trace") or {}).get("latency_ms"),
-        })
-        print(f"  [{label}] status={resp.get('status')} "
-              f"top1={(resp.get('recommendations') or [{}])[0].get('title')}")
+        report["results"].append(
+            {
+                "turn": label,
+                "trace_id": resp.get("trace_id"),
+                "status": resp.get("status"),
+                "intent": (resp.get("intent_result") or {}).get("intent"),
+                "top": [
+                    {
+                        "rank": r.get("rank"),
+                        "item_id": r.get("item_id"),
+                        "title": r.get("title"),
+                        "price": r.get("price"),
+                        "score": r.get("score"),
+                        "sources": r.get("sources"),
+                    }
+                    for r in resp.get("recommendations", [])[:3]
+                ],
+                "recall_sources": [
+                    {"source": s["source"], "status": s["status"], "count": s["count"]}
+                    for s in ((resp.get("trace") or {}).get("recall") or {}).get("sources", [])
+                ],
+                "latency_ms": (resp.get("trace") or {}).get("latency_ms"),
+            }
+        )
+        print(f"  [{label}] status={resp.get('status')} top1={(resp.get('recommendations') or [{}])[0].get('title')}")
 
     # 同一查询：HTTP 模式 vs 内置快照模式的对照
     snapshot_orch = Orchestrator(mode="offline", with_voice=False)
@@ -125,12 +141,16 @@ def main() -> int:
     snap_resp = snapshot_orch.handle(query, user_id=user, session_id="live-cmp-snap").data
     report["comparison"] = {
         "query": query,
-        "http": {"mode": http_resp["trace"]["modes"]["recommender"],
-                 "top5": [r["item_id"] for r in http_resp["recommendations"][:5]]},
-        "snapshot": {"mode": snap_resp["trace"]["modes"]["recommender"],
-                     "top5": [r["item_id"] for r in snap_resp["recommendations"][:5]]},
+        "http": {
+            "mode": http_resp["trace"]["modes"]["recommender"],
+            "top5": [r["item_id"] for r in http_resp["recommendations"][:5]],
+        },
+        "snapshot": {
+            "mode": snap_resp["trace"]["modes"]["recommender"],
+            "top5": [r["item_id"] for r in snap_resp["recommendations"][:5]],
+        },
         "note": "两种模式的召回来源与分数口径不同（在线实时接口 vs 离线快照），"
-                "TopK 不完全一致属预期；两者共用同一套排序与解释逻辑。",
+        "TopK 不完全一致属预期；两者共用同一套排序与解释逻辑。",
     }
     print(f"对照：http={report['comparison']['http']['top5']}")
     print(f"      snapshot={report['comparison']['snapshot']['top5']}")

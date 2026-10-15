@@ -10,6 +10,7 @@ scripts/05_feedback_ab.py
 输出：
     outputs/stage05_feedback_ab.json  反馈前后对照表 + 隔离结论 + 性能与失败案例摘要
 """
+
 from __future__ import annotations
 
 from _bootstrap import banner
@@ -55,20 +56,19 @@ def browse_weak_feedback_check(orch) -> dict:
     base_top = _topk(base, 8)
     target = base_top[2]["item_id"] if len(base_top) > 2 else base_top[-1]["item_id"]
     base_score = _scores(base_top, target)
-    viewed = orch.handle({"source": "browse", "item_id": target},
-                         user_id="15547", session_id=sess_a).data
+    viewed = orch.handle({"source": "browse", "item_id": target}, user_id="15547", session_id=sess_a).data
     after_view = _topk(viewed, 8)
     view_score = _scores(after_view, target)
 
     # B：点赞（另一会话，条件完全相同）
     sess_b = "browse-B"
-    base_b = orch.handle(query, user_id="15547", session_id=sess_b).data
+    orch.handle(query, user_id="15547", session_id=sess_b)  # 副作用：建立 B 会话基线
     sess = orch.store.get(sess_b)
     if sess is not None:
         sess.focus_item_id = target
-    liked = orch.handle({"source": "gesture",
-                         "gesture": {"name": "thumbs_up", "confidence": 0.95}},
-                        user_id="15547", session_id=sess_b).data
+    liked = orch.handle(
+        {"source": "gesture", "gesture": {"name": "thumbs_up", "confidence": 0.95}}, user_id="15547", session_id=sess_b
+    ).data
     like_score = _scores(_topk(liked, 8), target)
 
     session_a = orch.store.get(sess_a)
@@ -92,12 +92,17 @@ def browse_weak_feedback_check(orch) -> dict:
             "dislikes_untouched": dict(session_a.dislikes) if session_a else {},
             "viewed_items": dict(session_a.viewed_items) if session_a else {},
         },
-        "结论": ("浏览为弱正反馈：分数上浮但幅度小于点赞，且不改变正负反馈状态"
-                 if (delta_view is not None and delta_like is not None and delta_view < delta_like
-                     and not (session_a.likes if session_a else {}))
-                 else "未达预期，需复查"),
+        "结论": (
+            "浏览为弱正反馈：分数上浮但幅度小于点赞，且不改变正负反馈状态"
+            if (
+                delta_view is not None
+                and delta_like is not None
+                and delta_view < delta_like
+                and not (session_a.likes if session_a else {})
+            )
+            else "未达预期，需复查"
+        ),
     }
-
 
 
 def main() -> int:
@@ -110,9 +115,14 @@ def main() -> int:
     for scenario in scenarios:
         result = run_ab(orch, scenario)
         if not result.ok:
-            records.append({"case_id": scenario["id"], "status": "error",
-                            "error": result.error.to_dict() if result.error else None,
-                            "passed": False})
+            records.append(
+                {
+                    "case_id": scenario["id"],
+                    "status": "error",
+                    "error": result.error.to_dict() if result.error else None,
+                    "passed": False,
+                }
+            )
             print(f"[FAIL] {scenario['id']} 执行失败：{result.error}")
             continue
         data = result.data
@@ -121,11 +131,15 @@ def main() -> int:
         flag = "PASS" if data.get("passed") else "FAIL"
         comp = data["comparison"]
         print(f"[{flag}] {scenario['id']} {scenario['desc']}")
-        print(f"       反馈：{data['feedback']['polarity']} → {data['feedback'].get('target_title', data['feedback']['target'])}")
-        print(f"       对照：类型={data.get('case_type')} order_changed={comp['order_changed']} "
-              f"max_delta={comp['max_abs_delta']} "
-              f"目标 {(data.get('case') or {}).get('target_rank_before')}→"
-              f"{(data.get('case') or {}).get('target_rank_after')}")
+        print(
+            f"       反馈：{data['feedback']['polarity']} → {data['feedback'].get('target_title', data['feedback']['target'])}"
+        )
+        print(
+            f"       对照：类型={data.get('case_type')} order_changed={comp['order_changed']} "
+            f"max_delta={comp['max_abs_delta']} "
+            f"目标 {(data.get('case') or {}).get('target_rank_before')}→"
+            f"{(data.get('case') or {}).get('target_rank_after')}"
+        )
         print(f"       进入 TopK：{comp['entered']}")
         print(f"       离开 TopK：{comp['left']}")
         print(f"       隔离复核：{data['isolation_check']['conclusion']}")
@@ -147,17 +161,19 @@ def main() -> int:
         "passed": sum(1 for r in records if r.get("passed")),
         "failed": sum(1 for r in records if not r.get("passed")),
         "failure_cases": [
-            {"case_id": r["case_id"], "status": r.get("status"),
-             "error": r.get("error"), "desc": r.get("desc")}
-            for r in records if not r.get("passed")],
+            {"case_id": r["case_id"], "status": r.get("status"), "error": r.get("error"), "desc": r.get("desc")}
+            for r in records
+            if not r.get("passed")
+        ],
         "error_cases": [
-            {"case_id": r["case_id"], "status": r.get("status"),
-             "error": r.get("error"), "desc": r.get("desc")}
-            for r in records if r.get("status") == "error"],
-        "no_change_cases": [r["case_id"] for r in records
-                            if r.get("comparison") and not r["comparison"]["order_changed"]],
-        "isolation_all_clean": all(
-            r["isolation_check"].get("identical_to_before") in (True, None) for r in records),
+            {"case_id": r["case_id"], "status": r.get("status"), "error": r.get("error"), "desc": r.get("desc")}
+            for r in records
+            if r.get("status") == "error"
+        ],
+        "no_change_cases": [
+            r["case_id"] for r in records if r.get("comparison") and not r["comparison"]["order_changed"]
+        ],
+        "isolation_all_clean": all(r["isolation_check"].get("identical_to_before") in (True, None) for r in records),
         "orchestrator_call_log": orch.recommender.call_report(),
         "latency_ms": {
             "samples": len(latencies),
@@ -177,45 +193,64 @@ def main() -> int:
         },
         "case_type_summary": _by_type(records),
         "degradation_records": [
-            {"case_id": r["case_id"], "after_status": r["degradations"]["after_status"],
-             "degraded": r["degradations"]["after_degraded"],
-             "degrade_reason": r["degradations"]["after_degrade_reason"],
-             "adapter_degradations": {
-                 "before": (r["degradations"]["before"] or {}),
-                 "after": (r["degradations"]["after"] or {}),
-             }}
-            for r in records if r.get("degradations")],
+            {
+                "case_id": r["case_id"],
+                "after_status": r["degradations"]["after_status"],
+                "degraded": r["degradations"]["after_degraded"],
+                "degrade_reason": r["degradations"]["after_degrade_reason"],
+                "adapter_degradations": {
+                    "before": (r["degradations"]["before"] or {}),
+                    "after": (r["degradations"]["after"] or {}),
+                },
+            }
+            for r in records
+            if r.get("degradations")
+        ],
         "pool_signatures": [
             {"case_id": r["case_id"], "pool_signature": r.get("pool_signature")}
-            for r in records if r.get("pool_signature")],
+            for r in records
+            if r.get("pool_signature")
+        ],
         "comparison_table": [
-            {"case_id": r["case_id"], "desc": r.get("desc"), "polarity": r["feedback"]["polarity"],
-             "case_type": r.get("case_type"),
-             "target_rank_before": (r.get("case") or {}).get("target_rank_before"),
-             "target_rank_after": (r.get("case") or {}).get("target_rank_after"),
-             "target": r["feedback"].get("target_title", r["feedback"]["target"]),
-             "before_topk": [x["item_id"] for x in r["before"]["topk"]],
-             "after_topk": [x["item_id"] for x in r["after"]["topk"]],
-             "order_changed": r["comparison"]["order_changed"],
-             "max_score_delta": r["comparison"]["max_abs_delta"],
-             "entered": r["comparison"]["entered"], "left": r["comparison"]["left"],
-             "explanation": "；".join(r["ranking_change_explanations"])}
-            for r in records if r.get("comparison")],
+            {
+                "case_id": r["case_id"],
+                "desc": r.get("desc"),
+                "polarity": r["feedback"]["polarity"],
+                "case_type": r.get("case_type"),
+                "target_rank_before": (r.get("case") or {}).get("target_rank_before"),
+                "target_rank_after": (r.get("case") or {}).get("target_rank_after"),
+                "target": r["feedback"].get("target_title", r["feedback"]["target"]),
+                "before_topk": [x["item_id"] for x in r["before"]["topk"]],
+                "after_topk": [x["item_id"] for x in r["after"]["topk"]],
+                "order_changed": r["comparison"]["order_changed"],
+                "max_score_delta": r["comparison"]["max_abs_delta"],
+                "entered": r["comparison"]["entered"],
+                "left": r["comparison"]["left"],
+                "explanation": "；".join(r["ranking_change_explanations"]),
+            }
+            for r in records
+            if r.get("comparison")
+        ],
         "isolation_checks": [
-            {"case_id": r["case_id"], "identical_to_before": r["isolation_check"].get("identical_to_before"),
-             "conclusion": r["isolation_check"].get("conclusion")}
-            for r in records if r.get("isolation_check")],
+            {
+                "case_id": r["case_id"],
+                "identical_to_before": r["isolation_check"].get("identical_to_before"),
+                "conclusion": r["isolation_check"].get("conclusion"),
+            }
+            for r in records
+            if r.get("isolation_check")
+        ],
         "browse_weak_feedback": browse_check,
         "performance_and_failures": perf,
         "acceptance_checklist": {
-            "反馈后排序变化可解释": all(bool(r.get("ranking_change_explanations")) for r in records
-                                        if r.get("comparison")),
+            "反馈后排序变化可解释": all(
+                bool(r.get("ranking_change_explanations")) for r in records if r.get("comparison")
+            ),
             "负反馈不会永久污染其他会话": perf["isolation_all_clean"],
             "对照口径一致": True,
             "至少包含一个无变化或失败案例": bool(perf["no_change_cases"]) or bool(perf["failure_cases"]),
             "成功/无变化/反向变化三类案例齐备": _has_three_types(records),
-            "继续浏览类反馈写入会话偏好": bool(browse_check["browse_record"])
-            and browse_check["view_weaker_than_like"],
+            "继续浏览类反馈写入会话偏好": bool(browse_check["browse_record"]) and browse_check["view_weaker_than_like"],
         },
         "records": records,
     }
@@ -226,11 +261,15 @@ def main() -> int:
         print(f"  [{'PASS' if value else 'FAIL'}] {key}")
     print("\n【继续浏览】弱反馈验证：")
     print(f"  目标：{browse_check['target_title']}（{browse_check['target_item']}）")
-    print(f"  基础分 {browse_check['base_score']} → 浏览后 {browse_check['score_after_view']}"
-          f"（Δ{browse_check['delta_view']}） → 点赞后 {browse_check['score_after_like']}"
-          f"（Δ{browse_check['delta_like']}）")
-    print(f"  浏览弱于点赞：{browse_check['view_weaker_than_like']} | "
-          f"likes 未被污染：{not browse_check['analysis']['likes_untouched']} | {browse_check['结论']}")
+    print(
+        f"  基础分 {browse_check['base_score']} → 浏览后 {browse_check['score_after_view']}"
+        f"（Δ{browse_check['delta_view']}） → 点赞后 {browse_check['score_after_like']}"
+        f"（Δ{browse_check['delta_like']}）"
+    )
+    print(
+        f"  浏览弱于点赞：{browse_check['view_weaker_than_like']} | "
+        f"likes 未被污染：{not browse_check['analysis']['likes_untouched']} | {browse_check['结论']}"
+    )
     print("\n案例类型分布：")
     for t, v in report["case_type_summary"].items():
         print(f"  {t}: {v['count']} 个 {v['cases']}")

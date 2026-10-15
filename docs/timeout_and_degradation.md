@@ -2,7 +2,7 @@
 
 > 阶段3 提交物 · 由 scripts/08_gen_docs.py 从证据文件自动生成，请勿手工编辑
 
-- 生成时间：2026-10-15T05:55:21+00:00
+- 生成时间：2026-10-15T06:01:40+00:00
 - 数据来源：outputs/stage03_demo.json、outputs/stage03_traces.jsonl
 - 重新生成：先执行对应阶段脚本，再执行 python scripts/08_gen_docs.py
 
@@ -10,10 +10,10 @@
 
 | 场景 | 状态 | 返回条数 | 端到端耗时 | 硬约束与降级 |
 |---|---|---|---|---|
-| NORMAL | ok | 8 | 3.729 ms | 淘汰 91 / 降级 False |
-| EMPTY | empty | 0 | 0.98 ms | — |
-| DEGRADED | degraded | 8 | 3.934 ms | 淘汰 120 / 降级 True |
-| TIMEOUT | ok | 8 | 3.129 ms | 淘汰 0 / 降级 False |
+| NORMAL | ok | 8 | 4.142 ms | 淘汰 91 / 降级 False |
+| EMPTY | empty | 0 | 0.784 ms | — |
+| DEGRADED | degraded | 8 | 4.449 ms | 淘汰 120 / 降级 True |
+| TIMEOUT | ok | 8 | 3.626 ms | 淘汰 0 / 降级 False |
 
 ## 2. 超时口径
 

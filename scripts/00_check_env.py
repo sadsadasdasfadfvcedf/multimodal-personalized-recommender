@@ -13,6 +13,7 @@ scripts/00_check_env.py
 
 输出：outputs/env_check.json
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -55,15 +56,16 @@ def main() -> int:
 
     # 5) 依赖
     report["dependencies"] = {
-        name: ("available" if importlib.util.find_spec(name) is not None else "missing")
-        for name in DEPS
+        name: ("available" if importlib.util.find_spec(name) is not None else "missing") for name in DEPS
     }
 
     print(f"项目根目录      : {settings.PROJECT_ROOT}")
     print(f"运行模式        : {settings.RUNTIME['mode']}（allow_real_models={settings.RUNTIME['allow_real_models']}）")
     print(f"推荐系统根目录  : {settings.RECOMMENDER_ROOT}")
     print(f"多模态助手根目录: {settings.MULTIMODAL_ROOT}")
-    print(f"离线快照        : 商品 {catalog.size()} 件 / 用户 {len(catalog.scores)} 个 / 类目 {len(catalog.categories())} 个")
+    print(
+        f"离线快照        : 商品 {catalog.size()} 件 / 用户 {len(catalog.scores)} 个 / 类目 {len(catalog.categories())} 个"
+    )
     print(f"推荐适配器      : {recommender.active_mode}（降级 {len(recommender.degradations)} 次）")
     print(f"多模态适配器    : {multimodal.active_mode}（降级 {len(multimodal.degradations)} 次）")
     print(f"知识库          : {kb.size()} 个片段 / {len(kb.docs())} 篇文档")

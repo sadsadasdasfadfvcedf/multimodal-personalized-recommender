@@ -14,11 +14,13 @@ src/explain.py
     {"text": str, "segments": [...], "evidence_refs": [...], "evidence_count": int,
      "confidence": float, "consistent": bool, "visual_used": [...], "kb_used": [...]}
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 from config import settings
+
 from .contracts import EvidencePack
 from .errors import ErrorCode, Result, fail, ok
 
@@ -57,19 +59,40 @@ def explain(
 
     # --- 证据 1：商品事实 ---
     if facts.get("category"):
-        segments.append({"type": "category",
-                         "text": f"它属于「{facts['category']}」品类。",
-                         "evidence": {"field": "category", "value": facts["category"]}})
-        evidence_refs.append({"type": "product_fact", "field": "category", "value": facts["category"],
-                              "verifiable": True, "source": "catalog"})
+        segments.append(
+            {
+                "type": "category",
+                "text": f"它属于「{facts['category']}」品类。",
+                "evidence": {"field": "category", "value": facts["category"]},
+            }
+        )
+        evidence_refs.append(
+            {
+                "type": "product_fact",
+                "field": "category",
+                "value": facts["category"],
+                "verifiable": True,
+                "source": "catalog",
+            }
+        )
     if facts.get("price") is not None:
-        segments.append({"type": "price",
-                         "text": f"参考价 {_fmt_price(facts.get('price'), facts.get('currency', 'GBP'))}"
-                                 f"（来源：{facts.get('price_source', 'price_map')}）。",
-                         "evidence": {"field": "price", "value": facts["price"],
-                                      "currency": facts.get("currency")}})
-        evidence_refs.append({"type": "product_fact", "field": "price", "value": facts["price"],
-                              "verifiable": True, "source": "price_map"})
+        segments.append(
+            {
+                "type": "price",
+                "text": f"参考价 {_fmt_price(facts.get('price'), facts.get('currency', 'GBP'))}"
+                f"（来源：{facts.get('price_source', 'price_map')}）。",
+                "evidence": {"field": "price", "value": facts["price"], "currency": facts.get("currency")},
+            }
+        )
+        evidence_refs.append(
+            {
+                "type": "product_fact",
+                "field": "price",
+                "value": facts["price"],
+                "verifiable": True,
+                "source": "price_map",
+            }
+        )
 
     # --- 证据 2：命中约束 ---
     for hit in pack.matched_constraints:
@@ -89,13 +112,11 @@ def explain(
             required = hit.get("required", hit.get("value"))
             text = f"命中约束 {field}={required}。"
         segments.append({"type": "constraint", "text": text, "evidence": hit})
-        evidence_refs.append({"type": "matched_constraint", **{k: v for k, v in hit.items()},
-                              "verifiable": bool(hit.get("verifiable", True))})
+        evidence_refs.append({"type": "matched_constraint", **hit, "verifiable": bool(hit.get("verifiable", True))})
 
     # --- 证据 3：相似证据 ---
     for src in pack.candidate_sources:
-        segments.append({"type": "source", "text": f"它来自「{src}」这一路的候选。",
-                         "evidence": {"source": src}})
+        segments.append({"type": "source", "text": f"它来自「{src}」这一路的候选。", "evidence": {"source": src}})
         evidence_refs.append({"type": "candidate_source", "value": src, "verifiable": True})
 
     # --- 证据 4：会话信号 ---
@@ -109,8 +130,9 @@ def explain(
         effective = float(tag.raw.get("effective_confidence", tag.confidence))
         text = TEMPLATES["visual"].format(tag=tag.tag, confidence=effective, source=tag.source)
         segments.append({"type": "visual", "text": text, "evidence": tag.to_dict()})
-        evidence_refs.append({"type": "visual_tag", "tag": tag.tag, "confidence": effective,
-                              "source": tag.source, "verifiable": True})
+        evidence_refs.append(
+            {"type": "visual_tag", "tag": tag.tag, "confidence": effective, "source": tag.source, "verifiable": True}
+        )
         visual_used.append({"tag": tag.tag, "confidence": effective, "source": tag.source})
 
     # --- 证据 6：知识片段 ---
@@ -119,11 +141,22 @@ def explain(
         short = snippet["text"].strip().replace("\n", " ")
         if len(short) > 70:
             short = short[:69] + "…"
-        segments.append({"type": "kb", "text": f"知识库依据（{snippet['chunk_id']}）：{short}",
-                         "evidence": {"chunk_id": snippet["chunk_id"], "score": snippet["score"]}})
-        evidence_refs.append({"type": "kb_snippet", "chunk_id": snippet["chunk_id"],
-                              "score": snippet["score"], "doc": snippet.get("doc"),
-                              "verifiable": True})
+        segments.append(
+            {
+                "type": "kb",
+                "text": f"知识库依据（{snippet['chunk_id']}）：{short}",
+                "evidence": {"chunk_id": snippet["chunk_id"], "score": snippet["score"]},
+            }
+        )
+        evidence_refs.append(
+            {
+                "type": "kb_snippet",
+                "chunk_id": snippet["chunk_id"],
+                "score": snippet["score"],
+                "doc": snippet.get("doc"),
+                "verifiable": True,
+            }
+        )
         kb_used.append({"chunk_id": snippet["chunk_id"], "score": snippet["score"]})
 
     # --- 证据不足：不编造 ---
@@ -148,21 +181,23 @@ def explain(
         text += consistency_note
 
     # 置信度：证据数量 + 一致性 + 是否含视觉
-    confidence = min(1.0, 0.35 + 0.13 * len(verifiable)
-                     + (0.1 if consistent else -0.15)
-                     + (0.05 if visual_used else 0.0))
-    return ok({
-        "text": text,
-        "segments": segments,
-        "evidence_refs": evidence_refs,
-        "evidence_count": len(verifiable),
-        "confidence": round(max(0.0, confidence), 4),
-        "consistent": consistent,
-        "consistency_note": consistency_note,
-        "visual_used": visual_used,
-        "kb_used": kb_used,
-        "item_id": pack.item_id,
-    })
+    confidence = min(
+        1.0, 0.35 + 0.13 * len(verifiable) + (0.1 if consistent else -0.15) + (0.05 if visual_used else 0.0)
+    )
+    return ok(
+        {
+            "text": text,
+            "segments": segments,
+            "evidence_refs": evidence_refs,
+            "evidence_count": len(verifiable),
+            "confidence": round(max(0.0, confidence), 4),
+            "consistent": consistent,
+            "consistency_note": consistency_note,
+            "visual_used": visual_used,
+            "kb_used": kb_used,
+            "item_id": pack.item_id,
+        }
+    )
 
 
 def explain_item(
@@ -178,8 +213,12 @@ def explain_item(
     from .evidence import build_pack
 
     pack_result = build_pack(
-        item, request=request, catalog=catalog, session=session,
-        visual_tags=visual_tags, kb=kb,
+        item,
+        request=request,
+        catalog=catalog,
+        session=session,
+        visual_tags=visual_tags,
+        kb=kb,
         sources=item.get("sources"),
         matched_constraints=item.get("matched_constraints"),
     )

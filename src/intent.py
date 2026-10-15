@@ -21,13 +21,14 @@ src/intent.py
     3. 约束冲突（如预算上下限颠倒、互斥颜色过多）可检测并返回 E_CONSTRAINT_CONFLICT；
     4. 槽位记录证据来源与置信度。
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
 
 from config import settings
+
 from .contracts import Constraint, InteractionEvent, RecommendationRequest, Slot
 from .errors import ErrorCode, Result, fail, ok
 from .utils import contains_any
@@ -79,7 +80,10 @@ def _match_categories(text: str, catalog_categories: list[str]) -> list[tuple[st
             seen.add(cat)
     for word, cat in sorted(LEX["category_synonyms"].items(), key=lambda kv: -len(kv[0])):
         if word in text:
-            target = cat if cat in catalog_categories else cat
+            # 同义词表可能指向上游 catalog 尚未收录的类目。此时退到「其他」，
+            # 而不是把无效类目写进硬约束 —— 那会让过滤后候选为空，只能靠降级兜底。
+            # 「其他」与 catalog 对缺失类目的默认取值一致（见 src/catalog.py）。
+            target = cat if cat in catalog_categories else "其他"
             if target not in seen:
                 hits.append((target, word))
                 seen.add(target)
@@ -117,15 +121,20 @@ def _match_budget(text: str) -> dict | None:
     cfg = LEX["budget"]
     lowered = text.lower()
     has_unit = any(w in lowered for w in cfg["unit_words"]) or any(
-        w in text for w in ["预算", "价格", "花费", "价位", "budget", "price"])
+        w in text for w in ["预算", "价格", "花费", "价位", "budget", "price"]
+    )
 
     pairs: list[tuple[float, str | None, str | None, str]] = []
     for m in _NUM_RE.finditer(text):
         value = float(m.group(1).replace(",", ""))
-        window = text[max(0, m.start() - 6): min(len(text), m.end() + 6)]
+        window = text[max(0, m.start() - 6) : min(len(text), m.end() + 6)]
         wl = window.lower()
         direction = marker = None
-        for group, label in ((cfg["under_words"], "under"), (cfg["over_words"], "over"), (cfg["around_words"], "around")):
+        for group, label in (
+            (cfg["under_words"], "under"),
+            (cfg["over_words"], "over"),
+            (cfg["around_words"], "around"),
+        ):
             for word in group:
                 if word in wl or word in window:
                     direction, marker = label, word
@@ -168,16 +177,15 @@ def _match_budget(text: str) -> dict | None:
 
     spans = "，".join(f"「{marker or ''}{num}」" for num, _, marker, _ in pairs if marker)
     evidence = f"文本预算表达 {spans}" if spans else f"文本预算数字「{pairs[0][3]}」"
-    return {"min": lo, "max": hi, "target": target, "direction": direction,
-            "raw": spans, "evidence": evidence}
+    return {"min": lo, "max": hi, "target": target, "direction": direction, "raw": spans, "evidence": evidence}
 
 
 def _match_feedback_polarity(text: str, gesture: dict | None) -> tuple[str | None, str]:
     """返回 (polarity, evidence)。手势优先，其次文本。"""
     if gesture and gesture.get("polarity"):
         return gesture["polarity"], f"手势 {gesture.get('name')}({gesture.get('confidence')})"
-    neg = contains_any(text, [w for w in LEX["feedback_words"]["negative"]])
-    pos = contains_any(text, [w for w in LEX["feedback_words"]["positive"]])
+    neg = contains_any(text, LEX["feedback_words"]["negative"])
+    pos = contains_any(text, LEX["feedback_words"]["positive"])
     if neg:
         return "negative", f"文本否定词「{neg}」"
     if pos:
@@ -188,11 +196,12 @@ def _match_feedback_polarity(text: str, gesture: dict | None) -> tuple[str | Non
 # ============================================================
 # 意图分类
 # ============================================================
-def classify(event: InteractionEvent, slots: dict[str, Slot], catalog_categories: list[str]) -> tuple[str, float, dict[str, float]]:
+def classify(
+    event: InteractionEvent, slots: dict[str, Slot], catalog_categories: list[str]
+) -> tuple[str, float, dict[str, float]]:
     text = (event.text or "").strip()
-    lowered = text.lower()
     gesture = event.gesture or {}
-    scores: dict[str, float] = {i: 0.0 for i in CFG["intents"]}
+    scores: dict[str, float] = dict.fromkeys(CFG["intents"], 0.0)
 
     # 反馈
     if gesture.get("is_feedback"):
@@ -222,7 +231,10 @@ def classify(event: InteractionEvent, slots: dict[str, Slot], catalog_categories
         scores["filter"] += 0.5
 
     # 发现
-    if contains_any(text, ["推荐", "看看", "有什么", "随便", "逛逛", "发现", "来点", "给我", "帮我找", "找点", "recommend", "browse"]):
+    if contains_any(
+        text,
+        ["推荐", "看看", "有什么", "随便", "逛逛", "发现", "来点", "给我", "帮我找", "找点", "recommend", "browse"],
+    ):
         scores["discover"] += 0.6
     if slots.get("category") or slots.get("scene"):
         scores["discover"] += 0.3
@@ -272,17 +284,23 @@ def extract_slots(
     cat_hits = _match_categories(text, catalog_categories)
     if cat_hits:
         cat, word = cat_hits[0]
-        slots["category"] = Slot("category", cat, confidence=0.85 if word == cat else 0.75,
-                                 evidence=[f"文本命中类目词「{word}」"])
+        slots["category"] = Slot(
+            "category", cat, confidence=0.85 if word == cat else 0.75, evidence=[f"文本命中类目词「{word}」"]
+        )
         if len(cat_hits) > 1:
-            slots["category_alt"] = Slot("category_alt", [c for c, _ in cat_hits[1:]],
-                                         confidence=0.5, evidence=["文本命中多个类目词"])
+            slots["category_alt"] = Slot(
+                "category_alt", [c for c, _ in cat_hits[1:]], confidence=0.5, evidence=["文本命中多个类目词"]
+            )
 
     # --- 颜色 ---
     color_hits = _match_colors(text)
     if color_hits:
-        slots["colors"] = Slot("colors", [c for c, _ in color_hits], confidence=0.8,
-                               evidence=[f"文本命中颜色词「{w}」" for _, w in color_hits])
+        slots["colors"] = Slot(
+            "colors",
+            [c for c, _ in color_hits],
+            confidence=0.8,
+            evidence=[f"文本命中颜色词「{w}」" for _, w in color_hits],
+        )
     # 视觉标签也可提供颜色线索（低置信度已降权）
     if event.visual_tags:
         vcolors = []
@@ -295,8 +313,12 @@ def extract_slots(
             vcolors.sort(key=lambda x: -x[1])
             best_color, eff, raw_tag = vcolors[0]
             if "colors" not in slots:
-                slots["colors"] = Slot("colors", [best_color], confidence=round(eff, 4),
-                                       evidence=[f"视觉标签「{raw_tag}」(有效置信度 {eff:.2f})"])
+                slots["colors"] = Slot(
+                    "colors",
+                    [best_color],
+                    confidence=round(eff, 4),
+                    evidence=[f"视觉标签「{raw_tag}」(有效置信度 {eff:.2f})"],
+                )
             else:
                 slots["colors"].evidence.append(f"视觉标签亦指向「{raw_tag}」")
 
@@ -310,53 +332,55 @@ def extract_slots(
     budget = _match_budget(text)
     if budget:
         if budget["max"] is not None:
-            slots["budget_max"] = Slot("budget_max", budget["max"], confidence=0.85,
-                                       evidence=[budget["evidence"] + f" → 上限 {budget['max']}"])
+            slots["budget_max"] = Slot(
+                "budget_max", budget["max"], confidence=0.85, evidence=[budget["evidence"] + f" → 上限 {budget['max']}"]
+            )
         if budget["min"] is not None:
-            slots["budget_min"] = Slot("budget_min", budget["min"], confidence=0.85,
-                                       evidence=[budget["evidence"] + f" → 下限 {budget['min']}"])
+            slots["budget_min"] = Slot(
+                "budget_min", budget["min"], confidence=0.85, evidence=[budget["evidence"] + f" → 下限 {budget['min']}"]
+            )
         slots["budget_raw"] = Slot("budget_raw", budget, confidence=0.7, evidence=[budget["evidence"]])
 
     # --- 对象指向（target / targets） ---
     explicit = _resolve_explicit_targets(text, title_lookup)
     session_items = session_items or []
     if explicit:
-        slots["targets"] = Slot("targets", explicit, confidence=0.8,
-                                evidence=[f"文本显式提到商品：{', '.join(explicit)}"])
-        slots["target"] = Slot("target", explicit[0], confidence=0.8,
-                               evidence=["取第一个显式商品作为参照"])
+        slots["targets"] = Slot(
+            "targets", explicit, confidence=0.8, evidence=[f"文本显式提到商品：{', '.join(explicit)}"]
+        )
+        slots["target"] = Slot("target", explicit[0], confidence=0.8, evidence=["取第一个显式商品作为参照"])
     else:
         ordinal_target = _resolve_ordinal_target(text, session_items)
         if ordinal_target:
-            slots["target"] = Slot("target", ordinal_target, confidence=0.75,
-                                   evidence=["文本序号指代 + 上一轮推荐结果"])
-            slots["targets"] = Slot("targets", [ordinal_target], confidence=0.7,
-                                    evidence=["文本序号指代"])
+            slots["target"] = Slot(
+                "target", ordinal_target, confidence=0.75, evidence=["文本序号指代 + 上一轮推荐结果"]
+            )
+            slots["targets"] = Slot("targets", [ordinal_target], confidence=0.7, evidence=["文本序号指代"])
         referential = contains_any(text, LEX.get("referential_markers", ["这个", "这款", "它"]))
         if ordinal_target:
             pass
         elif referential and (focus_item_id or session_items):
             target = focus_item_id or session_items[0]
-            slots["target"] = Slot("target", target, confidence=0.7,
-                                   evidence=["文本指代词 + 会话焦点商品"])
-            slots["targets"] = Slot("targets", [target], confidence=0.6,
-                                    evidence=["会话焦点商品"])
+            slots["target"] = Slot("target", target, confidence=0.7, evidence=["文本指代词 + 会话焦点商品"])
+            slots["targets"] = Slot("targets", [target], confidence=0.6, evidence=["会话焦点商品"])
         elif event.visual_tags and focus_item_id:
-            slots["target"] = Slot("target", focus_item_id, confidence=0.6,
-                                   evidence=["视觉焦点商品"])
+            slots["target"] = Slot("target", focus_item_id, confidence=0.6, evidence=["视觉焦点商品"])
 
     # --- 反馈极性 ---
     polarity, evidence = _match_feedback_polarity(text, gesture)
     if polarity:
-        slots["polarity"] = Slot("polarity", polarity, confidence=0.9 if gesture.get("is_feedback") else 0.7,
-                                 evidence=[evidence])
+        slots["polarity"] = Slot(
+            "polarity", polarity, confidence=0.9 if gesture.get("is_feedback") else 0.7, evidence=[evidence]
+        )
         target = slots.get("target")
         if target:
-            slots["feedback_target"] = Slot("feedback_target", target.value, confidence=target.confidence,
-                                            evidence=["反馈指向会话焦点商品"])
+            slots["feedback_target"] = Slot(
+                "feedback_target", target.value, confidence=target.confidence, evidence=["反馈指向会话焦点商品"]
+            )
         elif focus_item_id:
-            slots["feedback_target"] = Slot("feedback_target", focus_item_id, confidence=0.7,
-                                            evidence=["反馈指向当前焦点商品"])
+            slots["feedback_target"] = Slot(
+                "feedback_target", focus_item_id, confidence=0.7, evidence=["反馈指向当前焦点商品"]
+            )
 
     return slots
 
@@ -403,8 +427,7 @@ def _resolve_explicit_targets(text: str, title_lookup) -> list[str]:
 FILTER_MARKERS = ["只看", "只要", "筛选", "必须", "限定", "only", "不超过", "以内", "以下"]
 
 
-def build_constraints(slots: dict[str, Slot], text: str,
-                      intent: str | None = None) -> list[Constraint]:
+def build_constraints(slots: dict[str, Slot], text: str, intent: str | None = None) -> list[Constraint]:
     """把槽位转成约束。
 
     注意：**反馈意图下不得把 target 转成 similar_to 软约束**。
@@ -427,9 +450,13 @@ def build_constraints(slots: dict[str, Slot], text: str,
     if "scene" in slots:
         constraints.append(Constraint("scene", "eq", slots["scene"].value, kind="soft", source="slot:scene"))
     if "target" in slots and intent != "feedback":
-        constraints.append(Constraint("item_id", "similar_to", slots["target"].value, kind="soft", source="slot:target"))
+        constraints.append(
+            Constraint("item_id", "similar_to", slots["target"].value, kind="soft", source="slot:target")
+        )
     if "targets" in slots and len(slots["targets"].value) >= 2:
-        constraints.append(Constraint("item_ids", "compare", slots["targets"].value, kind="soft", source="slot:targets"))
+        constraints.append(
+            Constraint("item_ids", "compare", slots["targets"].value, kind="soft", source="slot:targets")
+        )
     return constraints
 
 
@@ -438,29 +465,35 @@ def detect_conflicts(slots: dict[str, Slot]) -> list[dict]:
     bmin = slots.get("budget_min")
     bmax = slots.get("budget_max")
     if bmin and bmax and float(bmin.value) > float(bmax.value):
-        conflicts.append({
-            "id": "budget_range",
-            "desc": "预算下限高于上限",
-            "detail": {"min": bmin.value, "max": bmax.value},
-            "hint": f"你给的预算下限 {bmin.value} 高于上限 {bmax.value}，请确认。",
-        })
+        conflicts.append(
+            {
+                "id": "budget_range",
+                "desc": "预算下限高于上限",
+                "detail": {"min": bmin.value, "max": bmax.value},
+                "hint": f"你给的预算下限 {bmin.value} 高于上限 {bmax.value}，请确认。",
+            }
+        )
     colors = slots.get("colors")
     if colors and len(colors.value) > CONFLICT_RULES[1]["max_ok"]:
-        conflicts.append({
-            "id": "color_exclusive",
-            "desc": "同时指定了过多互斥颜色",
-            "detail": {"colors": colors.value},
-            "hint": f"一次最多保留 {CONFLICT_RULES[1]['max_ok']} 种颜色，请删减。",
-        })
+        conflicts.append(
+            {
+                "id": "color_exclusive",
+                "desc": "同时指定了过多互斥颜色",
+                "detail": {"colors": colors.value},
+                "hint": f"一次最多保留 {CONFLICT_RULES[1]['max_ok']} 种颜色，请删减。",
+            }
+        )
     cat = slots.get("category")
     scene = slots.get("scene")
     if cat and scene in ("厨房",) and cat.value in ("装饰品", "购物袋"):
-        conflicts.append({
-            "id": "category_scene",
-            "desc": "类目与场景可能冲突",
-            "detail": {"category": cat.value, "scene": scene.value},
-            "hint": f"「{cat.value}」通常不属于「{scene.value}」场景，请确认。",
-        })
+        conflicts.append(
+            {
+                "id": "category_scene",
+                "desc": "类目与场景可能冲突",
+                "detail": {"category": cat.value, "scene": scene.value},
+                "hint": f"「{cat.value}」通常不属于「{scene.value}」场景，请确认。",
+            }
+        )
     return conflicts
 
 
@@ -491,11 +524,18 @@ def understand(
     conflicts = detect_conflicts(slots)
 
     result = IntentResult(
-        intent=intent, confidence=confidence, intent_scores=scores,
-        slots=slots, constraints=constraints, conflicts=conflicts,
-        evidence={"modality": event.modality, "text": event.text,
-                  "visual_tag_count": len(event.visual_tags),
-                  "gesture": event.gesture},
+        intent=intent,
+        confidence=confidence,
+        intent_scores=scores,
+        slots=slots,
+        constraints=constraints,
+        conflicts=conflicts,
+        evidence={
+            "modality": event.modality,
+            "text": event.text,
+            "visual_tag_count": len(event.visual_tags),
+            "gesture": event.gesture,
+        },
     )
 
     if conflicts:
@@ -561,4 +601,3 @@ def _clarification_question(intent: str, missing: list[str]) -> str:
     if intent == "filter":
         return f"请补充筛选条件（缺少：{joined}）。"
     return f"还需要补充：{joined}。"
-

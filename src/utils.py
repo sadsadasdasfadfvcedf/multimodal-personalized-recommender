@@ -6,17 +6,18 @@ src/utils.py
 
 所有输出统一 UTF-8；所有时间戳统一带时区的 ISO8601（由 UTC 生成，避免本机时区漂移）。
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
-import os
 import time
 import uuid
+from collections.abc import Iterable
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 # ------------------------------------------------------------
 # trace / id
@@ -34,7 +35,7 @@ def new_trace_id(seed_hint: str | None = None) -> str:
 
 def now_iso() -> str:
     """当前时间（UTC，ISO8601，秒级）。"""
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    return datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
 def parse_iso(value: str) -> datetime:
@@ -44,7 +45,7 @@ def parse_iso(value: str) -> datetime:
         text = text[:-1] + "+00:00"
     dt = datetime.fromisoformat(text)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -88,7 +89,7 @@ def write_json(path: str | Path, obj: Any, *, indent: int | None = 2) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(target.suffix + ".tmp")
     tmp.write_text(dumps(obj, indent=indent) + "\n", encoding="utf-8")
-    os.replace(tmp, target)
+    tmp.replace(target)
     return target
 
 
@@ -154,7 +155,7 @@ def minmax_normalize(values: dict[str, float]) -> dict[str, float]:
     lo = min(values.values())
     hi = max(values.values())
     if hi - lo < 1e-12:
-        return {k: 1.0 for k in values}
+        return dict.fromkeys(values, 1.0)
     return {k: (v - lo) / (hi - lo) for k, v in values.items()}
 
 
@@ -171,7 +172,7 @@ def timed(collector: dict, key: str):
         collector[key] = round((time.perf_counter() - start) * 1000, 3)
 
 
-def new_timer() -> "Timer":
+def new_timer() -> Timer:
     return Timer()
 
 

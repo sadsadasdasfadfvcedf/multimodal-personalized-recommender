@@ -1,4 +1,5 @@
 """scripts/_bootstrap.py —— 让所有脚本都能以 `python scripts/xx.py` 方式运行。"""
+
 from __future__ import annotations
 
 import sys

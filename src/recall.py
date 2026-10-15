@@ -15,12 +15,14 @@ src/recall.py
     同一 item 由多路命中 → 合并来源、取各来源归一化分数最大值，并保留全部证据；
     合并后按 merge_top_k 截断。每条候选都保留 sources/score/evidence，保证可追溯。
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
 from config import settings
+
 from .adapters.base import AdapterBase
 from .catalog import Catalog
 from .contracts import RecommendationRequest
@@ -35,8 +37,8 @@ SOURCE_LABELS = settings.RECOMMENDER_ADAPTER["sources"]
 @dataclass
 class Candidate:
     item_id: str
-    sources: list[str] = field(default_factory=list)          # 来源标签（可读）
-    source_keys: list[str] = field(default_factory=list)      # 来源键（机器可读）
+    sources: list[str] = field(default_factory=list)  # 来源标签（可读）
+    source_keys: list[str] = field(default_factory=list)  # 来源键（机器可读）
     raw_scores: dict[str, float] = field(default_factory=dict)
     norm_scores: dict[str, float] = field(default_factory=dict)
     evidence: dict[str, Any] = field(default_factory=dict)
@@ -66,8 +68,8 @@ def recall(
     enabled = set(CFG["sources_enabled"])
     exclude: set[str] = set(request.exclude_item_ids or [])
     if session:
-        exclude |= catalog.purchased(request.user_id)     # 已购商品不再推荐
-        exclude |= session.blocked_item_ids()             # 本会话负反馈排除
+        exclude |= catalog.purchased(request.user_id)  # 已购商品不再推荐
+        exclude |= session.blocked_item_ids()  # 本会话负反馈排除
 
     per_source: dict[str, list[dict]] = {}
     source_reports: list[dict] = []
@@ -75,13 +77,19 @@ def recall(
     def _record(key: str, result: Result) -> None:
         if result.ok and result.data:
             per_source[key] = result.data
-            source_reports.append({"source": key, "label": SOURCE_LABELS.get(key, key),
-                                   "status": "ok", "count": len(result.data)})
+            source_reports.append(
+                {"source": key, "label": SOURCE_LABELS.get(key, key), "status": "ok", "count": len(result.data)}
+            )
         else:
-            source_reports.append({"source": key, "label": SOURCE_LABELS.get(key, key),
-                                   "status": "empty" if result.error is None else "failed",
-                                   "count": 0,
-                                   "error": result.error.to_dict() if result.error else None})
+            source_reports.append(
+                {
+                    "source": key,
+                    "label": SOURCE_LABELS.get(key, key),
+                    "status": "empty" if result.error is None else "failed",
+                    "count": 0,
+                    "error": result.error.to_dict() if result.error else None,
+                }
+            )
 
     # 1) 个性化
     if "personalized" in enabled:
@@ -118,19 +126,26 @@ def recall(
         if session.focus_item_id:
             focus_ids.append(session.focus_item_id)
         focus_ids.extend(list(session.likes.keys())[:3])
-        focus_ids = [i for i in dict.fromkeys(focus_ids)
-                     if catalog.exists(i) and i not in exclude]
+        focus_ids = [i for i in dict.fromkeys(focus_ids) if catalog.exists(i) and i not in exclude]
         if focus_ids:
             per_source["session_focus"] = [
-                {"item_id": i, "score": 1.0,
-                 "source_key": "session_focus",
-                 "source_label": SOURCE_LABELS.get("session_focus", "会话关注召回"),
-                 "detail": {"in_session_focus": True,
-                            "liked": i in session.likes}}
-                for i in focus_ids]
-            source_reports.append({"source": "session_focus",
-                                   "label": SOURCE_LABELS.get("session_focus", "会话关注召回"),
-                                   "status": "ok", "count": len(focus_ids)})
+                {
+                    "item_id": i,
+                    "score": 1.0,
+                    "source_key": "session_focus",
+                    "source_label": SOURCE_LABELS.get("session_focus", "会话关注召回"),
+                    "detail": {"in_session_focus": True, "liked": i in session.likes},
+                }
+                for i in focus_ids
+            ]
+            source_reports.append(
+                {
+                    "source": "session_focus",
+                    "label": SOURCE_LABELS.get("session_focus", "会话关注召回"),
+                    "status": "ok",
+                    "count": len(focus_ids),
+                }
+            )
 
     # 4) 历史相似
     if "history" in enabled:
@@ -145,7 +160,7 @@ def recall(
     dropped_unknown = 0
     dropped_excluded = 0
     case_insensitive = CFG.get("dedupe_case_insensitive", True)
-    alias: dict[str, str] = {}     # 归一化键 → 实际 item_id
+    alias: dict[str, str] = {}  # 归一化键 → 实际 item_id
 
     def _norm(item_id: str) -> str:
         return item_id.upper() if case_insensitive else item_id

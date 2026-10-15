@@ -15,11 +15,11 @@ EvidencePack 是解释器 **唯一** 允许读取事实的地方，包含：
 
 原则：证据要么来自结构化字段，要么来自可复现的检索结果；没有证据就留空。
 """
+
 from __future__ import annotations
 
-from typing import Any
-
 from config import settings
+
 from .catalog import Catalog
 from .contracts import EvidencePack, RecommendationRequest, VisualTag
 from .errors import ErrorCode, Result, fail, ok
@@ -42,13 +42,26 @@ def verify_consistency(item: dict, catalog: Catalog) -> dict:
     if is_number(item.get("price")):
         delta = abs(float(item["price"]) - float(product.get("price") or 0.0))
         price_ok = delta <= CFG["price_tolerance"]
-        checks.append({"field": "price", "explanation": item["price"], "catalog": product.get("price"),
-                       "delta": round(delta, 6), "ok": price_ok})
+        checks.append(
+            {
+                "field": "price",
+                "explanation": item["price"],
+                "catalog": product.get("price"),
+                "delta": round(delta, 6),
+                "ok": price_ok,
+            }
+        )
     category_ok = True
     if item.get("category"):
         category_ok = str(item["category"]) == str(product.get("category"))
-        checks.append({"field": "category", "explanation": item["category"],
-                       "catalog": product.get("category"), "ok": category_ok})
+        checks.append(
+            {
+                "field": "category",
+                "explanation": item["category"],
+                "catalog": product.get("category"),
+                "ok": category_ok,
+            }
+        )
     return {"ok": price_ok and category_ok, "checks": checks, "item_id": item_id}
 
 
@@ -90,21 +103,25 @@ def build_pack(
             value = float(c.value)
             actual = float(facts["price"])
             if c.op == "lte" and actual <= value + 1e-9:
-                constraints_hit.append({"field": "price", "op": "lte", "required": value, "actual": actual,
-                                        "verifiable": True})
+                constraints_hit.append(
+                    {"field": "price", "op": "lte", "required": value, "actual": actual, "verifiable": True}
+                )
             if c.op == "gte" and actual >= value - 1e-9:
-                constraints_hit.append({"field": "price", "op": "gte", "required": value, "actual": actual,
-                                        "verifiable": True})
+                constraints_hit.append(
+                    {"field": "price", "op": "gte", "required": value, "actual": actual, "verifiable": True}
+                )
         if c.field == "category" and facts["category"] == c.value:
-            constraints_hit.append({"field": "category", "op": "eq", "required": c.value,
-                                    "actual": facts["category"], "verifiable": True})
+            constraints_hit.append(
+                {"field": "category", "op": "eq", "required": c.value, "actual": facts["category"], "verifiable": True}
+            )
         if c.field == "color":
             words = [w for color in (c.value or []) for w in LEX["colors"].get(color, [color])]
             title = f"{facts['title']} {facts['english_title']}".lower()
             hit = next((w for w in words if w.lower() in title), None)
             if hit:
-                constraints_hit.append({"field": "color", "op": "in", "required": c.value,
-                                        "actual": hit, "verifiable": True})
+                constraints_hit.append(
+                    {"field": "color", "op": "in", "required": c.value, "actual": hit, "verifiable": True}
+                )
 
     # 视觉标签（只保留有效置信度达标的）
     governed_tags: list[VisualTag] = []
@@ -116,11 +133,17 @@ def build_pack(
     # RAG 片段
     snippets: list[dict] = []
     if kb is not None and settings.RAG_CONFIG["enabled"]:
-        query = " ".join(filter(None, [
-            facts["category"], facts["title"],
-            request.slot_value("scene") or "",
-            " ".join(str(c.value) for c in request.constraints if c.field in ("category", "color")),
-        ]))
+        query = " ".join(
+            filter(
+                None,
+                [
+                    facts["category"],
+                    facts["title"],
+                    request.slot_value("scene") or "",
+                    " ".join(str(c.value) for c in request.constraints if c.field in ("category", "color")),
+                ],
+            )
+        )
         snippets = kb.search(query, k=settings.RAG_CONFIG["top_k"])
 
     # 会话信号
@@ -128,8 +151,7 @@ def build_pack(
     if session is not None:
         pref = session.preference_signal(item_id, facts["category"])
         for reason in pref["reasons"]:
-            signals.append({"type": "session_preference", "detail": reason,
-                            "verifiable": True, "value": pref["score"]})
+            signals.append({"type": "session_preference", "detail": reason, "verifiable": True, "value": pref["score"]})
 
     pack = EvidencePack(
         trace_id=request.trace_id,

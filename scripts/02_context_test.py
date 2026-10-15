@@ -11,9 +11,8 @@ Part B  SessionContext 行为验证 → 多轮约束合并 / 撤销 / 冲突提�
     outputs/stage02_context_cases.jsonl   每条样例的判定结果（错误案例也落盘）
     outputs/stage02_context_metrics.json  通过率、分类统计、错误案例与根因
 """
-from __future__ import annotations
 
-import json
+from __future__ import annotations
 
 from _bootstrap import banner
 
@@ -34,7 +33,7 @@ def _near(a, b) -> bool:
     if isinstance(a, (int, float)) and isinstance(b, (int, float)):
         return abs(float(a) - float(b)) < 1e-6
     if isinstance(a, list) and isinstance(b, list):
-        return len(a) == len(b) and all(_near(x, y) for x, y in zip(a, b))
+        return len(a) == len(b) and all(_near(x, y) for x, y in zip(a, b, strict=False))
     return a == b
 
 
@@ -51,9 +50,13 @@ def _slots_match(expected: dict, actual: dict) -> tuple[bool, list[str]]:
 def run_case(case: dict, catalog: Catalog, adapter: MultimodalAdapter) -> dict:
     expect = case.get("expect", {})
     record = {
-        "case_id": case["id"], "user_id": case["user_id"],
-        "input": case["spec"], "focus_item_id": case.get("focus_item_id"),
-        "expect": expect, "passed": False, "problems": [],
+        "case_id": case["id"],
+        "user_id": case["user_id"],
+        "input": case["spec"],
+        "focus_item_id": case.get("focus_item_id"),
+        "expect": expect,
+        "passed": False,
+        "problems": [],
     }
 
     event_result = adapter.parse_event(case["spec"], user_id=str(case["user_id"]))
@@ -94,17 +97,24 @@ def run_case(case: dict, catalog: Catalog, adapter: MultimodalAdapter) -> dict:
     if result.ok:
         intent_dict = result.data["intent_result"]
         status = "ok"
-        actual = {"status": status, "intent": intent_dict["intent"],
-                  "slots": {k: v.value for k, v in result.data["request"].slots.items()},
-                  "intent_confidence": intent_dict["intent_confidence"]}
+        actual = {
+            "status": status,
+            "intent": intent_dict["intent"],
+            "slots": {k: v.value for k, v in result.data["request"].slots.items()},
+            "intent_confidence": intent_dict["intent_confidence"],
+        }
     else:
         code = result.error.code.value
         status = "conflict" if code == ErrorCode.CONSTRAINT_CONFLICT.value else "clarification"
         context = result.error.context or {}
         intent_dict = context.get("intent_result") or {}
-        actual = {"status": status, "code": code, "intent": intent_dict.get("intent"),
-                  "missing_slots": context.get("missing_slots"),
-                  "conflicts": [c["id"] for c in context.get("conflicts", [])]}
+        actual = {
+            "status": status,
+            "code": code,
+            "intent": intent_dict.get("intent"),
+            "missing_slots": context.get("missing_slots"),
+            "conflicts": [c["id"] for c in context.get("conflicts", [])],
+        }
     record["actual"] = actual
 
     problems: list[str] = []
@@ -113,7 +123,7 @@ def run_case(case: dict, catalog: Catalog, adapter: MultimodalAdapter) -> dict:
     if expect.get("intent") and expect["intent"] != actual.get("intent"):
         problems.append(f"意图期望 {expect['intent']}，实际 {actual.get('intent')}")
     if expect.get("slots"):
-        ok_slots, slot_problems = _slots_match(expect["slots"], result.data["request"].slots if result.ok else {})
+        _ok_slots, slot_problems = _slots_match(expect["slots"], result.data["request"].slots if result.ok else {})
         problems.extend(slot_problems)
     if expect.get("missing"):
         got = set(actual.get("missing_slots") or [])
@@ -135,58 +145,93 @@ def session_checks() -> list[dict]:
 
     def add(cid: str, name: str, passed: bool, detail: dict, kind: str = "成功") -> None:
         """kind 取值：成功 / 边界 / 失败 —— 阶段2 步骤3 要求三类用例齐备。"""
-        checks.append({"case_id": cid, "name": name, "kind": kind,
-                       "passed": bool(passed), "detail": detail})
+        checks.append({"case_id": cid, "name": name, "kind": kind, "passed": bool(passed), "detail": detail})
 
     s = store.get_or_create("s-merge", "15547")
-    s.begin_turn(); s.merge_slots({"category": Slot("category", "装饰品", 0.8, ["turn1"])}, [])
-    s.begin_turn(); s.merge_slots({"budget_max": Slot("budget_max", 20.0, 0.85, ["turn2"])}, [])
-    add("B-01", "多轮约束合并（类目 + 预算同时生效）",
+    s.begin_turn()
+    s.merge_slots({"category": Slot("category", "装饰品", 0.8, ["turn1"])}, [])
+    s.begin_turn()
+    s.merge_slots({"budget_max": Slot("budget_max", 20.0, 0.85, ["turn2"])}, [])
+    add(
+        "B-01",
+        "多轮约束合并（类目 + 预算同时生效）",
         set(s.slot_state) == {"category", "budget_max"},
-        {"slot_state": {k: v.value for k, v in s.slot_state.items()}}, kind="成功")
+        {"slot_state": {k: v.value for k, v in s.slot_state.items()}},
+        kind="成功",
+    )
 
-    s.begin_turn(); s.merge_slots({"category": Slot("category", "厨房用品", 0.8, ["turn3"])}, [])
-    add("B-02", "同名槽位被后一轮覆盖",
+    s.begin_turn()
+    s.merge_slots({"category": Slot("category", "厨房用品", 0.8, ["turn3"])}, [])
+    add(
+        "B-02",
+        "同名槽位被后一轮覆盖",
         s.slot_state["category"].value == "厨房用品",
-        {"category": s.slot_state["category"].value}, kind="成功")
+        {"category": s.slot_state["category"].value},
+        kind="成功",
+    )
 
     undo = s.undo()
-    add("B-03", "撤销回滚到上一轮", undo.ok and s.slot_state["category"].value == "装饰品",
-        {"ok": undo.ok, "category": s.slot_state["category"].value, "turns": len(s.turns)}, kind="边界")
+    add(
+        "B-03",
+        "撤销回滚到上一轮",
+        undo.ok and s.slot_state["category"].value == "装饰品",
+        {"ok": undo.ok, "category": s.slot_state["category"].value, "turns": len(s.turns)},
+        kind="边界",
+    )
 
-    s.begin_turn(); s.merge_slots({"budget_min": Slot("budget_min", 100.0, 0.9, [])}, [])
-    add("B-04", "预算上下限冲突可检测",
+    s.begin_turn()
+    s.merge_slots({"budget_min": Slot("budget_min", 100.0, 0.9, [])}, [])
+    add(
+        "B-04",
+        "预算上下限冲突可检测",
         s.slot_state["budget_min"].value == 100.0 and s.slot_state["budget_max"].value == 20.0,
-        {"min": s.slot_state["budget_min"].value, "max": s.slot_state["budget_max"].value}, kind="边界")
+        {"min": s.slot_state["budget_min"].value, "max": s.slot_state["budget_max"].value},
+        kind="边界",
+    )
 
     s.add_feedback("85123A", "positive", category="家居装饰")
     r = s.add_feedback("85123A", "negative", category="家居装饰")
-    add("B-05", "正负反馈互斥（同商品只保留最后极性）",
+    add(
+        "B-05",
+        "正负反馈互斥（同商品只保留最后极性）",
         r.ok and "85123A" not in s.likes and "85123A" in s.dislikes,
-        {"likes": dict(s.likes), "dislikes": dict(s.dislikes), "replaced": r.data["replaced_previous"]}, kind="成功")
+        {"likes": dict(s.likes), "dislikes": dict(s.dislikes), "replaced": r.data["replaced_previous"]},
+        kind="成功",
+    )
 
     other = store.get_or_create("s-other", "15547")
-    add("B-06", "负反馈不污染其他会话",
+    add(
+        "B-06",
+        "负反馈不污染其他会话",
         "85123A" not in other.dislikes and not other.disliked_categories,
-        {"other_dislikes": dict(other.dislikes), "other_disliked_categories": dict(other.disliked_categories)}, kind="边界")
+        {"other_dislikes": dict(other.dislikes), "other_disliked_categories": dict(other.disliked_categories)},
+        kind="边界",
+    )
 
     blocked = s.blocked_item_ids()
     add("B-07", "负反馈商品进入本会话屏蔽集合", "85123A" in blocked, {"blocked": sorted(blocked)}, kind="成功")
 
     signal_like = other.add_feedback("71053", "positive", category="家居装饰")
     pref = other.preference_signal("71053", "家居装饰")
-    add("B-08", "点赞产生正向会话偏好信号",
-        signal_like.ok and pref["score"] > 0, {"preference": pref}, kind="成功")
+    add("B-08", "点赞产生正向会话偏好信号", signal_like.ok and pref["score"] > 0, {"preference": pref}, kind="成功")
 
     store.end("s-merge")
-    add("B-09", "会话结束清理状态",
+    add(
+        "B-09",
+        "会话结束清理状态",
         store.get("s-merge").ended and not store.get("s-merge").slot_state,
-        {"ended": store.get("s-merge").ended, "slots": list(store.get("s-merge").slot_state)}, kind="边界")
+        {"ended": store.get("s-merge").ended, "slots": list(store.get("s-merge").slot_state)},
+        kind="边界",
+    )
 
     fresh = store.get_or_create("s-fresh", "15547")
-    add("B-10", "新会话从零开始（偏好隔离）",
+    add(
+        "B-10",
+        "新会话从零开始（偏好隔离）",
         not fresh.likes and not fresh.dislikes and not fresh.slot_state,
-        {"likes": dict(fresh.likes), "slots": list(fresh.slot_state)}, kind="边界")
+        {"likes": dict(fresh.likes), "slots": list(fresh.slot_state)},
+        kind="边界",
+    )
     return checks
 
 
@@ -226,9 +271,15 @@ def main() -> int:
     session_passed = sum(1 for c in session_results if c["passed"])
 
     error_cases = [
-        {"case_id": r["case_id"], "input": r["input"], "expect": r["expect"],
-         "actual": r["actual"], "problems": r["problems"]}
-        for r in results if not r["passed"]
+        {
+            "case_id": r["case_id"],
+            "input": r["input"],
+            "expect": r["expect"],
+            "actual": r["actual"],
+            "problems": r["problems"],
+        }
+        for r in results
+        if not r["passed"]
     ]
 
     metrics = {
@@ -236,7 +287,9 @@ def main() -> int:
         "title": "多模态意图理解与会话上下文指标",
         "generated_at": now_iso(),
         "intent_cases": {
-            "total": total, "passed": passed, "failed": total - passed,
+            "total": total,
+            "passed": passed,
+            "failed": total - passed,
             "pass_rate": round(passed / total, 4) if total else 0.0,
             "threshold": PASS_THRESHOLD,
             "meets_threshold": (passed / total) >= PASS_THRESHOLD if total else False,
@@ -244,26 +297,31 @@ def main() -> int:
             "by_status": by_status,
         },
         "session_checks": {
-            "total": len(session_results), "passed": session_passed,
+            "total": len(session_results),
+            "passed": session_passed,
             "failed": len(session_results) - session_passed,
             "by_type": _by_kind(session_results),
             "cases": session_results,
         },
         "acceptance_checklist": {
             "必选槽位缺失时不臆测": all(
-                not r["problems"] for r in results if r["expect"].get("status") == "clarification"),
+                not r["problems"] for r in results if r["expect"].get("status") == "clarification"
+            ),
             "thumbs_up/down 映射为正负反馈": all(
-                (r["actual"] or {}).get("intent") == "feedback"
-                for r in results if r["case_id"] in ("S2-19", "S2-20")),
+                (r["actual"] or {}).get("intent") == "feedback" for r in results if r["case_id"] in ("S2-19", "S2-20")
+            ),
             "会话用例含成功/边界/失败三类": {"成功", "边界"} <= set(_by_kind(session_results)),
-            "约束冲突可检测": any(
-                (r["actual"] or {}).get("status") == "conflict" for r in results),
+            "约束冲突可检测": any((r["actual"] or {}).get("status") == "conflict" for r in results),
             "20条样例通过率不低于80%": (passed / total) >= PASS_THRESHOLD if total else False,
         },
         "error_cases": error_cases,
         "root_cause_analysis": [
-            {"case_id": e["case_id"], "issue": e["problems"][0],
-             "suspected_cause": "词表/优先级/上下文不足", "fix": "已在用例中标注，下一轮迭代调整词表或优先级"}
+            {
+                "case_id": e["case_id"],
+                "issue": e["problems"][0],
+                "suspected_cause": "词表/优先级/上下文不足",
+                "fix": "已在用例中标注，下一轮迭代调整词表或优先级",
+            }
             for e in error_cases
         ],
     }
@@ -271,14 +329,16 @@ def main() -> int:
 
     for r in results:
         flag = "PASS" if r["passed"] else "FAIL"
-        print(f"[{flag}] {r['case_id']} 期望={r['expect'].get('status')}/{r['expect'].get('intent')} "
-              f"实际={(r['actual'] or {}).get('status')}/{(r['actual'] or {}).get('intent')}")
+        print(
+            f"[{flag}] {r['case_id']} 期望={r['expect'].get('status')}/{r['expect'].get('intent')} "
+            f"实际={(r['actual'] or {}).get('status')}/{(r['actual'] or {}).get('intent')}"
+        )
         for p in r["problems"]:
             print(f"       - {p}")
     print(f"\nPart A 意图样例：{passed}/{total} 通过（{passed / total:.0%}，阈值 {PASS_THRESHOLD:.0%}）")
     print(f"Part B 会话行为：{session_passed}/{len(session_results)} 通过")
     for c in session_results:
-        print(f"  [{'PASS' if c['passed'] else 'FAIL'}] ({c.get('kind','-')}) {c['case_id']} {c['name']}")
+        print(f"  [{'PASS' if c['passed'] else 'FAIL'}] ({c.get('kind', '-')}) {c['case_id']} {c['name']}")
     print(f"[02_context_test] 证据已写入 {settings.output_path('stage02_cases').name} 与 {path.name}")
     return 0 if (passed / total) >= PASS_THRESHOLD and session_passed == len(session_results) else 1
 

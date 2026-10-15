@@ -19,14 +19,16 @@ src/llm_explain.py
 校验失败不是异常，而是正常分支：`grounded=False` + `fallback_reason` 会一并落盘，
 便于统计真实模型的「可用解释率」。
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
 
 from config import settings
+
 from .contracts import EvidencePack
-from .errors import ErrorCode, Result, fail, ok
+from .errors import Result, ok
 from .text_norm import normalize_fluency, verify_fluency
 
 NL = chr(10)
@@ -88,7 +90,7 @@ def verify_format(text: str) -> list[dict]:
     # 自我重复：以 8 字滑窗统计重复
     compact = _WS_RE.sub("", raw)
     window = 8
-    grams = [compact[i:i + window] for i in range(max(0, len(compact) - window + 1))]
+    grams = [compact[i : i + window] for i in range(max(0, len(compact) - window + 1))]
     if grams:
         seen = {}
         worst, worst_count = "", 0
@@ -97,8 +99,9 @@ def verify_format(text: str) -> list[dict]:
             if seen[gram] > worst_count:
                 worst, worst_count = gram, seen[gram]
         if worst_count > cfg["max_repeat"]:
-            violations.append({"type": "repetition", "fragment": worst,
-                               "count": worst_count, "limit": cfg["max_repeat"]})
+            violations.append(
+                {"type": "repetition", "fragment": worst, "count": worst_count, "limit": cfg["max_repeat"]}
+            )
     return violations
 
 
@@ -132,7 +135,8 @@ def build_grounded_prompt(item: dict, pack: EvidencePack, *, style: str | None =
         instruction
         + "\n\n【事实】（只能使用这些内容，不得补充任何未给出的事实）\n"
         + fact_block
-        + "\n\n【输出要求】\n" + CFG["output_rules"]
+        + "\n\n【输出要求】\n"
+        + CFG["output_rules"]
     )
 
 
@@ -144,8 +148,12 @@ class GroundednessReport:
     found_numbers: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {"ok": self.ok, "violations": self.violations,
-                "allowed_numbers": self.allowed_numbers, "found_numbers": self.found_numbers}
+        return {
+            "ok": self.ok,
+            "violations": self.violations,
+            "allowed_numbers": self.allowed_numbers,
+            "found_numbers": self.found_numbers,
+        }
 
 
 def _allowed_numbers(item: dict, pack: EvidencePack) -> tuple[set[float], set[str]]:
@@ -175,8 +183,7 @@ def _allowed_numbers(item: dict, pack: EvidencePack) -> tuple[set[float], set[st
 
     # 商品编号 / 标题里出现的数字属于事实本身，按字面放行
     tokens: set[str] = set()
-    for text in (str(facts.get("item_id", "")), str(facts.get("title", "")),
-                 str(facts.get("english_title", ""))):
+    for text in (str(facts.get("item_id", "")), str(facts.get("title", "")), str(facts.get("english_title", ""))):
         tokens.update(_NUM_RE.findall(text))
     return set(values), tokens
 
@@ -198,7 +205,7 @@ def _mentioned_categories(text: str, categories) -> set:
             if index < 0:
                 break
             found.add(category)
-            working = working[:index] + ("\x00" * len(category)) + working[index + len(category):]
+            working = working[:index] + ("\x00" * len(category)) + working[index + len(category) :]
             start = index + len(category)
     return found
 
@@ -216,14 +223,15 @@ def verify_groundedness(text: str, item: dict, pack: EvidencePack, catalog=None)
         try:
             as_float = float(normalized)
         except ValueError:
-            violations.append({"type": "fabricated_number", "token": token,
-                               "reason": "无法解析为数值且不在商品编号/标题中"})
+            violations.append(
+                {"type": "fabricated_number", "token": token, "reason": "无法解析为数值且不在商品编号/标题中"}
+            )
             continue
         if any(abs(as_float - value) < 1e-6 for value in allowed_values):
             continue
-        violations.append({"type": "fabricated_number", "token": token,
-                           "value": as_float,
-                           "reason": "该数值无法在证据包中溯源"})
+        violations.append(
+            {"type": "fabricated_number", "token": token, "value": as_float, "reason": "该数值无法在证据包中溯源"}
+        )
 
     # 类目一致性：输出若提到目录中的其它类目名，视为编造
     facts = pack.product_facts or {}
@@ -231,21 +239,23 @@ def verify_groundedness(text: str, item: dict, pack: EvidencePack, catalog=None)
     if catalog is not None and text:
         for category in _mentioned_categories(text, catalog.categories()):
             if category != true_category:
-                violations.append({"type": "wrong_category", "mentioned": category,
-                                   "expected": true_category})
+                violations.append({"type": "wrong_category", "mentioned": category, "expected": true_category})
 
     # 商品名一致性：不得出现别的商品标题
     if catalog is not None and text:
         title = str(facts.get("title") or "")
-        for other_id, product in list(catalog.catalog.items())[:4000]:
+        for product in list(catalog.catalog.values())[:4000]:
             other_title = product.get("title") or ""
             if other_title and other_title != title and len(other_title) >= 5 and other_title in text:
                 violations.append({"type": "wrong_item", "mentioned": other_title})
                 break
 
-    return GroundednessReport(ok=not violations, violations=violations,
-                              allowed_numbers=sorted("%g" % v for v in allowed_values)[:20],
-                              found_numbers=found)
+    return GroundednessReport(
+        ok=not violations,
+        violations=violations,
+        allowed_numbers=sorted(f"{v:g}" for v in allowed_values)[:20],
+        found_numbers=found,
+    )
 
 
 def evaluate_output(raw_text: str, item: dict, pack: EvidencePack, catalog=None) -> dict:
@@ -286,19 +296,34 @@ class LlmExplainer:
     def explain(self, item: dict, pack: EvidencePack, *, template_text: str) -> Result:
         """返回 {text, source, grounded, ...}；LLM 不可用或校验失败时回退模板解释。"""
         if not self.available():
-            return ok({"text": template_text, "source": "template", "grounded": True,
-                       "fallback_reason": "LLM 未启用或适配器不在 real 模式"})
+            return ok(
+                {
+                    "text": template_text,
+                    "source": "template",
+                    "grounded": True,
+                    "fallback_reason": "LLM 未启用或适配器不在 real 模式",
+                }
+            )
 
         self.stats["attempted"] += 1
         prompt = build_grounded_prompt(item, pack)
-        result = self.adapter.guard("llm_explain", lambda: self.adapter._run_worker(
-            "llm", {"prompt": prompt, "max_new_tokens": CFG["max_new_tokens"],
-                    "temperature": CFG["temperature"]}))
+        result = self.adapter.guard(
+            "llm_explain",
+            lambda: self.adapter._run_worker(
+                "llm", {"prompt": prompt, "max_new_tokens": CFG["max_new_tokens"], "temperature": CFG["temperature"]}
+            ),
+        )
         if not result.ok:
             self.stats["errors"] += 1
             reason = result.error.message if result.error else "LLM 调用失败"
-            return ok({"text": template_text, "source": "template", "grounded": True,
-                       "fallback_reason": "LLM 调用失败: " + reason})
+            return ok(
+                {
+                    "text": template_text,
+                    "source": "template",
+                    "grounded": True,
+                    "fallback_reason": "LLM 调用失败: " + reason,
+                }
+            )
 
         raw_output = str((result.data or {}).get("text") or "").strip()
         raw = normalize_output(raw_output)
@@ -308,8 +333,15 @@ class LlmExplainer:
         latency = (result.meta or {}).get("latency_ms")
         if not raw:
             self.stats["rejected"] += 1
-            return ok({"text": template_text, "source": "template", "grounded": True,
-                       "fallback_reason": "LLM 返回空文本", "model": model})
+            return ok(
+                {
+                    "text": template_text,
+                    "source": "template",
+                    "grounded": True,
+                    "fallback_reason": "LLM 返回空文本",
+                    "model": model,
+                }
+            )
 
         evaluated = evaluate_output(raw_output, item, pack, self.catalog)
         raw = evaluated["text"]
@@ -327,21 +359,43 @@ class LlmExplainer:
                 kind, message = "format", "LLM 输出不符合格式要求，已回退模板解释"
             else:
                 kind, message = "fact", "LLM 输出含不可溯源内容，已回退模板解释"
-            self.stats["reject_details"].append({"item_id": pack.item_id, "type": kind,
-                                                 "violations": evaluated["rejection"]["violations"][:3]})
-            return ok({"text": template_text, "source": "template", "grounded": True,
-                       "llm_rejected": True, "raw_llm_text": raw_output,
-                       "normalized_text": raw, "fluency_actions": evaluated["fluency_actions"],
-                       "rejection": evaluated["rejection"], "fallback_reason": message,
-                       "model": model, "latency_ms": latency})
+            self.stats["reject_details"].append(
+                {"item_id": pack.item_id, "type": kind, "violations": evaluated["rejection"]["violations"][:3]}
+            )
+            return ok(
+                {
+                    "text": template_text,
+                    "source": "template",
+                    "grounded": True,
+                    "llm_rejected": True,
+                    "raw_llm_text": raw_output,
+                    "normalized_text": raw,
+                    "fluency_actions": evaluated["fluency_actions"],
+                    "rejection": evaluated["rejection"],
+                    "fallback_reason": message,
+                    "model": model,
+                    "latency_ms": latency,
+                }
+            )
 
         self.stats["accepted"] += 1
-        return ok({"text": raw, "source": "llm", "grounded": True,
-                   "raw_llm_text": raw_output, "fluency_actions": fluency_actions,
-                   "groundedness": report.to_dict(), "model": model, "latency_ms": latency})
+        return ok(
+            {
+                "text": raw,
+                "source": "llm",
+                "grounded": True,
+                "raw_llm_text": raw_output,
+                "fluency_actions": fluency_actions,
+                "groundedness": report.to_dict(),
+                "model": model,
+                "latency_ms": latency,
+            }
+        )
 
     def report(self) -> dict:
         attempted = self.stats["attempted"]
-        return {**self.stats,
-                "accept_rate": round(self.stats["accepted"] / attempted, 4) if attempted else None,
-                "reject_rate": round(self.stats["rejected"] / attempted, 4) if attempted else None}
+        return {
+            **self.stats,
+            "accept_rate": round(self.stats["accepted"] / attempted, 4) if attempted else None,
+            "reject_rate": round(self.stats["rejected"] / attempted, 4) if attempted else None,
+        }

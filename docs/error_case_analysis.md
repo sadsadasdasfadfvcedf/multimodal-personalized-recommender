@@ -2,7 +2,7 @@
 
 > 阶段2 提交物 · 由 scripts/08_gen_docs.py 从证据文件自动生成，请勿手工编辑
 
-- 生成时间：2026-10-15T05:55:21+00:00
+- 生成时间：2026-10-15T06:01:40+00:00
 - 数据来源：outputs/stage02_context_cases.jsonl、outputs/stage02_context_metrics.json
 - 重新生成：先执行对应阶段脚本，再执行 python scripts/08_gen_docs.py
 

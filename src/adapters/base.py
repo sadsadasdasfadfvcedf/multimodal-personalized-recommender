@@ -7,12 +7,14 @@ src/adapters/base.py
 阶段1 要求「记录输入、关键中间状态、输出与耗时」，并「保留离线降级」。
 所有降级事件都以结构化形式记录，最终写入 outputs/ 证据文件。
 """
+
 from __future__ import annotations
 
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from ..errors import ErrorCode, Result, fail, ok
+from ..errors import Result, fail
 
 
 class AdapterBase:
@@ -28,14 +30,16 @@ class AdapterBase:
 
     # ---------------- 降级 ----------------
     def record_degradation(self, *, level: str, reason: str, from_mode: str, to_mode: str, **extra: Any) -> None:
-        self.degradations.append({
-            "adapter": self.name,
-            "level": level,
-            "reason": reason,
-            "from": from_mode,
-            "to": to_mode,
-            **extra,
-        })
+        self.degradations.append(
+            {
+                "adapter": self.name,
+                "level": level,
+                "reason": reason,
+                "from": from_mode,
+                "to": to_mode,
+                **extra,
+            }
+        )
 
     def degradation_report(self) -> dict[str, Any]:
         return {
@@ -47,17 +51,27 @@ class AdapterBase:
         }
 
     # ---------------- 调用记录 ----------------
-    def log_call(self, method: str, *, ok_flag: bool, latency_ms: float, mode: str,
-                 error: dict | None = None, detail: dict | None = None) -> None:
-        self.call_log.append({
-            "adapter": self.name,
-            "method": method,
-            "mode": mode,
-            "ok": ok_flag,
-            "latency_ms": round(latency_ms, 3),
-            "error": error,
-            "detail": detail or {},
-        })
+    def log_call(
+        self,
+        method: str,
+        *,
+        ok_flag: bool,
+        latency_ms: float,
+        mode: str,
+        error: dict | None = None,
+        detail: dict | None = None,
+    ) -> None:
+        self.call_log.append(
+            {
+                "adapter": self.name,
+                "method": method,
+                "mode": mode,
+                "ok": ok_flag,
+                "latency_ms": round(latency_ms, 3),
+                "error": error,
+                "detail": detail or {},
+            }
+        )
 
     def call_report(self) -> dict[str, Any]:
         total = len(self.call_log)
@@ -85,8 +99,9 @@ class AdapterBase:
             from ..errors import as_error_dict
 
             err = as_error_dict(exc)
-            self.log_call(method, ok_flag=False, latency_ms=(time.perf_counter() - start) * 1000,
-                          mode=self.active_mode, error=err)
+            self.log_call(
+                method, ok_flag=False, latency_ms=(time.perf_counter() - start) * 1000, mode=self.active_mode, error=err
+            )
             return fail(err["code"], err["message"], error_context=err.get("context", {}))
         latency = (time.perf_counter() - start) * 1000
         self.log_call(

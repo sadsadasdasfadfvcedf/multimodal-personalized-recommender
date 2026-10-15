@@ -11,6 +11,7 @@ scripts/run_all_offline.py
     python scripts/run_all_offline.py            # 跑全部
     python scripts/run_all_offline.py --quiet    # 只打印汇总
 """
+
 from __future__ import annotations
 
 import argparse
@@ -48,7 +49,10 @@ def main() -> int:
         start = time.perf_counter()
         proc = subprocess.run(
             [sys.executable, "-B", str(PROJECT_ROOT / "scripts" / script)],
-            capture_output=args.quiet, text=True, encoding="utf-8", errors="replace",
+            capture_output=args.quiet,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
             env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"},
         )
         cost = time.perf_counter() - start
@@ -65,8 +69,7 @@ def main() -> int:
         print(f"{stage:<6}{name:<22}{mark} {verdict:<6}{cost:>7.1f}s")
     failed = [r for r in rows if r[2] != "PASS"]
     print(f"{'-' * 60}")
-    print(f"合计 {len(rows) - len(failed)}/{len(rows)} 通过，"
-          f"总耗时 {time.perf_counter() - total_start:.1f}s")
+    print(f"合计 {len(rows) - len(failed)}/{len(rows)} 通过，总耗时 {time.perf_counter() - total_start:.1f}s")
     if failed:
         print("未通过：" + "、".join(f"阶段{s}" for s, _, _, _ in failed))
     else:

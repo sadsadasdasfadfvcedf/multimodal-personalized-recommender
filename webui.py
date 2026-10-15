@@ -20,9 +20,11 @@ webui.py —— 多模态个性化推荐助手 · 网页对话界面
     python webui.py --real --llm         # 再用真实 LLM 生成解释
     python webui.py --port 8020 --user 14156
 """
+
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
@@ -1210,10 +1212,8 @@ def fetch_product_image(item_id: str) -> tuple[bytes, str] | None:
     if not data or len(data) > settings.IMAGE_CONFIG["max_bytes"]:
         return None
     ext = _MIME_EXT.get(ctype, ".jpg")
-    try:
+    with contextlib.suppress(OSError):
         (cache_dir / (item_id + ext)).write_bytes(data)
-    except OSError:
-        pass
     return data, ctype
 
 
@@ -1222,18 +1222,17 @@ def category_emoji(category: str) -> str:
     return table.get(str(category or ""), settings.IMAGE_CONFIG["default_emoji"])
 
 
-
 class App:
     """承载 Orchestrator 与全局会话状态（加锁串行化，避免并发调用）。"""
 
-    def __init__(self, user_id: str, mode: str | None, with_voice: bool, use_llm: bool,
-                 allow_real: bool | None = None) -> None:
+    def __init__(
+        self, user_id: str, mode: str | None, with_voice: bool, use_llm: bool, allow_real: bool | None = None
+    ) -> None:
         self.lock = threading.Lock()
         self.user_id = user_id
         # allow_real 必须**显式传参**：settings.RUNTIME 在 import 时即已求值，
         # 之后再 os.environ[...]="1" 不会生效（这是实测踩到的坑）。
-        self.orch = Orchestrator(mode=mode, allow_real=allow_real,
-                                 with_voice=with_voice, use_llm=use_llm)
+        self.orch = Orchestrator(mode=mode, allow_real=allow_real, with_voice=with_voice, use_llm=use_llm)
         self.session_id = self.orch.store.default_session_id(user_id)
         self.with_voice = with_voice
         self.media = settings.PATHS["artifacts"] / "webui"
@@ -1295,8 +1294,9 @@ class App:
         if not gestures:
             return {"ok": False, "error": (g.data or {}).get("note") or "未识别到已定义手势"}
         name = gestures[0]["name"]
-        out = self.handle_spec({"source": "gesture",
-                                "gesture": {"name": name, "confidence": gestures[0]["confidence"]}})
+        out = self.handle_spec(
+            {"source": "gesture", "gesture": {"name": name, "confidence": gestures[0]["confidence"]}}
+        )
         out["gesture"] = name
         return out
 
@@ -1312,8 +1312,9 @@ class App:
         if not vl.ok:
             return {"ok": False, "error": f"视觉理解失败: {vl.error}"}
         desc = (vl.data or {}).get("response") or ""
-        out = self.handle_spec({"source": "vision", "text": question or "",
-                                "visual_tags": [{"tag": desc[:24], "confidence": 0.85}]})
+        out = self.handle_spec(
+            {"source": "vision", "text": question or "", "visual_tags": [{"tag": desc[:24], "confidence": 0.85}]}
+        )
         out["description"] = desc
         return out
 
@@ -1324,9 +1325,15 @@ class App:
             with self.lock:
                 self.orch.store.end(self.session_id)
                 self.session_id = f"{self.session_id}-{self.turn}"
-            return {"ok": True, "response": {"status": "ok", "recommendations": [],
-                                             "trace": {"latency_ms": {}},
-                                             "intent_result": {"intent": "reset"}}}
+            return {
+                "ok": True,
+                "response": {
+                    "status": "ok",
+                    "recommendations": [],
+                    "trace": {"latency_ms": {}},
+                    "intent_result": {"intent": "reset"},
+                },
+            }
         return {"ok": False, "error": "未知操作"}
 
     def product(self, item_id: str) -> dict:
@@ -1338,20 +1345,32 @@ class App:
         similar = []
         for sid in cat.similar_of(item_id, k=8):
             sp = cat.product(sid) or {}
-            similar.append({"item_id": sid, "title": sp.get("title", ""),
-                            "category": sp.get("category", ""), "price": sp.get("price"),
-                            "emoji": category_emoji(sp.get("category", "")),
-                            "img_url": "/api/img/" + urllib.parse.quote(sid)})
-        return {"ok": True, "product": {
-            "item_id": item_id, "title": product.get("title", ""),
-            "english_title": product.get("english_title", ""),
-            "category": product.get("category", ""), "price": product.get("price"),
-            "currency": product.get("currency", ""),
-            "price_source": product.get("price_source"),
-            "transactions": product.get("transactions"),
-            "emoji": category_emoji(product.get("category", "")),
-            "img_url": "/api/img/" + urllib.parse.quote(item_id),
-        }, "similar": similar}
+            similar.append(
+                {
+                    "item_id": sid,
+                    "title": sp.get("title", ""),
+                    "category": sp.get("category", ""),
+                    "price": sp.get("price"),
+                    "emoji": category_emoji(sp.get("category", "")),
+                    "img_url": "/api/img/" + urllib.parse.quote(sid),
+                }
+            )
+        return {
+            "ok": True,
+            "product": {
+                "item_id": item_id,
+                "title": product.get("title", ""),
+                "english_title": product.get("english_title", ""),
+                "category": product.get("category", ""),
+                "price": product.get("price"),
+                "currency": product.get("currency", ""),
+                "price_source": product.get("price_source"),
+                "transactions": product.get("transactions"),
+                "emoji": category_emoji(product.get("category", "")),
+                "img_url": "/api/img/" + urllib.parse.quote(item_id),
+            },
+            "similar": similar,
+        }
 
     def home(self) -> dict:
         """首页商品：用**独立会话**跑一次发现型查询，不污染对话历史。
@@ -1360,8 +1379,7 @@ class App:
         """
         spec = {"source": "text", "text": "推荐一些热门商品"}
         with self.lock:
-            res = self.orch.handle(spec, user_id=self.user_id,
-                                   session_id=self.session_id + "-home")
+            res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id + "-home")
         if not res.ok:
             return {"ok": False, "error": str(res.error)}
         resp = res.data
@@ -1370,8 +1388,12 @@ class App:
             if iid:
                 item["img_url"] = "/api/img/" + urllib.parse.quote(iid)
                 item["emoji"] = category_emoji(item.get("category", ""))
-        return {"ok": True, "items": resp.get("recommendations", []),
-                "title": "猜你喜欢", "subtitle": "基于 v146 个性化精排的默认推荐"}
+        return {
+            "ok": True,
+            "items": resp.get("recommendations", []),
+            "title": "猜你喜欢",
+            "subtitle": "基于 v146 个性化精排的默认推荐",
+        }
 
     def view(self, item_id: str) -> dict:
         """「继续浏览」弱反馈：用户打开商品详情即上报一次。
@@ -1396,9 +1418,8 @@ class App:
             if sess is not None and self.orch.catalog.exists(str(item_id)):
                 sess.focus_item_id = str(item_id)
                 if str(item_id) not in sess.last_item_ids:
-                    sess.last_item_ids = [str(item_id)] + list(sess.last_item_ids)
-        return self.handle_spec({"source": "gesture",
-                                 "gesture": {"name": name, "confidence": 1.0}})
+                    sess.last_item_ids = [str(item_id), *sess.last_item_ids]
+        return self.handle_spec({"source": "gesture", "gesture": {"name": name, "confidence": 1.0}})
 
     def products(self, item_ids: list[str]) -> dict:
         """批量取商品详情 —— 供对比栏做字段对照。
@@ -1412,18 +1433,20 @@ class App:
             product = cat.product(str(item_id))
             if not product:
                 continue
-            out.append({
-                "item_id": str(item_id),
-                "title": product.get("title", ""),
-                "english_title": product.get("english_title", ""),
-                "category": product.get("category", ""),
-                "price": product.get("price"),
-                "currency": product.get("currency", ""),
-                "price_source": product.get("price_source"),
-                "transactions": product.get("transactions"),
-                "emoji": category_emoji(product.get("category", "")),
-                "img_url": "/api/img/" + urllib.parse.quote(str(item_id)),
-            })
+            out.append(
+                {
+                    "item_id": str(item_id),
+                    "title": product.get("title", ""),
+                    "english_title": product.get("english_title", ""),
+                    "category": product.get("category", ""),
+                    "price": product.get("price"),
+                    "currency": product.get("currency", ""),
+                    "price_source": product.get("price_source"),
+                    "transactions": product.get("transactions"),
+                    "emoji": category_emoji(product.get("category", "")),
+                    "img_url": "/api/img/" + urllib.parse.quote(str(item_id)),
+                }
+            )
         if not out:
             return {"ok": False, "error": "没有可用的商品"}
         return {"ok": True, "products": out}
@@ -1433,9 +1456,13 @@ class App:
         return sess.snapshot() if sess else {}
 
     def info(self) -> dict:
-        return {"user_id": self.user_id, "session_id": self.session_id,
-                "modes": self.orch.modes(), "voice": self.with_voice,
-                "llm": bool(self.orch.llm_explainer.enabled)}
+        return {
+            "user_id": self.user_id,
+            "session_id": self.session_id,
+            "modes": self.orch.modes(),
+            "voice": self.with_voice,
+            "llm": bool(self.orch.llm_explainer.enabled),
+        }
 
 
 def make_handler(app: App):
@@ -1454,8 +1481,11 @@ def make_handler(app: App):
             self.wfile.write(body)
 
         def _json(self, obj, code: int = 200) -> None:
-            self._send(code, json.dumps(obj, ensure_ascii=False, default=str).encode("utf-8"),
-                       "application/json; charset=utf-8")
+            self._send(
+                code,
+                json.dumps(obj, ensure_ascii=False, default=str).encode("utf-8"),
+                "application/json; charset=utf-8",
+            )
 
         def _body(self) -> dict:
             length = int(self.headers.get("Content-Length") or 0)
@@ -1477,7 +1507,7 @@ def make_handler(app: App):
                 self._json(app.home())
                 return
             if self.path.startswith("/api/img/"):
-                item_id = urllib.parse.unquote(self.path[len("/api/img/"):].split("?")[0])
+                item_id = urllib.parse.unquote(self.path[len("/api/img/") :].split("?")[0])
                 got = fetch_product_image(item_id)
                 if got is None:
                     self._json({"error": "image not found"}, 404)
@@ -1486,12 +1516,12 @@ def make_handler(app: App):
                     self._send(200, data, ctype)
                 return
             if self.path.startswith("/api/product/"):
-                item_id = urllib.parse.unquote(self.path[len("/api/product/"):].split("?")[0])
+                item_id = urllib.parse.unquote(self.path[len("/api/product/") :].split("?")[0])
                 self._json(app.product(item_id))
                 return
             if self.path.startswith("/audio/"):
-                name = self.path[len("/audio/"):].split("?")[0]
-                target = (settings.PATHS["artifacts"] / Path(name).name)
+                name = self.path[len("/audio/") :].split("?")[0]
+                target = settings.PATHS["artifacts"] / Path(name).name
                 if target.exists():
                     ctype = "audio/wav" if target.suffix == ".wav" else "audio/mpeg"
                     self._send(200, target.read_bytes(), ctype)
@@ -1524,8 +1554,7 @@ def make_handler(app: App):
                 elif self.path == "/api/view":
                     self._json(app.view(str(body.get("item_id", ""))))
                 elif self.path == "/api/feedback":
-                    self._json(app.feedback(str(body.get("item_id", "")),
-                                            str(body.get("polarity", "positive"))))
+                    self._json(app.feedback(str(body.get("item_id", "")), str(body.get("polarity", "positive"))))
                 elif self.path == "/api/state":
                     self._json({"ok": True, "state": app.state()})
                 elif self.path == "/api/llm":
@@ -1567,8 +1596,10 @@ def main() -> int:
     print("多模态个性化推荐助手 · 网页对话界面")
     print("=" * 70)
     print(f"地址： {url}")
-    print(f"用户： {args.user}   多模态：{modes['multimodal']}   推荐：{modes['recommender']}   "
-          f"LLM：{modes.get('llm_explain')}   语音播报：{'开' if args.voice else '关'}")
+    print(
+        f"用户： {args.user}   多模态：{modes['multimodal']}   推荐：{modes['recommender']}   "
+        f"LLM：{modes.get('llm_explain')}   语音播报：{'开' if args.voice else '关'}"
+    )
     print("按 Ctrl+C 停止服务\n")
     if not args.no_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()

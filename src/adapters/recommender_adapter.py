@@ -13,12 +13,14 @@ src/adapters/recommender_adapter.py
 重要：本适配器只通过「公开接口/发布制品」交互，不 import 推荐系统的 Python 模块，
       不读取其内部变量 —— 满足阶段1 的接口边界要求。
 """
+
 from __future__ import annotations
 
 import os
 from typing import Any
 
 from config import settings
+
 from ..catalog import Catalog
 from ..errors import ErrorCode, Result, fail, ok
 from .base import AdapterBase
@@ -53,18 +55,20 @@ class RecommenderAdapter(AdapterBase):
                     return
             except Exception as exc:
                 self.record_degradation(
-                    level="L1", reason=f"{strategy} 策略异常: {type(exc).__name__}: {exc}",
-                    from_mode=strategy, to_mode="next",
+                    level="L1",
+                    reason=f"{strategy} 策略异常: {type(exc).__name__}: {exc}",
+                    from_mode=strategy,
+                    to_mode="next",
                 )
         # 兜底：内置快照
         self.active_mode = "offline_snapshot"
-        self.record_degradation(level="L2", reason="所有策略均不可用，强制使用内置快照",
-                                from_mode="*", to_mode="offline_snapshot")
+        self.record_degradation(
+            level="L2", reason="所有策略均不可用，强制使用内置快照", from_mode="*", to_mode="offline_snapshot"
+        )
 
     def _try_http(self) -> bool:
         if not CFG["http"]["enabled"]:
-            self.record_degradation(level="L1", reason="http 策略被配置禁用",
-                                    from_mode="http", to_mode="next")
+            self.record_degradation(level="L1", reason="http 策略被配置禁用", from_mode="http", to_mode="next")
             return False
         user = os.getenv(CFG["http"]["username_env"])
         password = os.getenv(CFG["http"]["password_env"])
@@ -72,7 +76,8 @@ class RecommenderAdapter(AdapterBase):
             self.record_degradation(
                 level="L1",
                 reason=f"缺少演示账号环境变量 {CFG['http']['username_env']}/{CFG['http']['password_env']}，跳过 HTTP 策略",
-                from_mode="http", to_mode="next",
+                from_mode="http",
+                to_mode="next",
             )
             return False
         try:
@@ -95,8 +100,7 @@ class RecommenderAdapter(AdapterBase):
         payload = {keys.get("user", "user_id"): user, keys.get("password", "password"): password}
         try:
             session = requests.Session()
-            resp = session.post(f"{self.http_base}{CFG['http']['endpoints']['login']}",
-                                json=payload, timeout=timeout)
+            resp = session.post(f"{self.http_base}{CFG['http']['endpoints']['login']}", json=payload, timeout=timeout)
             if resp.status_code != 200:
                 detail = ""
                 try:
@@ -108,27 +112,32 @@ class RecommenderAdapter(AdapterBase):
             return True
         except Exception as exc:
             self.record_degradation(
-                level="L1", reason=f"推荐系统 HTTP 不可用: {type(exc).__name__}: {exc}",
-                from_mode="http", to_mode="next",
+                level="L1",
+                reason=f"推荐系统 HTTP 不可用: {type(exc).__name__}: {exc}",
+                from_mode="http",
+                to_mode="next",
             )
             self._http_session = None
             return False
 
     def _try_local(self) -> bool:
         if not CFG["local_artifacts"]["enabled"]:
-            self.record_degradation(level="L1", reason="local_artifacts 策略被禁用",
-                                    from_mode="local_artifacts", to_mode="next")
+            self.record_degradation(
+                level="L1", reason="local_artifacts 策略被禁用", from_mode="local_artifacts", to_mode="next"
+            )
             return False
         root = settings.RECOMMENDER_ROOT
         if root is None:
-            self.record_degradation(level="L1", reason="未找到推荐系统根目录",
-                                    from_mode="local_artifacts", to_mode="next")
+            self.record_degradation(
+                level="L1", reason="未找到推荐系统根目录", from_mode="local_artifacts", to_mode="next"
+            )
             return False
         try:
             self.catalog = Catalog.from_external(root)
         except Exception as exc:
-            self.record_degradation(level="L1", reason=f"读取发布制品失败: {exc}",
-                                    from_mode="local_artifacts", to_mode="next")
+            self.record_degradation(
+                level="L1", reason=f"读取发布制品失败: {exc}", from_mode="local_artifacts", to_mode="next"
+            )
             return False
         self.active_mode = "local_artifacts"
         return True
@@ -139,8 +148,10 @@ class RecommenderAdapter(AdapterBase):
         base = settings.PATHS["offline"]
         if not (base / "catalog.json").exists():
             self.record_degradation(
-                level="L2", reason="内置快照缺失，请先运行 scripts/build_offline_snapshot.py",
-                from_mode="offline_snapshot", to_mode="none",
+                level="L2",
+                reason="内置快照缺失，请先运行 scripts/build_offline_snapshot.py",
+                from_mode="offline_snapshot",
+                to_mode="none",
             )
             return False
         self.catalog = self._build_catalog("offline_snapshot")
@@ -156,14 +167,16 @@ class RecommenderAdapter(AdapterBase):
 
     # ---------------- 健康检查 ----------------
     def health(self) -> Result:
-        return ok({
-            "adapter": self.name,
-            "active_mode": self.active_mode,
-            "http_base": self.http_base,
-            "http_available": self._http_session is not None,
-            "catalog": self.catalog.describe() if self.catalog else None,
-            "degradations": list(self.degradations),
-        })
+        return ok(
+            {
+                "adapter": self.name,
+                "active_mode": self.active_mode,
+                "http_base": self.http_base,
+                "http_available": self._http_session is not None,
+                "catalog": self.catalog.describe() if self.catalog else None,
+                "degradations": list(self.degradations),
+            }
+        )
 
     # ---------------- 原语：候选池 ----------------
     def _require_catalog(self) -> Catalog:
@@ -176,6 +189,7 @@ class RecommenderAdapter(AdapterBase):
 
     def personalized_candidates(self, user_id: str, k: int = 80) -> Result:
         """个性化精排候选（推荐系统 v146 分数）。"""
+
         def run() -> Result:
             if self.active_mode == "http":
                 http_result = self._http_recommendations(k)
@@ -185,18 +199,29 @@ class RecommenderAdapter(AdapterBase):
             scores = cat.user_scores(user_id)
             items = [i for i in sorted(scores, key=lambda x: -scores[x]) if cat.exists(i)][:k]
             if not items:
-                return fail(ErrorCode.NO_RESULT,
-                            f"用户 {user_id} 在推荐系统中没有个性化候选",
-                            field="user_id", user_id=user_id, mode=self.active_mode)
-            return ok([{"item_id": i, "score": float(scores[i]), "source_key": "personalized",
+                return fail(
+                    ErrorCode.NO_RESULT,
+                    f"用户 {user_id} 在推荐系统中没有个性化候选",
+                    field="user_id",
+                    user_id=user_id,
+                    mode=self.active_mode,
+                )
+            return ok(
+                [
+                    {
+                        "item_id": i,
+                        "score": float(scores[i]),
+                        "source_key": "personalized",
                         "source_label": self._label("personalized"),
-                        "detail": {"model_version": cat.model_version, "mode": self.active_mode}}
-                       for i in items])
+                        "detail": {"model_version": cat.model_version, "mode": self.active_mode},
+                    }
+                    for i in items
+                ]
+            )
 
         return self.guard("personalized_candidates", run)
 
     def _http_recommendations(self, k: int) -> Result:
-        import requests
 
         assert self._http_session is not None
         timeout = CFG["http"]["timeout_s"]
@@ -206,7 +231,9 @@ class RecommenderAdapter(AdapterBase):
             while len(items) < k and offset < 200:
                 resp = self._http_session.get(
                     f"{self.http_base}{CFG['http']['endpoints']['recommendations']}",
-                    params={"offset": offset, "limit": min(40, k - len(items))}, timeout=timeout)
+                    params={"offset": offset, "limit": min(40, k - len(items))},
+                    timeout=timeout,
+                )
                 if resp.status_code != 200:
                     raise RuntimeError(f"recommendations HTTP {resp.status_code}")
                 payload = resp.json()
@@ -215,23 +242,31 @@ class RecommenderAdapter(AdapterBase):
                     break
                 for row in chunk:
                     if row.get("score") is not None:
-                        items.append({"item_id": str(row["item_id"]), "score": float(row["score"]),
-                                      "source_key": "personalized",
-                                      "source_label": self._label("personalized"),
-                                      "detail": {"reason": row.get("reason"), "http": True}})
+                        items.append(
+                            {
+                                "item_id": str(row["item_id"]),
+                                "score": float(row["score"]),
+                                "source_key": "personalized",
+                                "source_label": self._label("personalized"),
+                                "detail": {"reason": row.get("reason"), "http": True},
+                            }
+                        )
                 offset = payload.get("next_offset", offset + len(chunk))
                 if not payload.get("has_more"):
                     break
         except Exception as exc:
-            self.record_degradation(level="L1", reason=f"HTTP 召回失败: {type(exc).__name__}: {exc}",
-                                    from_mode="http", to_mode="local_artifacts")
+            self.record_degradation(
+                level="L1",
+                reason=f"HTTP 召回失败: {type(exc).__name__}: {exc}",
+                from_mode="http",
+                to_mode="local_artifacts",
+            )
             return fail(ErrorCode.UPSTREAM_UNAVAILABLE, f"HTTP 召回失败: {exc}")
         if not items:
             return fail(ErrorCode.NO_RESULT, "HTTP 推荐结果为空")
         return ok(items[:k])
 
-    def similar_candidates(self, seed_item_ids: list[str], k: int = 40,
-                           exclude: set[str] | None = None) -> Result:
+    def similar_candidates(self, seed_item_ids: list[str], k: int = 40, exclude: set[str] | None = None) -> Result:
         """相似商品召回（以若干种子商品的相似索引扩散）。"""
         exclude = exclude or set()
 
@@ -246,17 +281,21 @@ class RecommenderAdapter(AdapterBase):
                     counter[cand] = counter.get(cand, 0) + 1
                     seed_of.setdefault(cand, []).append(seed)
             if not counter:
-                return fail(ErrorCode.NO_RESULT, "相似召回为空", field="seed_item_ids",
-                            seeds=list(seed_item_ids))
+                return fail(ErrorCode.NO_RESULT, "相似召回为空", field="seed_item_ids", seeds=list(seed_item_ids))
             ranked = sorted(counter, key=lambda i: (-counter[i], -cat.popularity(i)))[:k]
             max_hit = max(counter.values())
-            return ok([{
-                "item_id": i,
-                "score": round(counter[i] / max_hit, 6),
-                "source_key": "similar",
-                "source_label": self._label("similar"),
-                "detail": {"shared_seeds": seed_of.get(i, [])[:3], "hit_count": counter[i]},
-            } for i in ranked])
+            return ok(
+                [
+                    {
+                        "item_id": i,
+                        "score": round(counter[i] / max_hit, 6),
+                        "source_key": "similar",
+                        "source_label": self._label("similar"),
+                        "detail": {"shared_seeds": seed_of.get(i, [])[:3], "hit_count": counter[i]},
+                    }
+                    for i in ranked
+                ]
+            )
 
         return self.guard("similar_candidates", run)
 
@@ -270,13 +309,18 @@ class RecommenderAdapter(AdapterBase):
             if not top:
                 return fail(ErrorCode.NO_RESULT, "热门池为空")
             peak = max(cat.popularity(i) for i in top) or 1
-            return ok([{
-                "item_id": i,
-                "score": round(cat.popularity(i) / peak, 6),
-                "source_key": "popular",
-                "source_label": self._label("popular"),
-                "detail": {"popularity": cat.popularity(i), "fallback": True},
-            } for i in top])
+            return ok(
+                [
+                    {
+                        "item_id": i,
+                        "score": round(cat.popularity(i) / peak, 6),
+                        "source_key": "popular",
+                        "source_label": self._label("popular"),
+                        "detail": {"popularity": cat.popularity(i), "fallback": True},
+                    }
+                    for i in top
+                ]
+            )
 
         return self.guard("popular_candidates", run)
 
@@ -290,13 +334,18 @@ class RecommenderAdapter(AdapterBase):
             if not ids:
                 return fail(ErrorCode.NO_RESULT, f"品类 {category} 无候选", field="category")
             peak = max(cat.popularity(i) for i in ids) or 1
-            return ok([{
-                "item_id": i,
-                "score": round(cat.popularity(i) / peak, 6),
-                "source_key": "category_hot",
-                "source_label": self._label("category_hot"),
-                "detail": {"category": category, "popularity": cat.popularity(i)},
-            } for i in ids])
+            return ok(
+                [
+                    {
+                        "item_id": i,
+                        "score": round(cat.popularity(i) / peak, 6),
+                        "source_key": "category_hot",
+                        "source_label": self._label("category_hot"),
+                        "detail": {"category": category, "popularity": cat.popularity(i)},
+                    }
+                    for i in ids
+                ]
+            )
 
         return self.guard("category_candidates", run)
 
@@ -320,13 +369,18 @@ class RecommenderAdapter(AdapterBase):
                     counter[cand] = counter.get(cand, 0) + 1
             ranked = sorted(counter, key=lambda i: -counter[i])[:k]
             peak = max(counter.values()) if counter else 1
-            return ok([{
-                "item_id": i,
-                "score": round(counter[i] / peak, 6),
-                "source_key": "history",
-                "source_label": self._label("history"),
-                "detail": {"from_history": True, "hit_count": counter[i]},
-            } for i in ranked])
+            return ok(
+                [
+                    {
+                        "item_id": i,
+                        "score": round(counter[i] / peak, 6),
+                        "source_key": "history",
+                        "source_label": self._label("history"),
+                        "detail": {"from_history": True, "hit_count": counter[i]},
+                    }
+                    for i in ranked
+                ]
+            )
 
         return self.guard("history_candidates", run)
 
@@ -341,11 +395,13 @@ class RecommenderAdapter(AdapterBase):
             product = cat.product(item_id)
             if not product:
                 return fail(ErrorCode.ITEM_NOT_FOUND, f"商品 {item_id} 不在目录中", field="item_id")
-            return ok({
-                "product": dict(product),
-                "similar": cat.similar_of(item_id, k=12),
-                "origin": cat.origin,
-            })
+            return ok(
+                {
+                    "product": dict(product),
+                    "similar": cat.similar_of(item_id, k=12),
+                    "origin": cat.origin,
+                }
+            )
 
         return self.guard("product_detail", run)
 
@@ -354,16 +410,17 @@ class RecommenderAdapter(AdapterBase):
         timeout = CFG["http"]["timeout_s"]
         try:
             resp = self._http_session.get(
-                f"{self.http_base}{CFG['http']['endpoints']['product'].format(item_id=item_id)}",
-                timeout=timeout)
+                f"{self.http_base}{CFG['http']['endpoints']['product'].format(item_id=item_id)}", timeout=timeout
+            )
             if resp.status_code != 200:
                 raise RuntimeError(f"product HTTP {resp.status_code}")
             payload = resp.json()
             product = payload.get("product") or {}
             return ok({"product": product, "similar": payload.get("similar", []), "origin": "http"})
         except Exception as exc:
-            self.record_degradation(level="L2", reason=f"HTTP 商品详情失败: {exc}",
-                                    from_mode="http", to_mode="local_artifacts")
+            self.record_degradation(
+                level="L2", reason=f"HTTP 商品详情失败: {exc}", from_mode="http", to_mode="local_artifacts"
+            )
             return fail(ErrorCode.UPSTREAM_UNAVAILABLE, f"HTTP 商品详情失败: {exc}")
 
     def metadata(self) -> dict[str, Any]:

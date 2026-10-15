@@ -1,0 +1,81 @@
+# ==============================================================================
+# 开发期质量工具配置   ruff / mypy / pytest
+# ------------------------------------------------------------------------------
+# 本文件 *只* 放工具配置，不含 [project] / [build-system]，
+# 因此不参与打包、不改变任何运行方式（离线演示依旧零依赖可跑）。
+#
+# 安装：python -m pip install ruff pytest pytest-cov mypy
+# 使用：python -m ruff check .            # 静态检查
+#       python -m ruff format --check .  # 格式检查（只报告，不改文件）
+#       python -m mypy                   # 类型检查
+#       python -m pytest -q              # 测试
+#
+# 关于 E402：脚本需要先做 sys.path 引导再 import，
+# 项目源码已在相应行显式标注 `# noqa: E402`，
+# 因此这里不再整体屏蔽该规则 —— 屏蔽会让那些 noqa 变成冗余（RUF100）。
+# ==============================================================================
+
+# ------------------------------- Ruff ----------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = ["__pycache__", ".venv", "outputs", "artifacts", "data", "docs"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "RET",  # flake8-return
+    "PTH",  # flake8-use-pathlib
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",   # 行长交给 formatter，逐行提示噪声过大
+    "B008",   # 允许在默认参数里调用函数（本项目常见的配置注入写法）
+    "RUF001", # 允许中文全角标点 —— 项目注释/文案/正则中大量使用
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 测试文件放宽断言相关规则
+"tests/*.py" = ["B011", "S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"  # 保留各文件既有行尾，避免仅换行符差异撑爆 diff
+
+# ------------------------------- mypy ----------------------------------------
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "."
+files = ["config", "src", "scripts", "main.py", "webui.py", "chat.py"]
+# 第三方可选增强依赖（torch / mediapipe / funasr / edge_tts / PyQt5）多数无 stub，
+# 缺失即降级是本项目的既定设计，因此不因缺 stub 报错。
+ignore_missing_imports = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+exclude = ["^outputs/", "^artifacts/", "^data/", "__pycache__", "^docs/"]
+
+# ------------------------------- pytest --------------------------------------
+# 说明：项目当前 *没有* 任何 pytest 测试（scripts/ 下是 19 个独立 __main__ 脚本）。
+# 一旦新增 tests/ 目录，把 testpaths 设为 ["tests"] 即可。
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+norecursedirs = ["data", "outputs", "artifacts", "docs", "__pycache__", ".venv", ".git", ".vscode", "scripts"]
+python_files = ["test_*.py", "*_test.py"]
+python_functions = ["test_*"]
+addopts = "-ra"

@@ -10,6 +10,7 @@ src/catalog.py
 
 对上层暴露与来源无关的只读查询接口。
 """
+
 from __future__ import annotations
 
 import csv
@@ -50,7 +51,7 @@ class Catalog:
 
     # ---------------- 构造 ----------------
     @classmethod
-    def _load(cls, base: Path, origin: str) -> "Catalog":
+    def _load(cls, base: Path, origin: str) -> Catalog:
         def _json(name: str, default):
             path = base / name
             if not path.exists():
@@ -70,12 +71,12 @@ class Catalog:
         )
 
     @classmethod
-    def from_snapshot(cls, offline_dir: Path | str | None = None) -> "Catalog":
+    def from_snapshot(cls, offline_dir: Path | str | None = None) -> Catalog:
         base = Path(offline_dir) if offline_dir else settings.PATHS["offline"]
         return cls._load(base, origin=f"offline_snapshot:{base}")
 
     @classmethod
-    def from_external(cls, root: Path | str) -> "Catalog":
+    def from_external(cls, root: Path | str) -> Catalog:
         """读取外部推荐系统 *发布制品*（products.csv / app_data.json / price_map.json ...）。"""
         root = Path(root)
         interop = settings.RECOMMENDER_INTEROP
@@ -175,21 +176,25 @@ class Catalog:
         self.catalog[key] = base
         return base
 
-    def clone(self) -> "Catalog":
+    def clone(self) -> Catalog:
         """浅拷贝一份目录（用例之间互不污染）。"""
         import copy as _copy
 
         return Catalog(
-            catalog=_copy.deepcopy(self.catalog), similar=_copy.deepcopy(self.similar),
-            scores=_copy.deepcopy(self.scores), popular=_copy.deepcopy(self.popular),
-            history=_copy.deepcopy(self.history), users=_copy.deepcopy(self.users),
-            meta=_copy.deepcopy(self.meta), origin=self.origin + "+clone",
+            catalog=_copy.deepcopy(self.catalog),
+            similar=_copy.deepcopy(self.similar),
+            scores=_copy.deepcopy(self.scores),
+            popular=_copy.deepcopy(self.popular),
+            history=_copy.deepcopy(self.history),
+            users=_copy.deepcopy(self.users),
+            meta=_copy.deepcopy(self.meta),
+            origin=self.origin + "+clone",
         )
 
     # ---------------- 只读查询 ----------------
     @property
     def model_version(self) -> str:
-        return (self.meta.get("model_version") or self.users.get("model_version") or "unknown")
+        return self.meta.get("model_version") or self.users.get("model_version") or "unknown"
 
     @property
     def currency(self) -> str:

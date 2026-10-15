@@ -17,19 +17,17 @@ scripts/12_text_norm_check.py
 
 输出：outputs/text_norm_check.json
 """
+
 from __future__ import annotations
 
 import importlib.util
-import pathlib
 
 from _bootstrap import banner
 
 from config import settings
 from src.text_norm import (
-    EN_REPLACEMENTS,
     TRADITIONAL_MARKERS,
     describe,
-    find_latin,
     find_traditional,
     normalize_fluency,
     verify_fluency,
@@ -38,7 +36,8 @@ from src.utils import now_iso, write_json
 
 # 直接加载 worker，复用其中的循环截断实现（避免重复实现两份逻辑）
 _SPEC = importlib.util.spec_from_file_location(
-    "mm_worker_for_test", str(settings.PROJECT_ROOT / "scripts" / "mm_worker.py"))
+    "mm_worker_for_test", str(settings.PROJECT_ROOT / "scripts" / "mm_worker.py")
+)
 _WORKER = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_WORKER)
 
@@ -56,29 +55,33 @@ def main() -> int:
     # ---------- 1) 繁体检测 ----------
     simplified = "这款装饰品颜值高，价格实惠，属于你的预算范围内的选择。"
     traditional = "這款裝飾品顏值高，價格實惠，屬於你的預算範圍內的選擇。"
-    check("T-01", "简体文本不应被误判为含繁体",
-          not find_traditional(simplified),
-          {"hits": find_traditional(simplified)})
+    check(
+        "T-01", "简体文本不应被误判为含繁体", not find_traditional(simplified), {"hits": find_traditional(simplified)}
+    )
     hits = find_traditional(traditional)
-    check("T-02", "繁体文本应被检出",
-          len(hits) >= 6, {"hits": hits})
+    check("T-02", "繁体文本应被检出", len(hits) >= 6, {"hits": hits})
 
     # ---------- 2) 繁转简 + 门控 ----------
     converted, actions = normalize_fluency(traditional)
-    check("T-03", "繁体文本应被转为简体",
-          converted == simplified and not verify_fluency(converted),
-          {"converted": converted, "actions": actions,
-           "violations": verify_fluency(converted)})
+    check(
+        "T-03",
+        "繁体文本应被转为简体",
+        converted == simplified and not verify_fluency(converted),
+        {"converted": converted, "actions": actions, "violations": verify_fluency(converted)},
+    )
 
     # ---------- 3) 中英混排 ----------
     mixed = "这10個复古彩ball聖誕燈，價格實惠，推薦給你！"
     normalized, actions = normalize_fluency(mixed)
-    check("T-04", "英文词应被替换为中文",
-          "ball" not in normalized and "球" in normalized,
-          {"normalized": normalized, "actions": actions})
-    check("T-05", "规范化后应通过流畅度门控",
-          not verify_fluency(normalized),
-          {"violations": verify_fluency(normalized)})
+    check(
+        "T-04",
+        "英文词应被替换为中文",
+        "ball" not in normalized and "球" in normalized,
+        {"normalized": normalized, "actions": actions},
+    )
+    check(
+        "T-05", "规范化后应通过流畅度门控", not verify_fluency(normalized), {"violations": verify_fluency(normalized)}
+    )
 
     # ---------- 4) 未映射英文词应被拦截 ----------
     # ---------- 5) 无转换器时的降级行为 ----------
@@ -86,45 +89,59 @@ def main() -> int:
     # ---------- 4b) 未映射英文词：删除而非保留 ----------
     unmapped_text = "这款悬挂蝴蝶 tea 烛台是装饰品，价格实惠。"
     cleaned, actions = normalize_fluency(unmapped_text)
-    check("T-06b", "未映射英文词应被删除（不引入新内容）",
-          "tea" not in cleaned and not verify_fluency(cleaned),
-          {"cleaned": cleaned, "actions": actions})
+    check(
+        "T-06b",
+        "未映射英文词应被删除（不引入新内容）",
+        "tea" not in cleaned and not verify_fluency(cleaned),
+        {"cleaned": cleaned, "actions": actions},
+    )
 
     # ---------- 4c) 英文占比过高应判不合格 ----------
     english_heavy = "This product is very nice and the price is affordable for you."
     cleaned_heavy, actions_heavy = normalize_fluency(english_heavy)
     violations_heavy = verify_fluency(cleaned_heavy)
-    check("T-06c", "英文占比过高时应判不合格（防止删空后误判合规）",
-          any(v["type"] == "insufficient_chinese" for v in violations_heavy),
-          {"cleaned": cleaned_heavy, "violations": violations_heavy,
-           "actions": actions_heavy})
+    check(
+        "T-06c",
+        "英文占比过高时应判不合格（防止删空后误判合规）",
+        any(v["type"] == "insufficient_chinese" for v in violations_heavy),
+        {"cleaned": cleaned_heavy, "violations": violations_heavy, "actions": actions_heavy},
+    )
 
     # ---------- 5) 无转换器时的降级行为 ----------
-    check("T-07", "无转换器时繁体字仍会被门控拦下（安全降级）",
-          set(find_traditional(traditional)) >= {"這", "裝", "飾", "價"},
-          {"marker_table": len(TRADITIONAL_MARKERS),
-           "note": "内置字表保证即使没有 zhconv 也能拦截不规范文本"})
+    check(
+        "T-07",
+        "无转换器时繁体字仍会被门控拦下（安全降级）",
+        set(find_traditional(traditional)) >= {"這", "裝", "飾", "價"},
+        {"marker_table": len(TRADITIONAL_MARKERS), "note": "内置字表保证即使没有 zhconv 也能拦截不规范文本"},
+    )
 
     # ---------- 6) 循环复读截断 ----------
-    loop = ("一个戴眼镜的男生，坐在电脑前，桌子上放着一些物品，桌子后面有一面墙，"
-            "墙上挂着一些物品，桌子后面有一面墙，墙上挂着一些物品，桌子后面有一面墙，"
-            "墙上挂着一些物品，桌子后面有一面墙，墙上挂着一些物品")
+    loop = (
+        "一个戴眼镜的男生，坐在电脑前，桌子上放着一些物品，桌子后面有一面墙，"
+        "墙上挂着一些物品，桌子后面有一面墙，墙上挂着一些物品，桌子后面有一面墙，"
+        "墙上挂着一些物品，桌子后面有一面墙，墙上挂着一些物品"
+    )
     truncated, fired = _WORKER._truncate_repetition(loop)
-    check("T-08", "循环复读文本应被截断",
-          fired and len(truncated) < len(loop),
-          {"fired": fired, "before": len(loop), "after": len(truncated),
-           "text": truncated[:70]})
+    check(
+        "T-08",
+        "循环复读文本应被截断",
+        fired and len(truncated) < len(loop),
+        {"fired": fired, "before": len(loop), "after": len(truncated), "text": truncated[:70]},
+    )
     normal = "画面里有一个人，他戴着眼镜，穿着白色的衣服，正在调整他的眼镜。"
     kept, fired_normal = _WORKER._truncate_repetition(normal)
-    check("T-09", "正常文本不应被误截断",
-          not fired_normal and kept == normal, {"fired": fired_normal})
+    check("T-09", "正常文本不应被误截断", not fired_normal and kept == normal, {"fired": fired_normal})
 
     # ---------- 汇总 ----------
     total = len(RESULTS)
     passed = sum(1 for r in RESULTS if r["passed"])
     report["cases"] = RESULTS
-    report["summary"] = {"total": total, "passed": passed, "failed": total - passed,
-                         "pass_rate": round(passed / total, 4) if total else 0.0}
+    report["summary"] = {
+        "total": total,
+        "passed": passed,
+        "failed": total - passed,
+        "pass_rate": round(passed / total, 4) if total else 0.0,
+    }
     path = write_json(settings.PATHS["outputs"] / "text_norm_check.json", report)
 
     for r in RESULTS:

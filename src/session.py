@@ -14,6 +14,7 @@ src/session.py
 设计要点：反馈偏好存放在 SessionContext 内，按 session_id 隔离；
 新会话从零开始 —— 直接满足「负反馈不会永久污染其他会话」。
 """
+
 from __future__ import annotations
 
 import copy
@@ -22,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from config import settings
+
 from .contracts import Constraint, Slot
 from .errors import ErrorCode, Result, fail, ok
 from .utils import now_iso, stable_key
@@ -44,16 +46,24 @@ class Turn:
     constraints: list[dict] = field(default_factory=list)
     item_ids: list[str] = field(default_factory=list)
     feedback: dict | None = None
-    status: str = "ok"          # ok | clarification | conflict | error
+    status: str = "ok"  # ok | clarification | conflict | error
     note: str = ""
 
     def to_dict(self) -> dict:
         return {
-            "index": self.index, "trace_id": self.trace_id, "user_id": self.user_id,
-            "timestamp": self.timestamp, "source": self.source, "text": self.text,
-            "intent": self.intent, "slots": self.slots, "constraints": self.constraints,
-            "item_ids": list(self.item_ids), "feedback": self.feedback,
-            "status": self.status, "note": self.note,
+            "index": self.index,
+            "trace_id": self.trace_id,
+            "user_id": self.user_id,
+            "timestamp": self.timestamp,
+            "source": self.source,
+            "text": self.text,
+            "intent": self.intent,
+            "slots": self.slots,
+            "constraints": self.constraints,
+            "item_ids": list(self.item_ids),
+            "feedback": self.feedback,
+            "status": self.status,
+            "note": self.note,
         }
 
 
@@ -123,9 +133,13 @@ class SessionContext:
         undone = self.turns.pop() if self.turns else None
         self._restore(snap)
         self.updated_at = now_iso()
-        return ok({"undone_turn": undone.to_dict() if undone else None,
-                   "remaining_turns": len(self.turns),
-                   "slot_state": {k: v.to_dict() for k, v in self.slot_state.items()}})
+        return ok(
+            {
+                "undone_turn": undone.to_dict() if undone else None,
+                "remaining_turns": len(self.turns),
+                "slot_state": {k: v.to_dict() for k, v in self.slot_state.items()},
+            }
+        )
 
     # ---------------- 写入 ----------------
     def begin_turn(self) -> None:
@@ -135,30 +149,31 @@ class SessionContext:
         self.turns.append(turn)
         self.updated_at = now_iso()
 
-    def merge_slots(self, slots: dict[str, Slot], constraints: list[Constraint],
-                    *, source: str = "turn") -> dict:
+    def merge_slots(self, slots: dict[str, Slot], constraints: list[Constraint], *, source: str = "turn") -> dict:
         """把本轮槽位合并进会话状态：同名覆盖，并记录变更明细。"""
         changes: list[dict] = []
         for name, slot in slots.items():
             previous = self.slot_state.get(name)
             if previous is None or previous.value != slot.value:
-                changes.append({
-                    "slot": name,
-                    "from": None if previous is None else previous.value,
-                    "to": slot.value,
-                    "source": source,
-                    "confidence": slot.confidence,
-                    "evidence": list(slot.evidence),
-                })
+                changes.append(
+                    {
+                        "slot": name,
+                        "from": None if previous is None else previous.value,
+                        "to": slot.value,
+                        "source": source,
+                        "confidence": slot.confidence,
+                        "evidence": list(slot.evidence),
+                    }
+                )
             self.slot_state[name] = copy.deepcopy(slot)
         # 约束按 field+op 去重合并，新值覆盖旧值
         for constraint in constraints:
-            self.constraints = [c for c in self.constraints
-                                if not (c.field == constraint.field and c.op == constraint.op)]
+            self.constraints = [
+                c for c in self.constraints if not (c.field == constraint.field and c.op == constraint.op)
+            ]
             self.constraints.append(copy.deepcopy(constraint))
         self.updated_at = now_iso()
-        return {"changes": changes, "slot_count": len(self.slot_state),
-                "constraint_count": len(self.constraints)}
+        return {"changes": changes, "slot_count": len(self.slot_state), "constraint_count": len(self.constraints)}
 
     def clear_slot(self, name: str) -> bool:
         if name in self.slot_state:
@@ -208,10 +223,15 @@ class SessionContext:
             self.seen_item_ids.append(item_id)
         self.focus_item_id = item_id
         self.updated_at = now_iso()
-        return ok({
-            "item_id": item_id, "polarity": polarity, "replaced_previous": conflict,
-            "likes": dict(self.likes), "dislikes": dict(self.dislikes),
-        })
+        return ok(
+            {
+                "item_id": item_id,
+                "polarity": polarity,
+                "replaced_previous": conflict,
+                "likes": dict(self.likes),
+                "dislikes": dict(self.dislikes),
+            }
+        )
 
     def add_view(self, item_id: str, *, category: str | None = None) -> Result:
         """记录一次「继续浏览」——弱正反馈，写入会话偏好但不改变正负反馈状态。
@@ -232,9 +252,14 @@ class SessionContext:
         if item_id not in self.seen_item_ids:
             self.seen_item_ids.append(item_id)
         self.updated_at = now_iso()
-        return ok({"item_id": item_id, "category": category,
-                   "view_count": self.viewed_items[item_id],
-                   "distinct_viewed": len(self.viewed_items)})
+        return ok(
+            {
+                "item_id": item_id,
+                "category": category,
+                "view_count": self.viewed_items[item_id],
+                "distinct_viewed": len(self.viewed_items),
+            }
+        )
 
     def remove_feedback(self, item_id: str) -> Result:
         item_id = str(item_id)
@@ -263,10 +288,13 @@ class SessionContext:
             reasons.append(f"本会话偏好类目「{category}」(+{boost:.2f})")
         # 「继续浏览」弱正反馈（阶段5 任务目标）
         if item_id in self.viewed_items:
-            boost = cfg.get("view_item_boost", 0.04) * min(self.viewed_items[item_id],
-                                                           int(cfg.get("view_max_count", 2)))
+            boost = cfg.get("view_item_boost", 0.04) * min(
+                self.viewed_items[item_id], int(cfg.get("view_max_count", 2))
+            )
             score += boost
-            reasons.append(f"你浏览过该商品 {min(self.viewed_items[item_id], int(cfg.get('view_max_count', 2)))} 次(+{boost:.2f})")
+            reasons.append(
+                f"你浏览过该商品 {min(self.viewed_items[item_id], int(cfg.get('view_max_count', 2)))} 次(+{boost:.2f})"
+            )
         if category in self.viewed_categories:
             boost = cfg.get("view_category_boost", 0.03) * min(self.viewed_categories[category], 3)
             score += boost
@@ -292,8 +320,11 @@ class SessionContext:
     def end(self) -> dict:
         self.ended = True
         summary = {
-            "session_id": self.session_id, "user_id": self.user_id,
-            "turns": len(self.turns), "likes": dict(self.likes), "dislikes": dict(self.dislikes),
+            "session_id": self.session_id,
+            "user_id": self.user_id,
+            "turns": len(self.turns),
+            "likes": dict(self.likes),
+            "dislikes": dict(self.dislikes),
             "ended_at": now_iso(),
         }
         self.slot_state.clear()
@@ -355,8 +386,7 @@ class SessionStore:
         session = self._sessions.get(session_id)
         if session is None:
             return {"session_id": session_id, "ended": False, "reason": "会话不存在"}
-        summary = session.end()
-        return summary
+        return session.end()
 
     def default_session_id(self, user_id: str) -> str:
         return "sess-" + stable_key(user_id, now_iso()[:10])

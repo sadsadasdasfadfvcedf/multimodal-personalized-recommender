@@ -16,6 +16,7 @@ scripts/10_real_llm_check.py
 
 输出：outputs/real_llm_check.json
 """
+
 from __future__ import annotations
 
 import time
@@ -25,11 +26,10 @@ from _bootstrap import banner
 from config import settings
 from src.adapters import MultimodalAdapter
 from src.catalog import Catalog
-from src.contracts import EvidencePack
+from src.contracts import EvidencePack, make_event
 from src.evidence import build_pack
 from src.explain import explain
 from src.intent import understand
-from src.contracts import make_event
 from src.llm_explain import build_grounded_prompt, evaluate_output
 from src.rag import KnowledgeBase
 from src.utils import now_iso, write_json
@@ -51,8 +51,13 @@ def main() -> int:
 
     adapter = MultimodalAdapter(mode="auto", allow_real=True)
     if adapter.active_mode != "real":
-        report.update({"mode": "skipped", "reason": "适配器未进入 real 模式",
-                       "degradations": adapter.degradation_report()["events"]})
+        report.update(
+            {
+                "mode": "skipped",
+                "reason": "适配器未进入 real 模式",
+                "degradations": adapter.degradation_report()["events"],
+            }
+        )
         write_json(settings.PATHS["outputs"] / "real_llm_check.json", report)
         print("跳过：适配器未进入 real 模式")
         return 0
@@ -78,25 +83,38 @@ def main() -> int:
     # ---------- 批量生成（模型只加载一次） ----------
     prepared: list[dict] = []
     for item in items:
-        pack_result = build_pack(item, request=request, catalog=catalog, session=None, kb=kb,
-                                 sources=item.get("sources"),
-                                 matched_constraints=item.get("evidence", {}).get("matched_constraints"))
+        pack_result = build_pack(
+            item,
+            request=request,
+            catalog=catalog,
+            session=None,
+            kb=kb,
+            sources=item.get("sources"),
+            matched_constraints=item.get("evidence", {}).get("matched_constraints"),
+        )
         if not pack_result.ok:
             continue
         pack: EvidencePack = pack_result.data
         base = explain(item, pack)
-        prepared.append({"item": item, "pack": pack,
-                         "template": base.data["text"] if base.ok else "",
-                         "prompt": build_grounded_prompt(item, pack)})
+        prepared.append(
+            {
+                "item": item,
+                "pack": pack,
+                "template": base.data["text"] if base.ok else "",
+                "prompt": build_grounded_prompt(item, pack),
+            }
+        )
 
     if not prepared:
         print("没有可用样本")
         return 1
 
     started = time.perf_counter()
-    batch = adapter.generate_batch([p["prompt"] for p in prepared],
-                                   max_new_tokens=settings.LLM_EXPLAIN_CONFIG["max_new_tokens"],
-                                   temperature=settings.LLM_EXPLAIN_CONFIG["temperature"])
+    batch = adapter.generate_batch(
+        [p["prompt"] for p in prepared],
+        max_new_tokens=settings.LLM_EXPLAIN_CONFIG["max_new_tokens"],
+        temperature=settings.LLM_EXPLAIN_CONFIG["temperature"],
+    )
     batch_seconds = round(time.perf_counter() - started, 2)
     if not batch.ok:
         print("批量生成失败：" + str(batch.error))
@@ -105,11 +123,13 @@ def main() -> int:
     report["llm_model"] = (batch.data or {}).get("model")
     report["batch_seconds"] = batch_seconds
     report["batch_avg_seconds"] = round(batch_seconds / max(1, len(outputs)), 2)
-    print(f"LLM 模型：{report['llm_model']}；批量 {len(outputs)} 条，"
-          f"总耗时 {batch_seconds}s（均 {report['batch_avg_seconds']}s/条）")
+    print(
+        f"LLM 模型：{report['llm_model']}；批量 {len(outputs)} 条，"
+        f"总耗时 {batch_seconds}s（均 {report['batch_avg_seconds']}s/条）"
+    )
 
     accepted = rejected = 0
-    for entry, out in zip(prepared, outputs):
+    for entry, out in zip(prepared, outputs, strict=False):
         item, pack = entry["item"], entry["pack"]
         raw_output = str(out.get("text") or "")
         # 与生产链路共用同一条「规范化 + 三道门控」流水线
@@ -118,26 +138,26 @@ def main() -> int:
         accepted += 1 if ok_flag else 0
         if not ok_flag:
             rejected += 1
-        report["samples"].append({
-            "item_id": item.get("item_id"),
-            "title": item.get("title"),
-            "category": item.get("category"),
-            "price": item.get("price"),
-            "facts_used": pack.product_facts,
-            "prompt_chars": len(entry["prompt"]),
-            "raw_llm_output": raw_output[:400],
-            "normalized": evaluated["text"],
-            "fluency_actions": evaluated["fluency_actions"],
-            "fact_gate": evaluated["fact"].to_dict(),
-            "format_gate": evaluated["format"],
-            "fluency_gate": evaluated["fluency"],
-            "accepted": ok_flag,
-            "final_text": evaluated["text"] if ok_flag else entry["template"],
-            "final_source": "llm" if ok_flag else "template",
-            "template_text": entry["template"],
-        })
-        if not ok_flag:
-            rejected = rejected if False else rejected
+        report["samples"].append(
+            {
+                "item_id": item.get("item_id"),
+                "title": item.get("title"),
+                "category": item.get("category"),
+                "price": item.get("price"),
+                "facts_used": pack.product_facts,
+                "prompt_chars": len(entry["prompt"]),
+                "raw_llm_output": raw_output[:400],
+                "normalized": evaluated["text"],
+                "fluency_actions": evaluated["fluency_actions"],
+                "fact_gate": evaluated["fact"].to_dict(),
+                "format_gate": evaluated["format"],
+                "fluency_gate": evaluated["fluency"],
+                "accepted": ok_flag,
+                "final_text": evaluated["text"] if ok_flag else entry["template"],
+                "final_source": "llm" if ok_flag else "template",
+                "template_text": entry["template"],
+            }
+        )
         mark = "[PASS]" if ok_flag else "[拦截]"
         print(f"{mark} {item.get('title')[:16]:<18} → {evaluated['text'][:46]}")
         if not ok_flag:
@@ -158,10 +178,12 @@ def main() -> int:
         "事实门控生效（拦截编造内容）": rejected > 0 or accepted == len(report["samples"]),
         "格式门控生效": True,
         "面向用户的文本 100% 通过校验": all(
-            s["final_source"] == "template" or s["accepted"] for s in report["samples"]),
+            s["final_source"] == "template" or s["accepted"] for s in report["samples"]
+        ),
         "无校验失败文本外泄": all(
             (s["final_text"] == s["normalized"]) if s["accepted"] else (s["final_text"] == s["template_text"])
-            for s in report["samples"]),
+            for s in report["samples"]
+        ),
     }
     report["notes"] = [
         "accept_rate 低说明门控在工作，不是链路故障：小参数模型（Qwen2-1.5B）在"

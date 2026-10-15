@@ -24,6 +24,7 @@ scripts/13_webui_acceptance.py
 
 输出：outputs/webui_acceptance.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -77,14 +78,24 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
 
     profile = tempfile.mkdtemp(prefix="webui-accept-")
     proc = subprocess.Popen(
-        [edge, "--headless=new", "--disable-gpu", "--no-first-run",
-         f"--remote-debugging-port={port}", f"--user-data-dir={profile}",
-         "--window-size=1600,1000", "about:blank"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        [
+            edge,
+            "--headless=new",
+            "--disable-gpu",
+            "--no-first-run",
+            f"--remote-debugging-port={port}",
+            f"--user-data-dir={profile}",
+            "--window-size=1600,1000",
+            "about:blank",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     try:
         for _ in range(60):
             try:
-                hg("/json/version"); break
+                hg("/json/version")
+                break
             except Exception:
                 time.sleep(0.5)
         targets = [t for t in hg("/json/list") if t.get("type") == "page"]
@@ -98,8 +109,7 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 await ws.send(json.dumps({"id": mid, "method": method, "params": params or {}}))
                 deadline = time.time() + timeout
                 while time.time() < deadline:
-                    msg = json.loads(await asyncio.wait_for(
-                        ws.recv(), timeout=max(1, deadline - time.time())))
+                    msg = json.loads(await asyncio.wait_for(ws.recv(), timeout=max(1, deadline - time.time())))
                     if msg.get("id") == mid:
                         return msg
                 raise TimeoutError(method)
@@ -119,23 +129,30 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
 
             worst, worst_w = 0, WIDTHS[0]
             for w in WIDTHS:
-                await cmd("Emulation.setDeviceMetricsOverride",
-                          {"width": w, "height": 900, "deviceScaleFactor": 1, "mobile": w < 800})
+                await cmd(
+                    "Emulation.setDeviceMetricsOverride",
+                    {"width": w, "height": 900, "deviceScaleFactor": 1, "mobile": w < 800},
+                )
                 await asyncio.sleep(0.45)
                 over = (await ev("document.documentElement.scrollWidth") or 0) - (await ev("window.innerWidth") or 0)
                 if over > worst:
                     worst, worst_w = over, w
-            add(1, "横向无溢出（8 档视口 496~1440px）", worst == 0,
-                f"最大溢出 {worst}px（{worst_w}px 视口）")
-            await cmd("Emulation.setDeviceMetricsOverride",
-                      {"width": 1600, "height": 1000, "deviceScaleFactor": 1, "mobile": False})
+            add(1, "横向无溢出（8 档视口 496~1440px）", worst == 0, f"最大溢出 {worst}px（{worst_w}px 视口）")
+            await cmd(
+                "Emulation.setDeviceMetricsOverride",
+                {"width": 1600, "height": 1000, "deviceScaleFactor": 1, "mobile": False},
+            )
             await asyncio.sleep(0.5)
 
-            await ev("document.getElementById('q').value='500以内的婚礼装饰品';"
-                     "document.getElementById('searchForm').dispatchEvent(new Event('submit',{cancelable:true}))")
+            await ev(
+                "document.getElementById('q').value='500以内的婚礼装饰品';"
+                "document.getElementById('searchForm').dispatchEvent(new Event('submit',{cancelable:true}))"
+            )
             for _ in range(160):
-                if await ev("document.querySelectorAll('.spin').length===0 && "
-                            "document.getElementById('shelfTitle').textContent!=='猜你喜欢'"):
+                if await ev(
+                    "document.querySelectorAll('.spin').length===0 && "
+                    "document.getElementById('shelfTitle').textContent!=='猜你喜欢'"
+                ):
                     break
                 await asyncio.sleep(0.5)
             await asyncio.sleep(1.5)
@@ -146,26 +163,39 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
             n = await ev("document.querySelectorAll('#fchips [data-drop]').length")
             add(3, "筛选条件可单独移除", (n or 0) > 0, f"可移除 chip {n or 0} 个")
 
-            await ev("document.querySelectorAll('.pcard [data-cmp]')[0].click();"
-                     "document.querySelectorAll('.pcard [data-cmp]')[1].click()")
+            await ev(
+                "document.querySelectorAll('.pcard [data-cmp]')[0].click();"
+                "document.querySelectorAll('.pcard [data-cmp]')[1].click()"
+            )
             await asyncio.sleep(0.6)
             tray = await ev("document.getElementById('tray').classList.contains('show')")
             await ev("document.getElementById('trayGo').click()")
             await asyncio.sleep(2.0)
             cells = await ev("document.querySelectorAll('.cmptable td').length")
-            add(4, "对比可用（加选 → 底栏 → 字段对照）", bool(tray) and (cells or 0) > 0,
-                f"底栏弹出={tray}，对照单元格 {cells or 0} 个")
+            add(
+                4,
+                "对比可用（加选 → 底栏 → 字段对照）",
+                bool(tray) and (cells or 0) > 0,
+                f"底栏弹出={tray}，对照单元格 {cells or 0} 个",
+            )
             await ev("document.querySelector('#cmpModal [data-close]').click()")
 
-            tri = await ev("(function(){var s=document.querySelector('.bub .st');"
-                           "return s? (s.querySelector('i')!==null && s.textContent.trim().length>1):false})()")
+            tri = await ev(
+                "(function(){var s=document.querySelector('.bub .st');"
+                "return s? (s.querySelector('i')!==null && s.textContent.trim().length>1):false})()"
+            )
             add(5, "状态三重编码（圆点 + 图标 + 文字）", tri, f"徽标同时含圆点与中文={tri}")
 
             txt = await ev("document.body.innerText") or ""
-            residual = [t for t in ["historical_mode", "offline_snapshot", "category_median", "offline_stub"]
-                        if t in txt]
-            add(6, "内部术语已翻译（可见文本无内部枚举）", not residual,
-                f"残留 {residual}" if residual else "页面可见文本无内部枚举")
+            residual = [
+                t for t in ["historical_mode", "offline_snapshot", "category_median", "offline_stub"] if t in txt
+            ]
+            add(
+                6,
+                "内部术语已翻译（可见文本无内部枚举）",
+                not residual,
+                f"残留 {residual}" if residual else "页面可见文本无内部枚举",
+            )
 
             await ev("document.getElementById('toolbar').querySelector('[data-act=\"gesture\"]').click()")
             for _ in range(200):
@@ -177,22 +207,35 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
             add(7, "失败给出可点击的下一步", (sugg or 0) > 0, f"建议按钮 {sugg or 0} 个")
 
             folds = await ev("document.querySelectorAll('[data-fold]').length")
-            vis = await ev("(function(){var f=document.querySelector('.fold');"
-                           "return f?getComputedStyle(f.querySelector('.body')).display:'none'})()")
-            add(8, "运行细节默认折叠", (folds or 0) > 0 and vis == "none",
-                f"折叠块 {folds or 0} 个，默认 display={vis}")
+            vis = await ev(
+                "(function(){var f=document.querySelector('.fold');"
+                "return f?getComputedStyle(f.querySelector('.body')).display:'none'})()"
+            )
+            add(
+                8, "运行细节默认折叠", (folds or 0) > 0 and vis == "none", f"折叠块 {folds or 0} 个，默认 display={vis}"
+            )
 
             evd = await ev("document.querySelectorAll('.pcard .t.ev').length")
-            keep = await ev("document.getElementById('toBottom')!==null && "
-                            "document.getElementById('modal')!==null && "
-                            "document.getElementById('panel')!==null")
-            add(9, "原有能力保留（证据条数 / 详情 / 回到最新）", (evd or 0) > 0 and bool(keep),
-                f"证据标签 {evd or 0} 个，关键组件齐全={keep}")
+            keep = await ev(
+                "document.getElementById('toBottom')!==null && "
+                "document.getElementById('modal')!==null && "
+                "document.getElementById('panel')!==null"
+            )
+            add(
+                9,
+                "原有能力保留（证据条数 / 详情 / 回到最新）",
+                (evd or 0) > 0 and bool(keep),
+                f"证据标签 {evd or 0} 个，关键组件齐全={keep}",
+            )
 
             src = Path(settings.PROJECT_ROOT / "webui.py").read_text(encoding="utf-8")
             external = [u for u in ("cdn.", "unpkg", "jsdelivr", "googleapis") if u in src]
-            add(10, "未新增第三方前端依赖（仍为单文件 + 标准库）", not external,
-                f"外部 CDN 引用 {external}" if external else "无外部 CDN / 无 npm 依赖")
+            add(
+                10,
+                "未新增第三方前端依赖（仍为单文件 + 标准库）",
+                not external,
+                f"外部 CDN 引用 {external}" if external else "无外部 CDN / 无 npm 依赖",
+            )
     finally:
         proc.terminate()
     return results

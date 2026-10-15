@@ -17,24 +17,31 @@ src/feedback.py
     no_change          完全没变（也算有效结论，需给出原因）
     reverse_change     预期加分的方向反而降分（失败案例）
 """
+
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 from config import settings
+
 from .errors import ErrorCode, Result, fail, ok
 from .orchestrator import Orchestrator
-from .utils import now_iso, stable_key
+from .utils import stable_key
 
 FB = settings.FEEDBACK_CONFIG
 
 
 def _topk(resp: dict, top_k: int) -> list[dict]:
-    return [{"item_id": r["item_id"], "rank": r.get("rank", i + 1),
-             "title": r.get("title", ""), "score": round(float(r.get("score", 0.0)), 6),
-             "sources": list(r.get("sources", []))}
-            for i, r in enumerate(resp.get("recommendations", [])[:top_k])]
+    return [
+        {
+            "item_id": r["item_id"],
+            "rank": r.get("rank", i + 1),
+            "title": r.get("title", ""),
+            "score": round(float(r.get("score", 0.0)), 6),
+            "sources": list(r.get("sources", [])),
+        }
+        for i, r in enumerate(resp.get("recommendations", [])[:top_k])
+    ]
 
 
 def _order(rows: list[dict]) -> list[str]:
@@ -45,8 +52,7 @@ def _score_map(rows: list[dict]) -> dict[str, float]:
     return {r["item_id"]: r["score"] for r in rows}
 
 
-def classify_case(before_ids: list[str], after_ids: list[str], target: str,
-                  polarity: str) -> dict:
+def classify_case(before_ids: list[str], after_ids: list[str], target: str, polarity: str) -> dict:
     """把一次反馈对照归类为「成功 / 无变化 / 反向变化 / 失败」。
 
     阶段5 要求「扩充成功、无变化、反向变化三类案例，说明变化原因」，
@@ -110,8 +116,15 @@ def compare_snapshots(before: list[dict], after: list[dict], *, min_delta: float
         old_rank = before_ids.index(item_id) + 1
         new_rank = after_ids.index(item_id) + 1
         if old_rank != new_rank:
-            moved.append({"item_id": item_id, "rank_before": old_rank, "rank_after": new_rank,
-                          "move": new_rank - old_rank, "score_delta": deltas[item_id]})
+            moved.append(
+                {
+                    "item_id": item_id,
+                    "rank_before": old_rank,
+                    "rank_after": new_rank,
+                    "move": new_rank - old_rank,
+                    "score_delta": deltas[item_id],
+                }
+            )
     max_delta = max((abs(v) for v in deltas.values()), default=0.0)
     return {
         # 「无变化」以 TopK 顺序为准：顺序不变即视为无变化（分数微调单独记录）
@@ -150,8 +163,9 @@ def run_ab(
         return before_result
     before_resp = before_result.data
     if before_resp["status"] not in ("ok", "degraded") or not before_resp["recommendations"]:
-        return fail(ErrorCode.NO_RESULT, "A 阶段没有可用推荐结果，无法做 A/B 对照",
-                    field="query", status=before_resp["status"])
+        return fail(
+            ErrorCode.NO_RESULT, "A 阶段没有可用推荐结果，无法做 A/B 对照", field="query", status=before_resp["status"]
+        )
     before_topk = _topk(before_resp, top_k)
 
     # 目标商品
@@ -166,13 +180,15 @@ def run_ab(
     session_ctx = orchestrator.store.get(session_a)
     session_ctx.focus_item_id = target
     if target not in session_ctx.last_item_ids:
-        session_ctx.last_item_ids = [target] + list(session_ctx.last_item_ids)
+        session_ctx.last_item_ids = [target, *session_ctx.last_item_ids]
 
     if feedback.get("via_gesture"):
         feedback_spec = {
             "source": "gesture",
-            "gesture": {"name": "thumbs_up" if polarity == "positive" else "thumbs_down",
-                        "confidence": float(feedback.get("confidence", 0.92))},
+            "gesture": {
+                "name": "thumbs_up" if polarity == "positive" else "thumbs_down",
+                "confidence": float(feedback.get("confidence", 0.92)),
+            },
         }
     else:
         feedback_spec = {
@@ -184,30 +200,50 @@ def run_ab(
 
     after_result = orchestrator.handle(feedback_spec, user_id=user_id, session_id=session_a, top_k=top_k)
     if not after_result.ok or after_result.data.get("status") == "clarification":
-        return fail(ErrorCode.INVALID_INPUT,
-                    "反馈阶段未能定位目标商品，无法完成 A/B 对照",
-                    field="feedback",
-                    status=(after_result.data or {}).get("status") if after_result.ok else "error")
+        return fail(
+            ErrorCode.INVALID_INPUT,
+            "反馈阶段未能定位目标商品，无法完成 A/B 对照",
+            field="feedback",
+            status=(after_result.data or {}).get("status") if after_result.ok else "error",
+        )
     after_resp = after_result.data
     if after_resp.get("status") == "error":
-        return ok({
-            "case_id": scenario.get("id"), "user_id": user_id, "query": query,
-            "status": "error", "error": after_resp.get("error"),
-            "feedback": {"polarity": polarity, "target": target},
-            "before": {"topk": before_topk, "session_id": session_a},
-            "after": {"topk": [], "session_id": session_a},
-            "comparison": {"order_changed": False, "significant": False, "score_shifted": False,
-                           "max_abs_delta": 0.0, "entered": [], "left": [], "moved": [],
-                           "score_deltas": {}, "shared_count": 0},
-            "isolation_check": {"session_id": session_c, "topk": [], "identical_to_before": None,
-                                "comparison": None, "conclusion": "反馈写入失败，未做隔离验证"},
-            "ranking_change_explanations": ["反馈写入失败：目标商品不存在或状态非法。"],
-            "case": {"case_type": "失败", "target_movement": "error"},
-            "case_type": "失败",
-            "expect": scenario.get("expect", "any"),
-            "passed": scenario.get("expect") == "failure",
-            "note": scenario.get("note", ""),
-        })
+        return ok(
+            {
+                "case_id": scenario.get("id"),
+                "user_id": user_id,
+                "query": query,
+                "status": "error",
+                "error": after_resp.get("error"),
+                "feedback": {"polarity": polarity, "target": target},
+                "before": {"topk": before_topk, "session_id": session_a},
+                "after": {"topk": [], "session_id": session_a},
+                "comparison": {
+                    "order_changed": False,
+                    "significant": False,
+                    "score_shifted": False,
+                    "max_abs_delta": 0.0,
+                    "entered": [],
+                    "left": [],
+                    "moved": [],
+                    "score_deltas": {},
+                    "shared_count": 0,
+                },
+                "isolation_check": {
+                    "session_id": session_c,
+                    "topk": [],
+                    "identical_to_before": None,
+                    "comparison": None,
+                    "conclusion": "反馈写入失败，未做隔离验证",
+                },
+                "ranking_change_explanations": ["反馈写入失败：目标商品不存在或状态非法。"],
+                "case": {"case_type": "失败", "target_movement": "error"},
+                "case_type": "失败",
+                "expect": scenario.get("expect", "any"),
+                "passed": scenario.get("expect") == "failure",
+                "note": scenario.get("note", ""),
+            }
+        )
     after_topk = _topk(after_resp, top_k)
 
     # C: 隔离验证（另一个会话，应与 A 一致）
@@ -240,7 +276,8 @@ def run_ab(
         if comparison["score_shifted"]:
             explanations.append(
                 f"TopK 顺序未变，但分数发生变化（最大位移 {comparison['max_abs_delta']:.4f}）："
-                f"目标商品本就在第 1 位，同类商品获得同等的类目加成，因此相对顺序保持稳定。")
+                f"目标商品本就在第 1 位，同类商品获得同等的类目加成，因此相对顺序保持稳定。"
+            )
         else:
             explanations.append("反馈未改变 TopK，且分数无变化：目标商品不在当前候选池内。")
     else:
@@ -250,8 +287,9 @@ def run_ab(
             explanations.append(f"离开 TopK：{comparison['left']}（被负反馈屏蔽或相对分数下降）。")
         if comparison["moved"]:
             top_moves = sorted(comparison["moved"], key=lambda m: -abs(m["move"]))[:3]
-            explanations.append("名次变化：" + "；".join(
-                f"{m['item_id']} {m['rank_before']}→{m['rank_after']}" for m in top_moves))
+            explanations.append(
+                "名次变化：" + "；".join(f"{m['item_id']} {m['rank_before']}→{m['rank_after']}" for m in top_moves)
+            )
 
     expect = scenario.get("expect", "any")
     if expect == "no_change":
@@ -263,37 +301,51 @@ def run_ab(
     else:
         passed = True
 
-    return ok({
-        "case_id": scenario.get("id"),
-        "status": "ok",
-        "user_id": user_id,
-        "query": query,
-        "feedback": {"polarity": polarity, "target": target,
-                     "target_title": orchestrator.catalog.title(target),
-                     "target_in_before_pool": target in _order(before_topk)},
-        "before": {"topk": before_topk, "session_id": session_a,
-                   "latency_ms": (before_resp.get("trace") or {}).get("latency_ms"),
-                   "session_state": before_resp.get("session", {})},
-        "after": {"topk": after_topk, "session_id": session_a,
-                  "latency_ms": (after_resp.get("trace") or {}).get("latency_ms"),
-                  "session_state": after_resp.get("session", {}),
-                  "likes": session_likes, "dislikes": session_dislikes},
-        "comparison": comparison,
-        "isolation_check": {
-            "session_id": session_c,
-            "topk": isolation_topk,
-            "identical_to_before": not isolation_comparison["significant"],
-            "comparison": isolation_comparison,
-            "conclusion": ("负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
-                           if not isolation_comparison["significant"]
-                           else "警告：另一会话结果发生变化，存在跨会话污染"),
-        },
-        "ranking_change_explanations": explanations,
-        "case": case,
-        "case_type": case["case_type"],
-        "pool_signature": pool_signature,
-        "degradations": degradations,
-        "expect": expect,
-        "passed": passed,
-        "note": scenario.get("note", ""),
-    })
+    return ok(
+        {
+            "case_id": scenario.get("id"),
+            "status": "ok",
+            "user_id": user_id,
+            "query": query,
+            "feedback": {
+                "polarity": polarity,
+                "target": target,
+                "target_title": orchestrator.catalog.title(target),
+                "target_in_before_pool": target in _order(before_topk),
+            },
+            "before": {
+                "topk": before_topk,
+                "session_id": session_a,
+                "latency_ms": (before_resp.get("trace") or {}).get("latency_ms"),
+                "session_state": before_resp.get("session", {}),
+            },
+            "after": {
+                "topk": after_topk,
+                "session_id": session_a,
+                "latency_ms": (after_resp.get("trace") or {}).get("latency_ms"),
+                "session_state": after_resp.get("session", {}),
+                "likes": session_likes,
+                "dislikes": session_dislikes,
+            },
+            "comparison": comparison,
+            "isolation_check": {
+                "session_id": session_c,
+                "topk": isolation_topk,
+                "identical_to_before": not isolation_comparison["significant"],
+                "comparison": isolation_comparison,
+                "conclusion": (
+                    "负反馈/点赞未跨会话污染：另一会话结果与反馈前一致"
+                    if not isolation_comparison["significant"]
+                    else "警告：另一会话结果发生变化，存在跨会话污染"
+                ),
+            },
+            "ranking_change_explanations": explanations,
+            "case": case,
+            "case_type": case["case_type"],
+            "pool_signature": pool_signature,
+            "degradations": degradations,
+            "expect": expect,
+            "passed": passed,
+            "note": scenario.get("note", ""),
+        }
+    )

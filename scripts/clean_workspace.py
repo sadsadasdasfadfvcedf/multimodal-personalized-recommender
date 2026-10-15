@@ -7,6 +7,7 @@ scripts/clean_workspace.py
 安全约束：只删除 **项目根目录之内** 的目标；每个待删路径都会先 resolve 并校验
 是否位于 PROJECT_ROOT 之下，否则跳过并报告。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,15 +53,14 @@ def clean(dry_run: bool = False) -> dict:
             else:
                 shutil.rmtree(path)
                 removed_dirs.append(str(path.relative_to(PROJECT_ROOT)))
-        elif (path.is_file() and path.parent == PROJECT_ROOT
-              and fnmatch.fnmatch(path.name, ROOT_SCRATCH_PATTERN)
-              and path.name not in ROOT_SCRATCH_EXCEPT):
-            if dry_run:
-                removed_files.append(str(path.relative_to(PROJECT_ROOT)))
-            else:
-                path.unlink()
-                removed_files.append(str(path.relative_to(PROJECT_ROOT)))
-        elif path.is_file() and any(fnmatch.fnmatch(path.name, pat) for pat in TARGET_FILE_PATTERNS):
+        elif path.is_file() and (
+            (
+                path.parent == PROJECT_ROOT
+                and fnmatch.fnmatch(path.name, ROOT_SCRATCH_PATTERN)
+                and path.name not in ROOT_SCRATCH_EXCEPT
+            )
+            or any(fnmatch.fnmatch(path.name, pat) for pat in TARGET_FILE_PATTERNS)
+        ):
             if dry_run:
                 removed_files.append(str(path.relative_to(PROJECT_ROOT)))
             else:
@@ -77,8 +77,10 @@ def main() -> int:
 
     result = clean(dry_run=args.dry_run)
     removed = result["dirs"] + result["files"]
-    print(f"[clean_workspace] 目录已清理 {len(result['dirs'])} 个，文件已清理 {len(result['files'])} 个"
-          f"{'（dry-run）' if args.dry_run else ''}")
+    print(
+        f"[clean_workspace] 目录已清理 {len(result['dirs'])} 个，文件已清理 {len(result['files'])} 个"
+        f"{'（dry-run）' if args.dry_run else ''}"
+    )
     for item in removed:
         print(f"  - {item}")
     if result["skipped"]:

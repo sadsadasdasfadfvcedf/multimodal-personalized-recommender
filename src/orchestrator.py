@@ -14,15 +14,17 @@ src/orchestrator.py
     - 每个阶段都记录耗时、模式与降级事件，写入 trace；
     - 同一输入 + 同一配置可复现（无随机、排序稳定）。
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 from config import settings
+
 from .adapters import MultimodalAdapter, RecommenderAdapter
 from .catalog import Catalog
 from .contracts import RecommendationItem, RecommendationRequest
-from .errors import ErrorCode, Result, fail, ok
+from .errors import ErrorCode, Result, ok
 from .evidence import build_pack
 from .explain import explain
 from .intent import understand
@@ -86,7 +88,9 @@ class Orchestrator:
         # 1) 多模态事件解析
         with timer.track("event_ms"):
             event_result = self.multimodal.parse_event(
-                spec, user_id=user_id, session_id=session_id,
+                spec,
+                user_id=user_id,
+                session_id=session_id,
                 trace_id=new_trace_id(trace_hint) if trace_hint else None,
             )
         if not event_result.ok:
@@ -98,24 +102,48 @@ class Orchestrator:
         # 2) 会话控制（撤销 / 重新开始）
         control = self._handle_control(event.text or "", session, session_id, user_id)
         if control is not None:
-            return ok(self._envelope(event, session, timer, status="ok", control=control,
-                                     note=f"会话控制：{control['action']}"))
+            return ok(
+                self._envelope(
+                    event, session, timer, status="ok", control=control, note=f"会话控制：{control['action']}"
+                )
+            )
 
         # 2.5) 「继续浏览」弱反馈：不走意图理解，直接记入会话偏好并重排
         if event.source == "browse":
             payload = self._handle_browse(event, session, timer)
             status = payload.pop("status", "ok")
-            response = self._envelope(event, session, timer, status=status,
-                                      intent_result={"intent": "browse",
-                                                     "intent_confidence": 1.0, "slots": {},
-                                                     "missing_slots": [], "conflicts": []},
-                                      request=None, **payload)
-            session.record_turn(Turn(
-                index=len(session.turns) + 1, trace_id=event.trace_id, user_id=event.user_id,
-                timestamp=event.timestamp, source=event.source, text=None, intent="browse",
-                slots={}, constraints=[], feedback=None,
-                item_ids=[i["item_id"] for i in response.get("recommendations", [])],
-                status=status, note=response.get("note", "")))
+            response = self._envelope(
+                event,
+                session,
+                timer,
+                status=status,
+                intent_result={
+                    "intent": "browse",
+                    "intent_confidence": 1.0,
+                    "slots": {},
+                    "missing_slots": [],
+                    "conflicts": [],
+                },
+                request=None,
+                **payload,
+            )
+            session.record_turn(
+                Turn(
+                    index=len(session.turns) + 1,
+                    trace_id=event.trace_id,
+                    user_id=event.user_id,
+                    timestamp=event.timestamp,
+                    source=event.source,
+                    text=None,
+                    intent="browse",
+                    slots={},
+                    constraints=[],
+                    feedback=None,
+                    item_ids=[i["item_id"] for i in response.get("recommendations", [])],
+                    status=status,
+                    note=response.get("note", ""),
+                )
+            )
             return ok(response)
 
         # 3) 意图理解
@@ -135,8 +163,7 @@ class Orchestrator:
 
         request: RecommendationRequest = intent_result.data["request"]
         intent_dict = intent_result.data["intent_result"]
-        merge_report = session.merge_slots(request.slots, request.constraints,
-                                           source=f"turn:{intent_dict['intent']}")
+        merge_report = session.merge_slots(request.slots, request.constraints, source=f"turn:{intent_dict['intent']}")
         session.set_clarification(None)
 
         # 3.5) 会话合并后的有效请求：多轮约束（如先「推荐礼物」再「500以内」）在此生效
@@ -154,7 +181,9 @@ class Orchestrator:
 
         status = payload.pop("status", "ok")
         response = self._envelope(
-            event, session, timer,
+            event,
+            session,
+            timer,
             status=status,
             intent_result=intent_dict,
             request=request.to_dict(),
@@ -164,42 +193,57 @@ class Orchestrator:
         )
 
         # 5) 记录本轮
-        session.record_turn(Turn(
-            index=len(session.turns) + 1,
-            trace_id=event.trace_id, user_id=event.user_id, timestamp=event.timestamp,
-            source=event.source, text=event.text, intent=request.intent,
-            slots={k: v.value for k, v in request.slots.items()},
-            constraints=[c.to_dict() for c in request.constraints],
-            item_ids=[i["item_id"] for i in response.get("recommendations", [])],
-            feedback=payload.get("feedback"),
-            status=status,
-            note=response.get("note", ""),
-        ))
+        session.record_turn(
+            Turn(
+                index=len(session.turns) + 1,
+                trace_id=event.trace_id,
+                user_id=event.user_id,
+                timestamp=event.timestamp,
+                source=event.source,
+                text=event.text,
+                intent=request.intent,
+                slots={k: v.value for k, v in request.slots.items()},
+                constraints=[c.to_dict() for c in request.constraints],
+                item_ids=[i["item_id"] for i in response.get("recommendations", [])],
+                feedback=payload.get("feedback"),
+                status=status,
+                note=response.get("note", ""),
+            )
+        )
         return ok(response)
 
     # ============================================================
     # 处理器：推荐主链路
     # ============================================================
-    def _handle_recommend(self, event, request: RecommendationRequest,
-                          session: SessionContext, timer: Timer) -> dict:
+    def _handle_recommend(self, event, request: RecommendationRequest, session: SessionContext, timer: Timer) -> dict:
         with timer.track("recall_ms"):
             recall_result = recall(request, self.recommender, self.catalog, session)
         if not recall_result.ok or not recall_result.data["candidates"]:
-            error = recall_result.error.to_dict() if recall_result.error else {
-                "code": ErrorCode.NO_RESULT.value, "message": "所有召回来源均为空",
-                "field": None, "context": {}}
-            return {"status": "empty", "recommendations": [], "recall_trace":
-                    recall_result.data["trace"] if recall_result.ok else None,
-                    "error": error, "note": "没有任何候选来源返回结果"}
+            error = (
+                recall_result.error.to_dict()
+                if recall_result.error
+                else {"code": ErrorCode.NO_RESULT.value, "message": "所有召回来源均为空", "field": None, "context": {}}
+            )
+            return {
+                "status": "empty",
+                "recommendations": [],
+                "recall_trace": recall_result.data["trace"] if recall_result.ok else None,
+                "error": error,
+                "note": "没有任何候选来源返回结果",
+            }
 
         with timer.track("rank_ms"):
             rank_result = rank(recall_result.data["candidates"], request, self.catalog, session)
         if not rank_result.ok:
-            return {"status": "empty", "recommendations": [],
-                    "recall_trace": recall_result.data["trace"], "ranking_trace": None,
-                    "degraded": True,
-                    "error": rank_result.error.to_dict() if rank_result.error else None,
-                    "note": rank_result.error.message if rank_result.error else "过滤后无结果"}
+            return {
+                "status": "empty",
+                "recommendations": [],
+                "recall_trace": recall_result.data["trace"],
+                "ranking_trace": None,
+                "degraded": True,
+                "error": rank_result.error.to_dict() if rank_result.error else None,
+                "note": rank_result.error.message if rank_result.error else "过滤后无结果",
+            }
 
         ranking_trace = rank_result.data["trace"]
         recommendations, explanations = self._materialize(rank_result.data["ranked"], request, session, event)
@@ -208,8 +252,9 @@ class Orchestrator:
             header = self._header(request)
             if ranking_trace.get("degraded"):
                 header = "（当前条件下没有完全匹配的商品，以下为热门兜底）" + header
-            presentation = present_items(recommendations, header=header,
-                                         with_voice=self.with_voice, dry_run=self.dry_run_voice)
+            presentation = present_items(
+                recommendations, header=header, with_voice=self.with_voice, dry_run=self.dry_run_voice
+            )
 
         degraded = bool(ranking_trace.get("degraded"))
         if degraded:
@@ -221,12 +266,19 @@ class Orchestrator:
             for item in recommendations:
                 item["evidence"]["constraint_satisfied"] = True
 
-        session.add_recommendation([r["item_id"] for r in recommendations],
-                                   focus=recommendations[0]["item_id"] if recommendations else None)
+        session.add_recommendation(
+            [r["item_id"] for r in recommendations], focus=recommendations[0]["item_id"] if recommendations else None
+        )
         status = "degraded" if degraded else "ok"
-        return {"status": status, "recommendations": recommendations, "explanations": explanations,
-                "presentation": presentation, "recall_trace": recall_result.data["trace"],
-                "ranking_trace": ranking_trace, "note": ranking_trace.get("degrade_reason") or ""}
+        return {
+            "status": status,
+            "recommendations": recommendations,
+            "explanations": explanations,
+            "presentation": presentation,
+            "recall_trace": recall_result.data["trace"],
+            "ranking_trace": ranking_trace,
+            "note": ranking_trace.get("degrade_reason") or "",
+        }
 
     # ============================================================
     # 处理器：反馈
@@ -239,10 +291,13 @@ class Orchestrator:
         """
         item_id = str((event.raw or {}).get("item_id") or "")
         if not item_id or not self.catalog.exists(item_id):
-            return {"status": "error", "recommendations": [],
-                    "error": _err(ErrorCode.ITEM_NOT_FOUND,
-                                  f"商品 {item_id or '(空)'} 不在目录中，无法记录浏览",
-                                  "item_id")}
+            return {
+                "status": "error",
+                "recommendations": [],
+                "error": _err(
+                    ErrorCode.ITEM_NOT_FOUND, f"商品 {item_id or '(空)'} 不在目录中，无法记录浏览", "item_id"
+                ),
+            }
         category = self.catalog.category_of(item_id)
         with timer.track("browse_ms"):
             viewed = session.add_view(item_id, category=category)
@@ -251,11 +306,17 @@ class Orchestrator:
 
         # 复用推荐主链路做重排，让「浏览」的影响可见（与点赞一致的口径）
         request = RecommendationRequest(
-            trace_id=event.trace_id, user_id=event.user_id, timestamp=event.timestamp,
-            source=event.source, intent="discover",
-            slots=dict(session.slot_state), constraints=list(session.constraints),
-            top_k=settings.RANKING_CONFIG["top_k"], session_id=session.session_id,
-            mode=self.mode)
+            trace_id=event.trace_id,
+            user_id=event.user_id,
+            timestamp=event.timestamp,
+            source=event.source,
+            intent="discover",
+            slots=dict(session.slot_state),
+            constraints=list(session.constraints),
+            top_k=settings.RANKING_CONFIG["top_k"],
+            session_id=session.session_id,
+            mode=self.mode,
+        )
         payload = self._handle_recommend(event, request, session, timer)
         affected = next((i for i in payload.get("recommendations", []) if i["item_id"] == item_id), None)
         payload["browse"] = {
@@ -267,28 +328,35 @@ class Orchestrator:
         payload["note"] = f"已记录浏览：{self.catalog.title(item_id)}（弱反馈，仅轻微上浮）"
         return payload
 
-    def _handle_feedback(self, event, request: RecommendationRequest,
-                         session: SessionContext, timer: Timer) -> dict:
-        target = (request.slot_value("feedback_target") or request.slot_value("target")
-                  or session.focus_item_id
-                  or (session.last_item_ids[0] if session.last_item_ids else None))
+    def _handle_feedback(self, event, request: RecommendationRequest, session: SessionContext, timer: Timer) -> dict:
+        target = (
+            request.slot_value("feedback_target")
+            or request.slot_value("target")
+            or session.focus_item_id
+            or (session.last_item_ids[0] if session.last_item_ids else None)
+        )
         polarity = request.slot_value("polarity")
         if not target:
             session.set_clarification(CLARIFY_FEEDBACK)
-            return {"status": "clarification", "recommendations": [], "clarification": CLARIFY_FEEDBACK,
-                    "error": _err(ErrorCode.MISSING_SLOT, CLARIFY_FEEDBACK, "feedback_target")}
+            return {
+                "status": "clarification",
+                "recommendations": [],
+                "clarification": CLARIFY_FEEDBACK,
+                "error": _err(ErrorCode.MISSING_SLOT, CLARIFY_FEEDBACK, "feedback_target"),
+            }
         if not self.catalog.exists(str(target)):
-            return {"status": "error", "recommendations": [],
-                    "error": _err(ErrorCode.ITEM_NOT_FOUND,
-                                  f"商品 {target} 不在目录中，无法写入反馈", "feedback_target")}
+            return {
+                "status": "error",
+                "recommendations": [],
+                "error": _err(ErrorCode.ITEM_NOT_FOUND, f"商品 {target} 不在目录中，无法写入反馈", "feedback_target"),
+            }
 
         before_ids = list(session.last_item_ids)
         category = self.catalog.category_of(str(target))
         with timer.track("feedback_ms"):
             feedback_result = session.add_feedback(str(target), str(polarity), category=category)
         if not feedback_result.ok:
-            return {"status": "error", "recommendations": [],
-                    "error": feedback_result.error.to_dict()}
+            return {"status": "error", "recommendations": [], "error": feedback_result.error.to_dict()}
         session.pending_clarification = None
 
         payload = self._handle_recommend(event, request, session, timer)
@@ -300,21 +368,22 @@ class Orchestrator:
             "after_topk": after_ids[:top_n],
             "changed": before_ids[:top_n] != after_ids[:top_n],
         }
-        payload["note"] = (f"已记录{'点赞' if polarity == 'positive' else '倒赞'}："
-                           f"{self.catalog.title(str(target))}")
+        payload["note"] = f"已记录{'点赞' if polarity == 'positive' else '倒赞'}：{self.catalog.title(str(target))}"
         return payload
 
     # ============================================================
     # 处理器：对比
     # ============================================================
-    def _handle_compare(self, event, request: RecommendationRequest,
-                        session: SessionContext, timer: Timer) -> dict:
+    def _handle_compare(self, event, request: RecommendationRequest, session: SessionContext, timer: Timer) -> dict:
         resolved = [str(t) for t in (request.slot_value("targets") or []) if self.catalog.exists(str(t))]
         if len(resolved) < 2:
             session.set_clarification(CLARIFY_COMPARE)
-            return {"status": "clarification", "recommendations": [], "clarification": CLARIFY_COMPARE,
-                    "error": _err(ErrorCode.MISSING_SLOT, CLARIFY_COMPARE, "targets",
-                                  resolved=resolved)}
+            return {
+                "status": "clarification",
+                "recommendations": [],
+                "clarification": CLARIFY_COMPARE,
+                "error": _err(ErrorCode.MISSING_SLOT, CLARIFY_COMPARE, "targets", resolved=resolved),
+            }
         with timer.track("compare_ms"):
             items = [self._item_payload(t, sources=["用户指定对比"], matched=[]) for t in resolved[:4]]
             fields = ("category", "price", "currency")
@@ -324,10 +393,16 @@ class Orchestrator:
                 if len({str(v) for v in values.values()}) > 1:
                     differences.append({"field": field, "values": values})
             for item in items:
-                pack_result = build_pack(item, request=request, catalog=self.catalog, session=session,
-                                         visual_tags=event.visual_tags, kb=self.kb,
-                                         sources=item["sources"],
-                                         matched_constraints=item["matched_constraints"])
+                pack_result = build_pack(
+                    item,
+                    request=request,
+                    catalog=self.catalog,
+                    session=session,
+                    visual_tags=event.visual_tags,
+                    kb=self.kb,
+                    sources=item["sources"],
+                    matched_constraints=item["matched_constraints"],
+                )
                 if pack_result.ok:
                     explanation = explain(item, pack_result.data)
                     if explanation.ok:
@@ -335,57 +410,84 @@ class Orchestrator:
                         item["explanation_confidence"] = explanation.data["confidence"]
 
         with timer.track("present_ms"):
-            presentation = present_items(items, header="对比结果：", with_voice=self.with_voice,
-                                         dry_run=self.dry_run_voice)
+            presentation = present_items(
+                items, header="对比结果：", with_voice=self.with_voice, dry_run=self.dry_run_voice
+            )
         session.add_recommendation([i["item_id"] for i in items], focus=items[0]["item_id"])
-        return {"status": "ok", "recommendations": items,
-                "comparison": {"targets": [i["item_id"] for i in items], "differences": differences},
-                "presentation": presentation, "note": f"已对比 {len(items)} 件商品"}
+        return {
+            "status": "ok",
+            "recommendations": items,
+            "comparison": {"targets": [i["item_id"] for i in items], "differences": differences},
+            "presentation": presentation,
+            "note": f"已对比 {len(items)} 件商品",
+        }
 
     # ============================================================
     # 处理器：解释
     # ============================================================
-    def _handle_explain(self, event, request: RecommendationRequest,
-                        session: SessionContext, timer: Timer) -> dict:
+    def _handle_explain(self, event, request: RecommendationRequest, session: SessionContext, timer: Timer) -> dict:
         target = request.slot_value("target") or session.focus_item_id
         if not target or not self.catalog.exists(str(target)):
             session.set_clarification(CLARIFY_NO_TARGET)
-            return {"status": "clarification", "recommendations": [], "clarification": CLARIFY_NO_TARGET,
-                    "error": _err(ErrorCode.MISSING_SLOT, CLARIFY_NO_TARGET, "target")}
+            return {
+                "status": "clarification",
+                "recommendations": [],
+                "clarification": CLARIFY_NO_TARGET,
+                "error": _err(ErrorCode.MISSING_SLOT, CLARIFY_NO_TARGET, "target"),
+            }
         item = self._item_payload(str(target), sources=["用户指定商品"], matched=[])
         with timer.track("explain_ms"):
-            pack_result = build_pack(item, request=request, catalog=self.catalog, session=session,
-                                     visual_tags=event.visual_tags, kb=self.kb,
-                                     sources=item["sources"],
-                                     matched_constraints=item["matched_constraints"])
+            pack_result = build_pack(
+                item,
+                request=request,
+                catalog=self.catalog,
+                session=session,
+                visual_tags=event.visual_tags,
+                kb=self.kb,
+                sources=item["sources"],
+                matched_constraints=item["matched_constraints"],
+            )
             if not pack_result.ok:
                 message = pack_result.error.message if pack_result.error else "证据构建失败"
-                return {"status": "no_evidence", "recommendations": [],
-                        "error": pack_result.error.to_dict() if pack_result.error else None,
-                        "note": message}
+                return {
+                    "status": "no_evidence",
+                    "recommendations": [],
+                    "error": pack_result.error.to_dict() if pack_result.error else None,
+                    "note": message,
+                }
             explanation = explain(item, pack_result.data)
             if explanation.ok:
-                polished = self.llm_explainer.explain(
-                    item, pack_result.data, template_text=explanation.data["text"])
+                polished = self.llm_explainer.explain(item, pack_result.data, template_text=explanation.data["text"])
                 if polished.ok:
                     explanation.data["template_text"] = explanation.data["text"]
                     explanation.data["text"] = polished.data["text"]
                     explanation.data["llm"] = polished.data
         if not explanation.ok:
-            message = explanation.error.message if explanation.error else settings.EXPLANATION_CONFIG["no_evidence_text"]
-            return {"status": "no_evidence", "recommendations": [item],
-                    "error": explanation.error.to_dict() if explanation.error else None,
-                    "presentation": present_items([item], header="解释：", with_voice=False),
-                    "note": message}
+            message = (
+                explanation.error.message if explanation.error else settings.EXPLANATION_CONFIG["no_evidence_text"]
+            )
+            return {
+                "status": "no_evidence",
+                "recommendations": [item],
+                "error": explanation.error.to_dict() if explanation.error else None,
+                "presentation": present_items([item], header="解释：", with_voice=False),
+                "note": message,
+            }
         item["explanation"] = explanation.data["text"]
         item["explanation_source"] = (explanation.data.get("llm") or {}).get("source")
         item["explanation_confidence"] = explanation.data["confidence"]
         with timer.track("present_ms"):
-            presentation = present_items([item], header="解释：", with_voice=self.with_voice,
-                                         dry_run=self.dry_run_voice)
+            presentation = present_items(
+                [item], header="解释：", with_voice=self.with_voice, dry_run=self.dry_run_voice
+            )
         session.add_recommendation([item["item_id"]], focus=item["item_id"])
-        return {"status": "ok", "recommendations": [item], "explanations": [explanation.data],
-                "presentation": presentation, "note": "已生成检索增强解释"}
+        return {
+            "status": "ok",
+            "recommendations": [item],
+            "explanations": [explanation.data],
+            "presentation": presentation,
+            "note": "已生成检索增强解释",
+        }
 
     # ============================================================
     # 辅助
@@ -396,11 +498,18 @@ class Orchestrator:
         for scored in ranked:
             product = self.catalog.product(scored.item_id) or {}
             item = RecommendationItem(
-                trace_id=request.trace_id, user_id=request.user_id, timestamp=now_iso(),
-                source=request.source, item_id=scored.item_id,
-                title=product.get("title", ""), category=product.get("category", ""),
-                price=product.get("price"), currency=product.get("currency", self.catalog.currency),
-                score=scored.final_score, rank=scored.rank, sources=list(scored.sources),
+                trace_id=request.trace_id,
+                user_id=request.user_id,
+                timestamp=now_iso(),
+                source=request.source,
+                item_id=scored.item_id,
+                title=product.get("title", ""),
+                category=product.get("category", ""),
+                price=product.get("price"),
+                currency=product.get("currency", self.catalog.currency),
+                score=scored.final_score,
+                rank=scored.rank,
+                sources=list(scored.sources),
                 evidence={
                     "score_breakdown": scored.to_dict(self.catalog)["score_breakdown"],
                     "matched_constraints": scored.matched_constraints,
@@ -409,18 +518,32 @@ class Orchestrator:
             ).to_dict()
 
             if scored.rank <= EXPLAIN_TOP_N:
-                pack_result = build_pack(item, request=request, catalog=self.catalog, session=session,
-                                         visual_tags=event.visual_tags, kb=self.kb,
-                                         sources=scored.sources,
-                                         matched_constraints=scored.matched_constraints)
+                pack_result = build_pack(
+                    item,
+                    request=request,
+                    catalog=self.catalog,
+                    session=session,
+                    visual_tags=event.visual_tags,
+                    kb=self.kb,
+                    sources=scored.sources,
+                    matched_constraints=scored.matched_constraints,
+                )
                 if pack_result.ok:
                     explanation = explain(item, pack_result.data)
                     if explanation.ok:
                         polished = self.llm_explainer.explain(
-                            item, pack_result.data, template_text=explanation.data["text"])
-                        final = polished.data if polished.ok else {
-                            "text": explanation.data["text"], "source": "template",
-                            "grounded": True, "fallback_reason": "LLM 解释器异常"}
+                            item, pack_result.data, template_text=explanation.data["text"]
+                        )
+                        final = (
+                            polished.data
+                            if polished.ok
+                            else {
+                                "text": explanation.data["text"],
+                                "source": "template",
+                                "grounded": True,
+                                "fallback_reason": "LLM 解释器异常",
+                            }
+                        )
                         item["explanation"] = final["text"]
                         item["explanation_source"] = final.get("source")
                         item["explanation_grounded"] = final.get("grounded")
@@ -428,8 +551,9 @@ class Orchestrator:
                             item["llm_rejected"] = True
                         item["explanation_confidence"] = explanation.data["confidence"]
                         item["evidence_count"] = explanation.data["evidence_count"]
-                        explanations.append({**explanation.data, "llm": final,
-                                             "evidence_pack": pack_result.data.to_dict()})
+                        explanations.append(
+                            {**explanation.data, "llm": final, "evidence_pack": pack_result.data.to_dict()}
+                        )
                     else:
                         item["reason"] = explanation.error.message if explanation.error else ""
                 else:
@@ -450,20 +574,30 @@ class Orchestrator:
         if intent not in ("discover", "similar", "filter"):
             intent = "filter" if hard else "discover"
         return RecommendationRequest(
-            trace_id=request.trace_id, user_id=request.user_id, timestamp=request.timestamp,
-            source=request.source, intent=intent, slots=slots, constraints=constraints,
-            top_k=request.top_k, session_id=request.session_id,
-            exclude_item_ids=list(request.exclude_item_ids), mode=request.mode,
+            trace_id=request.trace_id,
+            user_id=request.user_id,
+            timestamp=request.timestamp,
+            source=request.source,
+            intent=intent,
+            slots=slots,
+            constraints=constraints,
+            top_k=request.top_k,
+            session_id=request.session_id,
+            exclude_item_ids=list(request.exclude_item_ids),
+            mode=request.mode,
             meta={"derived_from_intent": request.intent},
         )
 
     def _item_payload(self, item_id: str, *, sources: list[str], matched: list[dict]) -> dict:
         product = self.catalog.product(item_id) or {}
         return {
-            "item_id": item_id, "title": product.get("title", ""),
-            "category": product.get("category", ""), "price": product.get("price"),
+            "item_id": item_id,
+            "title": product.get("title", ""),
+            "category": product.get("category", ""),
+            "price": product.get("price"),
             "currency": product.get("currency", self.catalog.currency),
-            "sources": list(sources), "matched_constraints": list(matched),
+            "sources": list(sources),
+            "matched_constraints": list(matched),
         }
 
     def _title_lookup(self):
@@ -503,8 +637,9 @@ class Orchestrator:
     # ============================================================
     # 响应封装
     # ============================================================
-    def _clarification_response(self, event, session: SessionContext, timer: Timer,
-                                result: Result, spec: dict) -> Result:
+    def _clarification_response(
+        self, event, session: SessionContext, timer: Timer, result: Result, spec: dict
+    ) -> Result:
         error = result.error
         code = error.code.value if error else ErrorCode.INTERNAL_ERROR.value
         context = error.context if error else {}
@@ -512,43 +647,63 @@ class Orchestrator:
         question = context.get("clarification") or (error.message if error else "")
         session.set_clarification(question)
         response = self._envelope(
-            event, session, timer, status=status,
-            intent_result=context.get("intent_result"), request=None, recommendations=[],
-            clarification=question, error=error.to_dict() if error else None,
+            event,
+            session,
+            timer,
+            status=status,
+            intent_result=context.get("intent_result"),
+            request=None,
+            recommendations=[],
+            clarification=question,
+            error=error.to_dict() if error else None,
             note="约束冲突，等待用户确认" if status == "conflict" else "需要用户补充信息",
         )
-        session.record_turn(Turn(
-            index=len(session.turns) + 1, trace_id=event.trace_id, user_id=event.user_id,
-            timestamp=event.timestamp, source=event.source, text=event.text,
-            intent=(context.get("intent_result") or {}).get("intent"),
-            slots={}, constraints=[], item_ids=[], status=status, note=response["note"],
-        ))
+        session.record_turn(
+            Turn(
+                index=len(session.turns) + 1,
+                trace_id=event.trace_id,
+                user_id=event.user_id,
+                timestamp=event.timestamp,
+                source=event.source,
+                text=event.text,
+                intent=(context.get("intent_result") or {}).get("intent"),
+                slots={},
+                constraints=[],
+                item_ids=[],
+                status=status,
+                note=response["note"],
+            )
+        )
         return ok(response)
 
     def _error_response(self, result: Result, session: SessionContext, timer: Timer, *, source: str) -> Result:
         error = result.error
-        return ok({
-            "schema_version": "1.0.0",
-            "trace_id": f"tr-error-{abs(hash(stable_key(session.session_id, source))) % 10**12:012d}",
-            "user_id": session.user_id,
-            "timestamp": now_iso(),
-            "source": source,
-            "session_id": session.session_id,
-            "status": "error",
-            "recommendations": [],
-            "error": error.to_dict() if error else None,
-            "trace": {"latency_ms": timer.as_dict(), "modes": self.modes(),
-                      "degradations": self.degradations()},
-            "session": session.snapshot(),
-        })
+        return ok(
+            {
+                "schema_version": "1.0.0",
+                "trace_id": f"tr-error-{abs(hash(stable_key(session.session_id, source))) % 10**12:012d}",
+                "user_id": session.user_id,
+                "timestamp": now_iso(),
+                "source": source,
+                "session_id": session.session_id,
+                "status": "error",
+                "recommendations": [],
+                "error": error.to_dict() if error else None,
+                "trace": {"latency_ms": timer.as_dict(), "modes": self.modes(), "degradations": self.degradations()},
+                "session": session.snapshot(),
+            }
+        )
 
     def _envelope(self, event, session: SessionContext, timer: Timer, *, status: str, **payload) -> dict:
         error = payload.pop("error", None)
         presentation = payload.get("presentation") or {}
         degradations = self.degradations()
         if presentation.get("degradations"):
-            degradations["presentation"] = {"adapter": "presentation", "degraded": True,
-                                            "events": presentation["degradations"]}
+            degradations["presentation"] = {
+                "adapter": "presentation",
+                "degraded": True,
+                "events": presentation["degradations"],
+            }
         trace = {
             "latency_ms": timer.as_dict(),
             "modes": self.modes(),

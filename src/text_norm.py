@@ -17,6 +17,7 @@ src/text_norm.py
 取所有「单字繁简不同、且该字不是任何字的简体形式」的 CJK 统一汉字，共 4056 字。
 推导脚本见 scripts/12_text_norm_check.py 的注释说明。
 """
+
 from __future__ import annotations
 
 import re
@@ -71,16 +72,51 @@ TRADITIONAL_MARKERS = frozenset(
 
 # 常见英文词 → 中文（商品域，覆盖实测泄漏与高频词）
 EN_REPLACEMENTS: dict[str, str] = {
-    "ball": "球", "butterfly": "蝴蝶", "heart": "心", "star": "星", "cup": "杯",
-    "box": "盒", "card": "卡", "gift": "礼物", "home": "家", "flower": "花",
-    "light": "灯", "candle": "蜡烛", "frame": "相框", "bag": "包", "ring": "环",
-    "tree": "树", "bird": "鸟", "angel": "天使", "rose": "玫瑰", "set": "套装",
-    "glass": "玻璃", "metal": "金属", "wood": "木质", "paper": "纸", "cloth": "布",
-    "white": "白色", "black": "黑色", "red": "红色", "pink": "粉色", "blue": "蓝色",
-    "green": "绿色", "gold": "金色", "silver": "银色", "cream": "奶油色",
-    "holder": "支架", "hanging": "悬挂", "decoration": "装饰", "ornament": "装饰品",
-    "price": "价格", "budget": "预算", "quality": "品质", "style": "风格",
-    "gift": "礼物", "party": "派对", "wedding": "婚礼", "christmas": "圣诞",
+    "ball": "球",
+    "butterfly": "蝴蝶",
+    "heart": "心",
+    "star": "星",
+    "cup": "杯",
+    "box": "盒",
+    "card": "卡",
+    "gift": "礼物",
+    "home": "家",
+    "flower": "花",
+    "light": "灯",
+    "candle": "蜡烛",
+    "frame": "相框",
+    "bag": "包",
+    "ring": "环",
+    "tree": "树",
+    "bird": "鸟",
+    "angel": "天使",
+    "rose": "玫瑰",
+    "set": "套装",
+    "glass": "玻璃",
+    "metal": "金属",
+    "wood": "木质",
+    "paper": "纸",
+    "cloth": "布",
+    "white": "白色",
+    "black": "黑色",
+    "red": "红色",
+    "pink": "粉色",
+    "blue": "蓝色",
+    "green": "绿色",
+    "gold": "金色",
+    "silver": "银色",
+    "cream": "奶油色",
+    "holder": "支架",
+    "hanging": "悬挂",
+    "decoration": "装饰",
+    "ornament": "装饰品",
+    "price": "价格",
+    "budget": "预算",
+    "quality": "品质",
+    "style": "风格",
+    "party": "派对",
+    "wedding": "婚礼",
+    "christmas": "圣诞",
 }
 
 _LATIN_RE = re.compile(r"[A-Za-z]{2,}")
@@ -138,20 +174,26 @@ def normalize_fluency(text: str) -> tuple[str, list[dict]]:
     if traditional:
         if converter is not None:
             converted = converter(out)
-            actions.append({"action": "traditional_to_simplified", "engine": engine,
-                            "chars": len(traditional), "sample": traditional[:6]})
+            actions.append(
+                {
+                    "action": "traditional_to_simplified",
+                    "engine": engine,
+                    "chars": len(traditional),
+                    "sample": traditional[:6],
+                }
+            )
             out = converted
         else:
-            actions.append({"action": "traditional_detected_no_converter",
-                            "chars": len(traditional), "sample": traditional[:6]})
+            actions.append(
+                {"action": "traditional_detected_no_converter", "chars": len(traditional), "sample": traditional[:6]}
+            )
 
     latin = find_latin(out)
     replaced: list[str] = []
     for word in latin:
         target = EN_REPLACEMENTS.get(word)
         if target:
-            out = re.sub(r"(?<![A-Za-z])" + re.escape(word) + r"(?![A-Za-z])",
-                       target, out, flags=re.IGNORECASE)
+            out = re.sub(r"(?<![A-Za-z])" + re.escape(word) + r"(?![A-Za-z])", target, out, flags=re.IGNORECASE)
             replaced.append(word)
     if replaced:
         actions.append({"action": "english_replaced", "words": replaced})
@@ -163,12 +205,12 @@ def normalize_fluency(text: str) -> tuple[str, list[dict]]:
     if unmapped:
         before_len = len(out)
         for word in unmapped:
-            out = re.sub(r"(?<![A-Za-z])" + re.escape(word) + r"(?![A-Za-z])", " ",
-                         out, flags=re.IGNORECASE)
+            out = re.sub(r"(?<![A-Za-z])" + re.escape(word) + r"(?![A-Za-z])", " ", out, flags=re.IGNORECASE)
         out = re.sub(r"\s{2,}", " ", out)
         if before_len and len(out) < before_len * 0.5:
-            actions.append({"action": "english_too_much", "words": unmapped,
-                            "note": "英文占比过高，删除后信息损失过大"})
+            actions.append(
+                {"action": "english_too_much", "words": unmapped, "note": "英文占比过高，删除后信息损失过大"}
+            )
         else:
             actions.append({"action": "english_removed", "words": unmapped})
 
@@ -193,20 +235,29 @@ def verify_fluency(text: str) -> list[dict]:
     """
     violations: list[dict] = []
     if _cjk_count(text) < MIN_CJK_CHARS:
-        violations.append({"type": "insufficient_chinese",
-                           "cjk_chars": _cjk_count(text), "min": MIN_CJK_CHARS,
-                           "reason": "规范化后中文内容不足，判定为无效输出"})
+        violations.append(
+            {
+                "type": "insufficient_chinese",
+                "cjk_chars": _cjk_count(text),
+                "min": MIN_CJK_CHARS,
+                "reason": "规范化后中文内容不足，判定为无效输出",
+            }
+        )
     traditional = find_traditional(text)
     if traditional:
-        violations.append({"type": "traditional_chars", "chars": traditional[:8],
-                           "count": len(traditional),
-                           "reason": "存在繁体字，未通过规范化"})
+        violations.append(
+            {
+                "type": "traditional_chars",
+                "chars": traditional[:8],
+                "count": len(traditional),
+                "reason": "存在繁体字，未通过规范化",
+            }
+        )
     latin = find_latin(text)
     if latin:
         unmapped = [w for w in latin if w not in EN_REPLACEMENTS]
         if unmapped:
-            violations.append({"type": "latin_words", "words": unmapped[:8],
-                               "reason": "存在未映射的英文词，中英混排"})
+            violations.append({"type": "latin_words", "words": unmapped[:8], "reason": "存在未映射的英文词，中英混排"})
     return violations
 
 
@@ -215,7 +266,9 @@ def has_too_much_english(actions) -> bool:
 
 
 def describe() -> dict:
-    converter, engine = _load_converter()
-    return {"traditional_markers": len(TRADITIONAL_MARKERS),
-            "converter": engine or "none（仅检测，不转换）",
-            "english_map_size": len(EN_REPLACEMENTS)}
+    _converter, engine = _load_converter()
+    return {
+        "traditional_markers": len(TRADITIONAL_MARKERS),
+        "converter": engine or "none（仅检测，不转换）",
+        "english_map_size": len(EN_REPLACEMENTS),
+    }

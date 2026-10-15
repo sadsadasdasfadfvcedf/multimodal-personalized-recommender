@@ -11,6 +11,7 @@ src/privacy.py
 
 返回结构化报告，verdict 只有 PASS / FAIL 两种，便于验收引用。
 """
+
 from __future__ import annotations
 
 import fnmatch
@@ -29,7 +30,8 @@ CODE_DIRS = {"config", "src", "scripts"}
 
 _SENSITIVE_ASSIGN = re.compile(
     r"(?i)\b(password|passwd|pwd|secret|api_key|apikey|access_token|auth_token|private_key)\b\s*[:=]\s*"
-    r"([\"'])(?P<value>.+?)\2")
+    r"([\"'])(?P<value>.+?)\2"
+)
 _ABS_WIN = re.compile(r"[A-Za-z]:\\\\?[Uu]sers|C:\\\\|D:\\\\")
 
 # 值里出现这些占位内容不算硬编码密钥
@@ -66,9 +68,14 @@ def scan_tree(root: Path | str | None = None) -> dict[str, Any]:
         # 1) 禁止文件类型
         matched = next((pat for pat in CFG["forbidden_patterns"] if fnmatch.fnmatch(path.name, pat)), None)
         if matched and not in_allowed:
-            forbidden.append({"path": rel, "pattern": matched,
-                              "size_bytes": path.stat().st_size,
-                              "reason": "禁止进入提交包的文件类型"})
+            forbidden.append(
+                {
+                    "path": rel,
+                    "pattern": matched,
+                    "size_bytes": path.stat().st_size,
+                    "reason": "禁止进入提交包的文件类型",
+                }
+            )
 
         # 2) 文本内容检查
         if path.suffix.lower() in CFG["scan_text_extensions"]:
@@ -81,9 +88,14 @@ def scan_tree(root: Path | str | None = None) -> dict[str, Any]:
                     value = m.group("value").strip()
                     if any(value.lower().startswith(p) or value.lower() == p for p in _PLACEHOLDER):
                         continue
-                    sensitive_hits.append({"path": rel, "key": m.group(1),
-                                           "line": text[:m.start()].count("\n") + 1,
-                                           "value_preview": value[:12] + "…" if len(value) > 12 else value})
+                    sensitive_hits.append(
+                        {
+                            "path": rel,
+                            "key": m.group(1),
+                            "line": text[: m.start()].count("\n") + 1,
+                            "value_preview": value[:12] + "…" if len(value) > 12 else value,
+                        }
+                    )
             # 绝对路径：只检查源码目录，且跳过正则定义行
             if parts and parts[0] in CODE_DIRS:
                 for i, line in enumerate(text.splitlines(), start=1):
@@ -133,7 +145,10 @@ def package_manifest(root: Path | str | None = None) -> dict[str, Any]:
         if target.exists():
             entries.append({"path": name, "size_bytes": target.stat().st_size})
     total = sum(e["size_bytes"] for e in entries)
-    return {"entries": len(entries), "total_bytes": total,
-            "total_mb": round(total / 1024 / 1024, 2),
-            "excluded_dirs": ["artifacts (可再生的语音产物)", "__pycache__", "*.pyc"],
-            "files": entries}
+    return {
+        "entries": len(entries),
+        "total_bytes": total,
+        "total_mb": round(total / 1024 / 1024, 2),
+        "excluded_dirs": ["artifacts (可再生的语音产物)", "__pycache__", "*.pyc"],
+        "files": entries,
+    }

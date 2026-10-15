@@ -1,7 +1,7 @@
 {
   "stage": "02",
   "title": "多模态意图理解与会话上下文指标",
-  "generated_at": "2026-10-15T05:55:00+00:00",
+  "generated_at": "2026-10-15T06:01:19+00:00",
   "intent_cases": {
     "total": 26,
     "passed": 26,

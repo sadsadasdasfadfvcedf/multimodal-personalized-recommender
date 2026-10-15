@@ -1,7 +1,7 @@
 {
   "stage": "01",
   "title": "接口契约与降级矩阵验证",
-  "generated_at": "2026-10-15T05:55:00+00:00",
+  "generated_at": "2026-10-15T06:01:19+00:00",
   "schema_version": "1.0.0",
   "config": {
     "project_root": "C:\\Users\\Administrator\\Desktop\\多模态个性化推荐助手\\integrated_ai_project",
@@ -130,7 +130,7 @@
       "expectation": "ok=True",
       "actual": {
         "ok": true,
-        "trace_id": "tr-d31004dea0e34ae4"
+        "trace_id": "tr-e1926683a69d472e"
       },
       "passed": true
     },

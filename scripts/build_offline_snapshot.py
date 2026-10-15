@@ -23,6 +23,7 @@ scripts/build_offline_snapshot.py
     python scripts/build_offline_snapshot.py
     python scripts/build_offline_snapshot.py --recommender-root "D:/path/to/推荐系统"
 """
+
 from __future__ import annotations
 
 import argparse
@@ -161,7 +162,7 @@ def build(recommender_root: Path, out_dir: Path) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     write_json(out_dir / "catalog.json", catalog, indent=None)
     write_json(out_dir / "similar.json", similar, indent=None)
-    write_json(out_dir / "scores.json", {u: v for u, v in scores.items()}, indent=None)
+    write_json(out_dir / "scores.json", dict(scores), indent=None)
     write_json(out_dir / "popular.json", popular, indent=None)
     write_json(out_dir / "history.json", history, indent=None)
     write_json(out_dir / "users.json", users)

@@ -27,6 +27,7 @@ chat.py —— 多模态个性化推荐助手 · 交互式对话终端
     python chat.py --real --llm         # 真实多模态 + 真实 LLM 解释
     python chat.py --user 14156         # 指定用户（15547 林先生 / 14156 陈小姐 / 17231 王女士）
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,13 +53,13 @@ HELP = """可用输入：
 
 
 class Chat:
-    def __init__(self, user_id: str, mode: str | None, with_voice: bool, use_llm: bool,
-                 allow_real: bool | None = None) -> None:
+    def __init__(
+        self, user_id: str, mode: str | None, with_voice: bool, use_llm: bool, allow_real: bool | None = None
+    ) -> None:
         self.user_id = user_id
         # allow_real 必须显式传参：settings.RUNTIME 在 import 时已求值，
         # 之后再改环境变量不会生效。
-        self.orch = Orchestrator(mode=mode, allow_real=allow_real,
-                                 with_voice=with_voice, use_llm=use_llm)
+        self.orch = Orchestrator(mode=mode, allow_real=allow_real, with_voice=with_voice, use_llm=use_llm)
         self.session_id = self.orch.store.default_session_id(user_id)
         self.with_voice = with_voice
         self.media_dir = settings.PATHS["artifacts"] / "chat"
@@ -69,10 +70,19 @@ class Chat:
     def _print_response(self, resp: dict) -> None:
         status = resp.get("status")
         intent = (resp.get("intent_result") or {}).get("intent") or "-"
-        icons = {"ok": "✅", "degraded": "🟡", "clarification": "❓",
-                 "conflict": "⚠️", "empty": "⬜", "no_evidence": "🚫", "error": "❌"}
-        print(f"\n{icons.get(status, '·')} [{status}] 意图={intent}",
-              f"| 推荐适配器={resp.get('trace', {}).get('modes', {}).get('recommender')}")
+        icons = {
+            "ok": "✅",
+            "degraded": "🟡",
+            "clarification": "❓",
+            "conflict": "⚠️",
+            "empty": "⬜",
+            "no_evidence": "🚫",
+            "error": "❌",
+        }
+        print(
+            f"\n{icons.get(status, '·')} [{status}] 意图={intent}",
+            f"| 推荐适配器={resp.get('trace', {}).get('modes', {}).get('recommender')}",
+        )
 
         if resp.get("error"):
             print(f"   {resp['error'].get('code')}: {resp['error'].get('message')}")
@@ -86,8 +96,7 @@ class Chat:
             price = f"£{item['price']}" if item.get("price") is not None else "—"
             rank = item.get("rank") or index
             score = item.get("score")
-            print(f"   {rank}. {item.get('title')}  {price}  "
-                  f"分={score if score is not None else '—'}")
+            print(f"   {rank}. {item.get('title')}  {price}  分={score if score is not None else '—'}")
             if item.get("explanation"):
                 print(f"      {item['explanation']}")
         if resp.get("feedback"):
@@ -95,8 +104,10 @@ class Chat:
             print(f"   反馈已记录: {fb.get('polarity')} → {fb.get('target_title')}")
         if resp.get("before_after"):
             ba = resp["before_after"]
-            print(f"   排序变化: {'是' if ba.get('changed') else '否'}"
-                  f"  before={ba.get('before_topk', [])[:3]}  after={ba.get('after_topk', [])[:3]}")
+            print(
+                f"   排序变化: {'是' if ba.get('changed') else '否'}"
+                f"  before={ba.get('before_topk', [])[:3]}  after={ba.get('after_topk', [])[:3]}"
+            )
         pres = resp.get("presentation") or {}
         if pres.get("voice_available"):
             print(f"   🔊 语音: {pres.get('audio_path')}")
@@ -159,8 +170,7 @@ class Chat:
             print(f"   {data.get('note') or '未识别到已定义手势，本轮跳过'}")
             return
         g0 = data["gestures"][0]
-        self._send({"source": "gesture",
-                    "gesture": {"name": g0["name"], "confidence": g0["confidence"]}})
+        self._send({"source": "gesture", "gesture": {"name": g0["name"], "confidence": g0["confidence"]}})
 
     def _vision_input(self, question: str) -> None:
         ad = self.orch.multimodal
@@ -179,8 +189,9 @@ class Chat:
             return
         text = (vl.data or {}).get("response") or ""
         print(f"👁️  画面: 「{text}」")
-        self._send({"source": "vision", "text": question or "",
-                    "visual_tags": [{"tag": text[:24], "confidence": 0.85}]})
+        self._send(
+            {"source": "vision", "text": question or "", "visual_tags": [{"tag": text[:24], "confidence": 0.85}]}
+        )
 
     # ---------------- 主循环 ----------------
     def run(self) -> int:
@@ -189,8 +200,10 @@ class Chat:
         print("多模态个性化推荐助手 · 交互式对话")
         print("=" * 74)
         print(f"用户={self.user_id}  会话={self.session_id}")
-        print(f"多模态适配器={m['multimodal']}  推荐适配器={m['recommender']}  "
-              f"LLM解释={m.get('llm_explain')}  语音播报={'开' if self.with_voice else '关'}")
+        print(
+            f"多模态适配器={m['multimodal']}  推荐适配器={m['recommender']}  "
+            f"LLM解释={m.get('llm_explain')}  语音播报={'开' if self.with_voice else '关'}"
+        )
         if m["multimodal"] != "real":
             print("提示：加 --real 可启用麦克风/摄像头/真实模型（/voice、/gesture、/vision 需要它）")
         print("输入 /help 看用法，/quit 退出。\n")
@@ -240,8 +253,7 @@ class Chat:
                     self.orch.llm_explainer.enabled = on
                     if on and self.orch.multimodal.active_mode != "real":
                         print("⚠️  LLM 需要 --real 模式才生效（当前是离线模式）")
-                    print(f"LLM 解释已{'开启' if on else '关闭'}"
-                          f"（开启后每条约 +10~25 秒，因为每次都要重新加载模型）")
+                    print(f"LLM 解释已{'开启' if on else '关闭'}（开启后每条约 +10~25 秒，因为每次都要重新加载模型）")
                     continue
                 if cmd == "say":
                     on = arg.lower() in ("on", "1", "true", "yes")

@@ -21,11 +21,13 @@ offline: 使用离线场景桩（场景里的模态输入直接结构化），�
 
 接口约定：本适配器不读取 multimodal_ai 的内部变量；real 模式只 import 其公开模块入口。
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 from config import settings
+
 from ..catalog import Catalog  # noqa: F401  (类型提示用，实际不访问其内部)
 from ..contracts import InteractionEvent, VisualTag
 from ..errors import ErrorCode, Result, fail, ok
@@ -52,15 +54,19 @@ class MultimodalAdapter(AdapterBase):
             self.active_mode = "offline_stub"
             if self.requested_mode != "offline":
                 self.record_degradation(
-                    level="L1", reason="未启用真实模型（INTEGRATED_ALLOW_REAL_MODELS=false）",
-                    from_mode="real", to_mode="offline_stub",
+                    level="L1",
+                    reason="未启用真实模型（INTEGRATED_ALLOW_REAL_MODELS=false）",
+                    from_mode="real",
+                    to_mode="offline_stub",
                 )
             return
         if settings.MULTIMODAL_ROOT is None:
             self.active_mode = "offline_stub"
             self.record_degradation(
-                level="L1", reason="未找到 multimodal_ai 根目录",
-                from_mode="real", to_mode="offline_stub",
+                level="L1",
+                reason="未找到 multimodal_ai 根目录",
+                from_mode="real",
+                to_mode="offline_stub",
             )
             return
         try:
@@ -69,8 +75,10 @@ class MultimodalAdapter(AdapterBase):
         except Exception as exc:
             self.active_mode = "offline_stub"
             self.record_degradation(
-                level="L1", reason=f"真实模型不可用: {type(exc).__name__}: {exc}",
-                from_mode="real", to_mode="offline_stub",
+                level="L1",
+                reason=f"真实模型不可用: {type(exc).__name__}: {exc}",
+                from_mode="real",
+                to_mode="offline_stub",
             )
 
     def _probe_real(self) -> None:
@@ -92,13 +100,15 @@ class MultimodalAdapter(AdapterBase):
         self._real["root"] = root
 
     def health(self) -> Result:
-        return ok({
-            "adapter": self.name,
-            "active_mode": self.active_mode,
-            "allow_real": self.allow_real,
-            "multimodal_root": str(settings.MULTIMODAL_ROOT) if settings.MULTIMODAL_ROOT else None,
-            "degradations": list(self.degradations),
-        })
+        return ok(
+            {
+                "adapter": self.name,
+                "active_mode": self.active_mode,
+                "allow_real": self.allow_real,
+                "multimodal_root": str(settings.MULTIMODAL_ROOT) if settings.MULTIMODAL_ROOT else None,
+                "degradations": list(self.degradations),
+            }
+        )
 
     # ---------------- 视觉标签治理 ----------------
     def _govern_tags(self, tags: list[dict]) -> tuple[list[VisualTag], list[dict]]:
@@ -111,18 +121,30 @@ class MultimodalAdapter(AdapterBase):
             if not tag.tag:
                 continue
             if tag.confidence < vision["drop_confidence_threshold"]:
-                actions.append({"tag": tag.tag, "confidence": tag.confidence, "action": "dropped",
-                                "reason": f"置信度 < drop 阈值 {vision['drop_confidence_threshold']}"})
+                actions.append(
+                    {
+                        "tag": tag.tag,
+                        "confidence": tag.confidence,
+                        "action": "dropped",
+                        "reason": f"置信度 < drop 阈值 {vision['drop_confidence_threshold']}",
+                    }
+                )
                 continue
             low = tag.confidence < vision["low_confidence_threshold"]
             weight = vision["low_confidence_weight"] if low else 1.0
             tag.raw = dict(tag.raw or {})
-            tag.raw.update({"low_confidence": low, "weight": weight,
-                            "effective_confidence": round(tag.confidence * weight, 4)})
+            tag.raw.update(
+                {"low_confidence": low, "weight": weight, "effective_confidence": round(tag.confidence * weight, 4)}
+            )
             kept.append(tag)
-            actions.append({"tag": tag.tag, "confidence": tag.confidence,
-                            "action": "downweighted" if low else "kept",
-                            "weight": weight})
+            actions.append(
+                {
+                    "tag": tag.tag,
+                    "confidence": tag.confidence,
+                    "action": "downweighted" if low else "kept",
+                    "weight": weight,
+                }
+            )
             if len(kept) >= vision["max_tags"]:
                 break
         return kept, actions
@@ -137,8 +159,9 @@ class MultimodalAdapter(AdapterBase):
         if not name:
             return None, [{"gesture": None, "action": "dropped", "reason": "缺少手势名称"}]
         if confidence < min_conf:
-            return None, [{"gesture": name, "confidence": confidence, "action": "dropped",
-                           "reason": f"置信度 < 门限 {min_conf}"}]
+            return None, [
+                {"gesture": name, "confidence": confidence, "action": "dropped", "reason": f"置信度 < 门限 {min_conf}"}
+            ]
         polarity = CFG["gesture"]["feedback_map"].get(name)
         governed = {
             "name": name,
@@ -150,8 +173,15 @@ class MultimodalAdapter(AdapterBase):
         return governed, [{"gesture": name, "confidence": confidence, "action": "kept", "polarity": polarity}]
 
     # ---------------- 事件解析（核心接口） ----------------
-    def parse_event(self, spec: dict, *, user_id: str, session_id: str | None = None,
-                    trace_id: str | None = None, timestamp: str | None = None) -> Result:
+    def parse_event(
+        self,
+        spec: dict,
+        *,
+        user_id: str,
+        session_id: str | None = None,
+        trace_id: str | None = None,
+        timestamp: str | None = None,
+    ) -> Result:
         """把一次交互的模态输入解析为标准 InteractionEvent。
 
         spec 形如::
@@ -187,8 +217,15 @@ class MultimodalAdapter(AdapterBase):
         # 2) 视觉标签治理
         tags, tag_actions = self._govern_tags(visual_tags)
         if visual_tags:
-            steps.append({"stage": "vision", "action": "governed",
-                          "input": len(visual_tags), "kept": len(tags), "detail": tag_actions})
+            steps.append(
+                {
+                    "stage": "vision",
+                    "action": "governed",
+                    "input": len(visual_tags),
+                    "kept": len(tags),
+                    "detail": tag_actions,
+                }
+            )
 
         # 3) 手势治理
         gesture, gesture_actions = self._govern_gesture(gesture_in)
@@ -224,8 +261,9 @@ class MultimodalAdapter(AdapterBase):
             modality = "asr"
         else:
             modality = "none"
-            return fail(ErrorCode.INVALID_INPUT,
-                        "事件不包含任何可用模态输入（text/visual_tags/gesture 至少一项）", field="spec")
+            return fail(
+                ErrorCode.INVALID_INPUT, "事件不包含任何可用模态输入（text/visual_tags/gesture 至少一项）", field="spec"
+            )
 
         event = InteractionEvent(
             trace_id=trace_id or new_trace_id(),
@@ -272,8 +310,7 @@ class MultimodalAdapter(AdapterBase):
 
         root = settings.MULTIMODAL_ROOT
         if root is None:
-            return fail(ErrorCode.MODALITY_UNAVAILABLE, "未找到 multimodal_ai 根目录",
-                        field="MULTIMODAL_ROOT")
+            return fail(ErrorCode.MODALITY_UNAVAILABLE, "未找到 multimodal_ai 根目录", field="MULTIMODAL_ROOT")
         worker = settings.PROJECT_ROOT / CFG["real"]["worker"]
         if not worker.exists():
             return fail(ErrorCode.MODALITY_UNAVAILABLE, f"缺少 worker 脚本: {worker}", field="worker")
@@ -292,13 +329,21 @@ class MultimodalAdapter(AdapterBase):
         timeout = timeout_s or CFG["real"]["timeout_s"]
         try:
             proc = subprocess.run(
-                self._worker_command(action, params), cwd=str(root), env=env,
-                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                self._worker_command(action, params),
+                cwd=str(root),
+                env=env,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=timeout,
             )
         except Exception as exc:
-            return fail(ErrorCode.TIMEOUT if "Timeout" in type(exc).__name__ else ErrorCode.MODALITY_UNAVAILABLE,
-                        f"{action} 子进程失败: {type(exc).__name__}: {exc}", field="action")
+            return fail(
+                ErrorCode.TIMEOUT if "Timeout" in type(exc).__name__ else ErrorCode.MODALITY_UNAVAILABLE,
+                f"{action} 子进程失败: {type(exc).__name__}: {exc}",
+                field="action",
+            )
 
         payload = None
         for line in reversed((proc.stdout or "").strip().splitlines()):
@@ -310,40 +355,55 @@ class MultimodalAdapter(AdapterBase):
                 except _json.JSONDecodeError:
                     continue
         if payload is None:
-            return fail(ErrorCode.MODALITY_UNAVAILABLE,
-                        f"{action} 未返回可解析结果（rc={proc.returncode}）",
-                        field="stdout", stderr=(proc.stderr or "")[-300:])
+            return fail(
+                ErrorCode.MODALITY_UNAVAILABLE,
+                f"{action} 未返回可解析结果（rc={proc.returncode}）",
+                field="stdout",
+                stderr=(proc.stderr or "")[-300:],
+            )
         if not payload.get("ok"):
             err = payload.get("error") or {}
-            return fail(ErrorCode.MODALITY_UNAVAILABLE,
-                        f"{action} 执行失败: {err.get('type')}: {err.get('message')}",
-                        field="action")
+            return fail(
+                ErrorCode.MODALITY_UNAVAILABLE,
+                f"{action} 执行失败: {err.get('type')}: {err.get('message')}",
+                field="action",
+            )
         return ok(payload.get("data"), latency_ms=payload.get("latency_ms"), action=action)
 
     def worker_health(self) -> Result:
         """真实后端健康检查：worker 可执行 + 设备可见。"""
-        return self.guard("worker_health", lambda: self._run_worker(
-            "devices", {}, timeout_s=CFG["real"]["probe_timeout_s"]))
+        return self.guard(
+            "worker_health", lambda: self._run_worker("devices", {}, timeout_s=CFG["real"]["probe_timeout_s"])
+        )
 
     def transcribe(self, audio_path: str, sample_rate: int | None = None) -> Result:
         """真实语音识别（SenseVoiceSmall）。offline 模式明确返回不可用。"""
         if self.active_mode != "real":
-            return fail(ErrorCode.MODALITY_UNAVAILABLE,
-                        "offline 模式不执行真实 ASR；请在场景中提供 text 字段",
-                        field="audio_path", active_mode=self.active_mode)
-        params = {"audio": self._abs(audio_path),
-                  "sample_rate": int(sample_rate or CFG["asr"]["sample_rate"])}
+            return fail(
+                ErrorCode.MODALITY_UNAVAILABLE,
+                "offline 模式不执行真实 ASR；请在场景中提供 text 字段",
+                field="audio_path",
+                active_mode=self.active_mode,
+            )
+        params = {"audio": self._abs(audio_path), "sample_rate": int(sample_rate or CFG["asr"]["sample_rate"])}
         return self.guard("transcribe", lambda: self._run_worker("asr", params))
 
-    def describe_image(self, image_path: str, question: str = "",
-                       max_new_tokens: int = 96, max_pixels: int | None = None) -> Result:
+    def describe_image(
+        self, image_path: str, question: str = "", max_new_tokens: int = 96, max_pixels: int | None = None
+    ) -> Result:
         """真实视觉语言理解（Qwen-VL）。"""
         if self.active_mode != "real":
-            return fail(ErrorCode.MODALITY_UNAVAILABLE,
-                        "offline 模式不执行真实 VL；请在场景中提供 visual_tags",
-                        field="image_path", active_mode=self.active_mode)
-        params = {"image": self._abs(image_path), "question": question or "用一句话说明画面中最主要的人或物品，不要逐处列举。",
-                  "max_new_tokens": int(max_new_tokens)}
+            return fail(
+                ErrorCode.MODALITY_UNAVAILABLE,
+                "offline 模式不执行真实 VL；请在场景中提供 visual_tags",
+                field="image_path",
+                active_mode=self.active_mode,
+            )
+        params = {
+            "image": self._abs(image_path),
+            "question": question or "用一句话说明画面中最主要的人或物品，不要逐处列举。",
+            "max_new_tokens": int(max_new_tokens),
+        }
         if max_pixels:
             params["max_pixels"] = int(max_pixels)
         return self.guard("describe_image", lambda: self._run_worker("vl", params))
@@ -351,35 +411,41 @@ class MultimodalAdapter(AdapterBase):
     def recognize_gesture(self, image_path: str, stable_frames: int = 1) -> Result:
         """真实手势识别（MediaPipe + 几何判定）。"""
         if self.active_mode != "real":
-            return fail(ErrorCode.MODALITY_UNAVAILABLE,
-                        "offline 模式不执行真实手势识别；请在场景中提供 gesture",
-                        field="image_path", active_mode=self.active_mode)
+            return fail(
+                ErrorCode.MODALITY_UNAVAILABLE,
+                "offline 模式不执行真实手势识别；请在场景中提供 gesture",
+                field="image_path",
+                active_mode=self.active_mode,
+            )
         params = {"image": self._abs(image_path), "stable_frames": int(stable_frames)}
         return self.guard("recognize_gesture", lambda: self._run_worker("gesture", params))
 
-    def generate_batch(self, prompts: list[str], *, max_new_tokens: int = 120,
-                       temperature: float = 0.2) -> Result:
+    def generate_batch(self, prompts: list[str], *, max_new_tokens: int = 120, temperature: float = 0.2) -> Result:
         """批量真实文本生成（模型只加载一次，显著降低平均耗时）。"""
         if self.active_mode != "real":
             return fail(ErrorCode.MODALITY_UNAVAILABLE, "offline 模式不执行真实 LLM", field="prompts")
-        return self.guard("generate_batch", lambda: self._run_worker(
-            "llm_batch", {"prompts": list(prompts), "max_new_tokens": int(max_new_tokens),
-                          "temperature": float(temperature)}))
+        return self.guard(
+            "generate_batch",
+            lambda: self._run_worker(
+                "llm_batch",
+                {"prompts": list(prompts), "max_new_tokens": int(max_new_tokens), "temperature": float(temperature)},
+            ),
+        )
 
     def capture_frame(self, out_path: str, camera_index: int = 0) -> Result:
         """抓取一帧真实摄像头画面。"""
         if self.active_mode != "real":
             return fail(ErrorCode.MODALITY_UNAVAILABLE, "offline 模式不访问摄像头", field="out_path")
-        return self.guard("capture_frame", lambda: self._run_worker(
-            "capture", {"out": self._abs(out_path), "camera_index": int(camera_index)}))
+        return self.guard(
+            "capture_frame",
+            lambda: self._run_worker("capture", {"out": self._abs(out_path), "camera_index": int(camera_index)}),
+        )
 
-    def record_audio(self, out_path: str, seconds: float = 3.0,
-                     device_index: int | None = None) -> Result:
+    def record_audio(self, out_path: str, seconds: float = 3.0, device_index: int | None = None) -> Result:
         """从真实麦克风录制一段音频。"""
         if self.active_mode != "real":
             return fail(ErrorCode.MODALITY_UNAVAILABLE, "offline 模式不访问麦克风", field="out_path")
-        params = {"out": self._abs(out_path), "seconds": float(seconds),
-                  "sample_rate": int(CFG["asr"]["sample_rate"])}
+        params = {"out": self._abs(out_path), "seconds": float(seconds), "sample_rate": int(CFG["asr"]["sample_rate"])}
         if device_index is not None:
             params["device_index"] = int(device_index)
         return self.guard("record_audio", lambda: self._run_worker("record", params))

@@ -1,7 +1,7 @@
 {
   "stage": "05",
   "title": "反馈闭环 / 反馈前后 A-B 对照",
-  "generated_at": "2026-10-15T05:55:07+00:00",
+  "generated_at": "2026-10-15T06:01:26+00:00",
   "config": {
     "feedback": {
       "mutual_exclusion": true,
@@ -759,8 +759,8 @@
       "failed": 6,
       "success_rate": 0.9538,
       "latency_ms": {
-        "avg": 0.083,
-        "max": 0.2
+        "avg": 0.086,
+        "max": 0.27
       },
       "calls_detail": [
         {
@@ -768,7 +768,7 @@
           "method": "personalized_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.075,
+          "latency_ms": 0.066,
           "error": null,
           "detail": {}
         },
@@ -777,7 +777,7 @@
           "method": "similar_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.07,
+          "latency_ms": 0.08,
           "error": null,
           "detail": {}
         },
@@ -786,7 +786,7 @@
           "method": "category_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.083,
+          "latency_ms": 0.092,
           "error": null,
           "detail": {}
         },
@@ -795,7 +795,7 @@
           "method": "history_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.13,
+          "latency_ms": 0.138,
           "error": null,
           "detail": {}
         },
@@ -822,7 +822,7 @@
           "method": "similar_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.07,
+          "latency_ms": 0.068,
           "error": null,
           "detail": {}
         },
@@ -831,7 +831,7 @@
           "method": "category_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.076,
+          "latency_ms": 0.077,
           "error": null,
           "detail": {}
         },
@@ -849,7 +849,7 @@
           "method": "popular_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.124,
+          "latency_ms": 0.122,
           "error": null,
           "detail": {}
         },
@@ -858,7 +858,7 @@
           "method": "personalized_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.047,
+          "latency_ms": 0.05,
           "error": null,
           "detail": {}
         },
@@ -876,6 +876,96 @@
           "method": "category_candidates",
           "mode": "offline_snapshot",
           "ok": true,
+          "latency_ms": 0.072,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.085,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.118,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.049,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.051,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.108,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.085,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.11,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.044,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.063,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
           "latency_ms": 0.07,
           "error": null,
           "detail": {}
@@ -885,7 +975,7 @@
           "method": "history_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.08,
+          "latency_ms": 0.082,
           "error": null,
           "detail": {}
         },
@@ -921,96 +1011,6 @@
           "method": "category_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.078,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.092,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.12,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.05,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.071,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.078,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.09,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.128,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.053,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.055,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
           "latency_ms": 0.081,
           "error": null,
           "detail": {}
@@ -1020,7 +1020,7 @@
           "method": "history_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.093,
+          "latency_ms": 0.095,
           "error": null,
           "detail": {}
         },
@@ -1038,7 +1038,352 @@
           "method": "personalized_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.054,
+          "latency_ms": 0.056,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.057,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": false,
+          "latency_ms": 0.158,
+          "error": {
+            "code": "E_INTERNAL_ERROR",
+            "message": "TypeError: unhashable type: 'dict'",
+            "field": null,
+            "context": {}
+          },
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.104,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.1,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.058,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.076,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": false,
+          "latency_ms": 0.152,
+          "error": {
+            "code": "E_INTERNAL_ERROR",
+            "message": "TypeError: unhashable type: 'dict'",
+            "field": null,
+            "context": {}
+          },
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.105,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.146,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.058,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.059,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": false,
+          "latency_ms": 0.142,
+          "error": {
+            "code": "E_INTERNAL_ERROR",
+            "message": "TypeError: unhashable type: 'dict'",
+            "field": null,
+            "context": {}
+          },
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.108,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.103,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.058,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.06,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": false,
+          "latency_ms": 0.154,
+          "error": {
+            "code": "E_INTERNAL_ERROR",
+            "message": "TypeError: unhashable type: 'dict'",
+            "field": null,
+            "context": {}
+          },
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.105,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.103,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.055,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.071,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": false,
+          "latency_ms": 0.141,
+          "error": {
+            "code": "E_INTERNAL_ERROR",
+            "message": "TypeError: unhashable type: 'dict'",
+            "field": null,
+            "context": {}
+          },
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.107,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.143,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.06,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.062,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": false,
+          "latency_ms": 0.167,
+          "error": {
+            "code": "E_INTERNAL_ERROR",
+            "message": "TypeError: unhashable type: 'dict'",
+            "field": null,
+            "context": {}
+          },
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.111,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.155,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.055,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.056,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.084,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.097,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.125,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.087,
           "error": null,
           "detail": {}
         },
@@ -1055,88 +1400,6 @@
           "adapter": "recommender_adapter",
           "method": "category_candidates",
           "mode": "offline_snapshot",
-          "ok": false,
-          "latency_ms": 0.162,
-          "error": {
-            "code": "E_INTERNAL_ERROR",
-            "message": "TypeError: unhashable type: 'dict'",
-            "field": null,
-            "context": {}
-          },
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.096,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.094,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.046,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.061,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": false,
-          "latency_ms": 0.124,
-          "error": {
-            "code": "E_INTERNAL_ERROR",
-            "message": "TypeError: unhashable type: 'dict'",
-            "field": null,
-            "context": {}
-          },
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.086,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.118,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
           "ok": true,
           "latency_ms": 0.054,
           "error": null,
@@ -1144,83 +1407,10 @@
         },
         {
           "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.05,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": false,
-          "latency_ms": 0.146,
-          "error": {
-            "code": "E_INTERNAL_ERROR",
-            "message": "TypeError: unhashable type: 'dict'",
-            "field": null,
-            "context": {}
-          },
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
           "method": "history_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.087,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.088,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.05,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.051,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": false,
-          "latency_ms": 0.184,
-          "error": {
-            "code": "E_INTERNAL_ERROR",
-            "message": "TypeError: unhashable type: 'dict'",
-            "field": null,
-            "context": {}
-          },
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.093,
+          "latency_ms": 0.106,
           "error": null,
           "detail": {}
         },
@@ -1238,7 +1428,7 @@
           "method": "personalized_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.05,
+          "latency_ms": 0.074,
           "error": null,
           "detail": {}
         },
@@ -1247,107 +1437,7 @@
           "method": "similar_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.064,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": false,
-          "latency_ms": 0.149,
-          "error": {
-            "code": "E_INTERNAL_ERROR",
-            "message": "TypeError: unhashable type: 'dict'",
-            "field": null,
-            "context": {}
-          },
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.097,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.13,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.055,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.054,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": false,
-          "latency_ms": 0.138,
-          "error": {
-            "code": "E_INTERNAL_ERROR",
-            "message": "TypeError: unhashable type: 'dict'",
-            "field": null,
-            "context": {}
-          },
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.098,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.142,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.054,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.054,
+          "latency_ms": 0.062,
           "error": null,
           "detail": {}
         },
@@ -1356,7 +1446,7 @@
           "method": "category_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.081,
+          "latency_ms": 0.049,
           "error": null,
           "detail": {}
         },
@@ -1383,184 +1473,13 @@
           "method": "personalized_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.074,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.049,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.048,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.095,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.081,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.2,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.071,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.052,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.098,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.124,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.072,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.045,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.051,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
           "latency_ms": 0.083,
           "error": null,
           "detail": {}
         },
         {
           "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.12,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.048,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
           "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.049,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.064,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.083,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.111,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
           "mode": "offline_snapshot",
           "ok": true,
           "latency_ms": 0.053,
@@ -1569,88 +1488,7 @@
         },
         {
           "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.067,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
           "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.066,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.116,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.088,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.051,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.051,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.066,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.086,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.127,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
           "mode": "offline_snapshot",
           "ok": true,
           "latency_ms": 0.05,
@@ -1659,10 +1497,37 @@
         },
         {
           "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.091,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.135,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.045,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
           "method": "similar_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.051,
+          "latency_ms": 0.05,
           "error": null,
           "detail": {}
         },
@@ -1671,7 +1536,7 @@
           "method": "category_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.059,
+          "latency_ms": 0.066,
           "error": null,
           "detail": {}
         },
@@ -1698,7 +1563,7 @@
           "method": "personalized_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.049,
+          "latency_ms": 0.053,
           "error": null,
           "detail": {}
         },
@@ -1707,142 +1572,7 @@
           "method": "similar_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.066,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.057,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.081,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.121,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.056,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.057,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.062,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.093,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.134,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.05,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.051,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "category_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.06,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "history_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.086,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "popular_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.118,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "personalized_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.054,
-          "error": null,
-          "detail": {}
-        },
-        {
-          "adapter": "recommender_adapter",
-          "method": "similar_candidates",
-          "mode": "offline_snapshot",
-          "ok": true,
-          "latency_ms": 0.058,
+          "latency_ms": 0.07,
           "error": null,
           "detail": {}
         },
@@ -1860,7 +1590,7 @@
           "method": "history_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.102,
+          "latency_ms": 0.122,
           "error": null,
           "detail": {}
         },
@@ -1869,7 +1599,7 @@
           "method": "popular_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.145,
+          "latency_ms": 0.157,
           "error": null,
           "detail": {}
         },
@@ -1878,7 +1608,7 @@
           "method": "personalized_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.052,
+          "latency_ms": 0.048,
           "error": null,
           "detail": {}
         },
@@ -1887,7 +1617,7 @@
           "method": "similar_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.052,
+          "latency_ms": 0.05,
           "error": null,
           "detail": {}
         },
@@ -1896,7 +1626,232 @@
           "method": "category_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.06,
+          "latency_ms": 0.064,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.082,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.121,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.048,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.047,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.055,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.084,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.109,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.046,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.061,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.055,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.082,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.121,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.055,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.058,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.067,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.27,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.221,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.047,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.048,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.055,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.1,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.117,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.047,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.047,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.059,
           "error": null,
           "detail": {}
         },
@@ -1914,7 +1869,7 @@
           "method": "popular_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.131,
+          "latency_ms": 0.123,
           "error": null,
           "detail": {}
         },
@@ -1923,7 +1878,7 @@
           "method": "personalized_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.054,
+          "latency_ms": 0.05,
           "error": null,
           "detail": {}
         },
@@ -1932,7 +1887,7 @@
           "method": "similar_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.062,
+          "latency_ms": 0.047,
           "error": null,
           "detail": {}
         },
@@ -1941,7 +1896,7 @@
           "method": "category_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.062,
+          "latency_ms": 0.055,
           "error": null,
           "detail": {}
         },
@@ -1950,7 +1905,7 @@
           "method": "history_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.09,
+          "latency_ms": 0.085,
           "error": null,
           "detail": {}
         },
@@ -1959,7 +1914,52 @@
           "method": "popular_candidates",
           "mode": "offline_snapshot",
           "ok": true,
-          "latency_ms": 0.117,
+          "latency_ms": 0.12,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "personalized_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.05,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "similar_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.064,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "category_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.059,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "history_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.089,
+          "error": null,
+          "detail": {}
+        },
+        {
+          "adapter": "recommender_adapter",
+          "method": "popular_candidates",
+          "mode": "offline_snapshot",
+          "ok": true,
+          "latency_ms": 0.113,
           "error": null,
           "detail": {}
         }
@@ -1967,8 +1967,8 @@
     },
     "latency_ms": {
       "samples": 14,
-      "avg": 3.219,
-      "max": 6.661
+      "avg": 3.345,
+      "max": 6.663
     }
   },
   "acceptance_checklist": {
@@ -2072,21 +2072,21 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-01-f1fe78203a",
+        "session_id": "ab-A-F-01-ea4f3b3624",
         "latency_ms": {
-          "event_ms": 0.033,
-          "intent_ms": 0.551,
-          "recall_ms": 2.047,
-          "rank_ms": 0.84,
-          "present_ms": 0.023,
-          "dispatch_ms": 3.451,
-          "total_ms": 4.223
+          "event_ms": 0.034,
+          "intent_ms": 0.552,
+          "recall_ms": 2.216,
+          "rank_ms": 0.824,
+          "present_ms": 0.024,
+          "dispatch_ms": 3.625,
+          "total_ms": 4.39
         },
         "session_state": {
-          "session_id": "ab-A-F-01-f1fe78203a",
+          "session_id": "ab-A-F-01-ea4f3b3624",
           "user_id": "15547",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 0,
           "slot_state": {
@@ -2217,22 +2217,22 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-01-f1fe78203a",
+        "session_id": "ab-A-F-01-ea4f3b3624",
         "latency_ms": {
-          "event_ms": 0.034,
+          "event_ms": 0.032,
           "intent_ms": 0.065,
-          "feedback_ms": 0.009,
-          "recall_ms": 1.1,
-          "rank_ms": 0.608,
+          "feedback_ms": 0.008,
+          "recall_ms": 1.12,
+          "rank_ms": 0.714,
           "present_ms": 0.018,
-          "dispatch_ms": 2.177,
-          "total_ms": 2.387
+          "dispatch_ms": 2.348,
+          "total_ms": 2.551
         },
         "session_state": {
-          "session_id": "ab-A-F-01-f1fe78203a",
+          "session_id": "ab-A-F-01-ea4f3b3624",
           "user_id": "15547",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 1,
           "slot_state": {
@@ -2341,7 +2341,7 @@
         "significant": true
       },
       "isolation_check": {
-        "session_id": "ab-C-F-01-f1fe78203a",
+        "session_id": "ab-C-F-01-ea4f3b3624",
         "topk": [
           {
             "item_id": "21181",
@@ -2590,21 +2590,21 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-02-7d087fc29d",
+        "session_id": "ab-A-F-02-9eaefa73c1",
         "latency_ms": {
-          "event_ms": 0.018,
-          "intent_ms": 0.599,
-          "recall_ms": 1.097,
-          "rank_ms": 0.651,
-          "present_ms": 0.017,
-          "dispatch_ms": 2.224,
-          "total_ms": 2.948
+          "event_ms": 0.019,
+          "intent_ms": 0.571,
+          "recall_ms": 1.035,
+          "rank_ms": 0.6,
+          "present_ms": 0.016,
+          "dispatch_ms": 2.072,
+          "total_ms": 2.762
         },
         "session_state": {
-          "session_id": "ab-A-F-02-7d087fc29d",
+          "session_id": "ab-A-F-02-9eaefa73c1",
           "user_id": "15547",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 0,
           "slot_state": {
@@ -2734,22 +2734,22 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-02-7d087fc29d",
+        "session_id": "ab-A-F-02-9eaefa73c1",
         "latency_ms": {
           "event_ms": 0.024,
-          "intent_ms": 0.056,
-          "feedback_ms": 0.009,
-          "recall_ms": 1.169,
-          "rank_ms": 0.667,
-          "present_ms": 0.018,
-          "dispatch_ms": 2.326,
-          "total_ms": 2.504
+          "intent_ms": 0.05,
+          "feedback_ms": 0.008,
+          "recall_ms": 1.018,
+          "rank_ms": 0.768,
+          "present_ms": 0.031,
+          "dispatch_ms": 2.589,
+          "total_ms": 2.764
         },
         "session_state": {
-          "session_id": "ab-A-F-02-7d087fc29d",
+          "session_id": "ab-A-F-02-9eaefa73c1",
           "user_id": "15547",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 1,
           "slot_state": {
@@ -2900,7 +2900,7 @@
         "significant": true
       },
       "isolation_check": {
-        "session_id": "ab-C-F-02-7d087fc29d",
+        "session_id": "ab-C-F-02-9eaefa73c1",
         "topk": [
           {
             "item_id": "21181",
@@ -3084,21 +3084,21 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-03-70123547fb",
+        "session_id": "ab-A-F-03-3ed1c2f675",
         "latency_ms": {
-          "event_ms": 0.022,
-          "intent_ms": 0.607,
-          "recall_ms": 1.067,
-          "rank_ms": 0.855,
-          "present_ms": 0.01,
-          "dispatch_ms": 2.168,
-          "total_ms": 2.965
+          "event_ms": 0.02,
+          "intent_ms": 0.649,
+          "recall_ms": 1.128,
+          "rank_ms": 0.973,
+          "present_ms": 0.011,
+          "dispatch_ms": 2.375,
+          "total_ms": 3.193
         },
         "session_state": {
-          "session_id": "ab-A-F-03-70123547fb",
+          "session_id": "ab-A-F-03-3ed1c2f675",
           "user_id": "15547",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 0,
           "slot_state": {
@@ -3198,22 +3198,22 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-03-70123547fb",
+        "session_id": "ab-A-F-03-3ed1c2f675",
         "latency_ms": {
-          "event_ms": 0.023,
-          "intent_ms": 0.476,
-          "feedback_ms": 0.007,
-          "recall_ms": 0.983,
-          "rank_ms": 0.992,
-          "present_ms": 0.01,
-          "dispatch_ms": 2.242,
-          "total_ms": 2.882
+          "event_ms": 0.022,
+          "intent_ms": 0.654,
+          "feedback_ms": 0.009,
+          "recall_ms": 1.191,
+          "rank_ms": 1.043,
+          "present_ms": 0.012,
+          "dispatch_ms": 2.531,
+          "total_ms": 3.382
         },
         "session_state": {
-          "session_id": "ab-A-F-03-70123547fb",
+          "session_id": "ab-A-F-03-3ed1c2f675",
           "user_id": "15547",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 1,
           "slot_state": {
@@ -3356,7 +3356,7 @@
         "significant": false
       },
       "isolation_check": {
-        "session_id": "ab-C-F-03-70123547fb",
+        "session_id": "ab-C-F-03-3ed1c2f675",
         "topk": [
           {
             "item_id": "85170B",
@@ -3466,21 +3466,21 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-04-30ff823d06",
+        "session_id": "ab-A-F-04-2418aa9d0a",
         "latency_ms": {
-          "event_ms": 0.017,
-          "intent_ms": 0.558,
-          "recall_ms": 1.052,
-          "rank_ms": 0.846,
-          "present_ms": 0.01,
-          "dispatch_ms": 2.133,
-          "total_ms": 2.84
+          "event_ms": 0.028,
+          "intent_ms": 0.74,
+          "recall_ms": 1.145,
+          "rank_ms": 0.956,
+          "present_ms": 0.012,
+          "dispatch_ms": 2.367,
+          "total_ms": 3.291
         },
         "session_state": {
-          "session_id": "ab-A-F-04-30ff823d06",
+          "session_id": "ab-A-F-04-2418aa9d0a",
           "user_id": "15547",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 0,
           "slot_state": {
@@ -3643,22 +3643,22 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-04-30ff823d06",
+        "session_id": "ab-A-F-04-2418aa9d0a",
         "latency_ms": {
           "event_ms": 0.023,
-          "intent_ms": 0.493,
+          "intent_ms": 0.541,
           "feedback_ms": 0.009,
-          "recall_ms": 1.085,
-          "rank_ms": 1.739,
-          "present_ms": 0.02,
-          "dispatch_ms": 3.458,
-          "total_ms": 4.123
+          "recall_ms": 1.161,
+          "rank_ms": 1.67,
+          "present_ms": 0.023,
+          "dispatch_ms": 3.826,
+          "total_ms": 4.568
         },
         "session_state": {
-          "session_id": "ab-A-F-04-30ff823d06",
+          "session_id": "ab-A-F-04-2418aa9d0a",
           "user_id": "15547",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 1,
           "slot_state": {
@@ -3825,7 +3825,7 @@
         "significant": true
       },
       "isolation_check": {
-        "session_id": "ab-C-F-04-30ff823d06",
+        "session_id": "ab-C-F-04-2418aa9d0a",
         "topk": [
           {
             "item_id": "85170B",
@@ -4005,11 +4005,11 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-05-d01359f01d"
+        "session_id": "ab-A-F-05-4a3d59306e"
       },
       "after": {
         "topk": [],
-        "session_id": "ab-A-F-05-d01359f01d"
+        "session_id": "ab-A-F-05-4a3d59306e"
       },
       "comparison": {
         "order_changed": false,
@@ -4023,7 +4023,7 @@
         "shared_count": 0
       },
       "isolation_check": {
-        "session_id": "ab-C-F-05-d01359f01d",
+        "session_id": "ab-C-F-05-4a3d59306e",
         "topk": [],
         "identical_to_before": null,
         "comparison": null,
@@ -4137,21 +4137,21 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-06-6c0c021d01",
+        "session_id": "ab-A-F-06-12be63ba0b",
         "latency_ms": {
-          "event_ms": 0.014,
-          "intent_ms": 0.482,
-          "recall_ms": 0.958,
-          "rank_ms": 0.916,
-          "present_ms": 0.018,
-          "dispatch_ms": 2.362,
-          "total_ms": 2.944
+          "event_ms": 0.017,
+          "intent_ms": 0.545,
+          "recall_ms": 1.072,
+          "rank_ms": 0.85,
+          "present_ms": 0.017,
+          "dispatch_ms": 2.409,
+          "total_ms": 3.072
         },
         "session_state": {
-          "session_id": "ab-A-F-06-6c0c021d01",
+          "session_id": "ab-A-F-06-12be63ba0b",
           "user_id": "14156",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 0,
           "slot_state": {
@@ -4301,22 +4301,22 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-06-6c0c021d01",
+        "session_id": "ab-A-F-06-12be63ba0b",
         "latency_ms": {
           "event_ms": 0.022,
-          "intent_ms": 0.052,
-          "feedback_ms": 0.008,
-          "recall_ms": 1.137,
-          "rank_ms": 0.889,
-          "present_ms": 0.017,
-          "dispatch_ms": 2.538,
-          "total_ms": 2.715
+          "intent_ms": 0.049,
+          "feedback_ms": 0.007,
+          "recall_ms": 1.0,
+          "rank_ms": 0.85,
+          "present_ms": 0.021,
+          "dispatch_ms": 2.581,
+          "total_ms": 2.752
         },
         "session_state": {
-          "session_id": "ab-A-F-06-6c0c021d01",
+          "session_id": "ab-A-F-06-12be63ba0b",
           "user_id": "14156",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 1,
           "slot_state": {
@@ -4428,7 +4428,7 @@
         "significant": false
       },
       "isolation_check": {
-        "session_id": "ab-C-F-06-6c0c021d01",
+        "session_id": "ab-C-F-06-12be63ba0b",
         "topk": [
           {
             "item_id": "22625",
@@ -4679,21 +4679,21 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-07-57feea328d",
+        "session_id": "ab-A-F-07-e3ec51564d",
         "latency_ms": {
           "event_ms": 0.016,
-          "intent_ms": 0.466,
-          "recall_ms": 5.361,
-          "rank_ms": 0.214,
+          "intent_ms": 0.484,
+          "recall_ms": 5.342,
+          "rank_ms": 0.207,
           "present_ms": 0.017,
-          "dispatch_ms": 6.082,
-          "total_ms": 6.661
+          "dispatch_ms": 6.065,
+          "total_ms": 6.663
         },
         "session_state": {
-          "session_id": "ab-A-F-07-57feea328d",
+          "session_id": "ab-A-F-07-e3ec51564d",
           "user_id": "15547",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 0,
           "slot_state": {
@@ -4837,22 +4837,22 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-07-57feea328d",
+        "session_id": "ab-A-F-07-e3ec51564d",
         "latency_ms": {
           "event_ms": 0.025,
-          "intent_ms": 0.485,
-          "feedback_ms": 0.007,
-          "recall_ms": 1.065,
-          "rank_ms": 0.362,
-          "present_ms": 0.024,
-          "dispatch_ms": 2.063,
-          "total_ms": 2.704
+          "intent_ms": 0.483,
+          "feedback_ms": 0.008,
+          "recall_ms": 1.149,
+          "rank_ms": 0.239,
+          "present_ms": 0.016,
+          "dispatch_ms": 1.917,
+          "total_ms": 2.551
         },
         "session_state": {
-          "session_id": "ab-A-F-07-57feea328d",
+          "session_id": "ab-A-F-07-e3ec51564d",
           "user_id": "15547",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 1,
           "slot_state": {
@@ -5016,7 +5016,7 @@
         "significant": true
       },
       "isolation_check": {
-        "session_id": "ab-C-F-07-57feea328d",
+        "session_id": "ab-C-F-07-e3ec51564d",
         "topk": [
           {
             "item_id": "22941",
@@ -5266,21 +5266,21 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-08-7e36ff158d",
+        "session_id": "ab-A-F-08-6a7642f17c",
         "latency_ms": {
-          "event_ms": 0.016,
-          "intent_ms": 0.544,
-          "recall_ms": 1.084,
-          "rank_ms": 0.285,
+          "event_ms": 0.017,
+          "intent_ms": 0.62,
+          "recall_ms": 1.003,
+          "rank_ms": 0.289,
           "present_ms": 0.016,
-          "dispatch_ms": 1.842,
-          "total_ms": 2.535
+          "dispatch_ms": 1.758,
+          "total_ms": 2.532
         },
         "session_state": {
-          "session_id": "ab-A-F-08-7e36ff158d",
+          "session_id": "ab-A-F-08-6a7642f17c",
           "user_id": "15547",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 0,
           "slot_state": {
@@ -5466,22 +5466,22 @@
             ]
           }
         ],
-        "session_id": "ab-A-F-08-7e36ff158d",
+        "session_id": "ab-A-F-08-6a7642f17c",
         "latency_ms": {
           "event_ms": 0.021,
-          "intent_ms": 0.446,
-          "feedback_ms": 0.009,
-          "recall_ms": 1.137,
-          "rank_ms": 0.332,
-          "present_ms": 0.02,
-          "dispatch_ms": 2.022,
-          "total_ms": 2.64
+          "intent_ms": 0.449,
+          "feedback_ms": 0.008,
+          "recall_ms": 0.999,
+          "rank_ms": 0.288,
+          "present_ms": 0.015,
+          "dispatch_ms": 1.747,
+          "total_ms": 2.36
         },
         "session_state": {
-          "session_id": "ab-A-F-08-7e36ff158d",
+          "session_id": "ab-A-F-08-6a7642f17c",
           "user_id": "15547",
-          "created_at": "2026-10-15T05:55:07+00:00",
-          "updated_at": "2026-10-15T05:55:07+00:00",
+          "created_at": "2026-10-15T06:01:26+00:00",
+          "updated_at": "2026-10-15T06:01:26+00:00",
           "ended": false,
           "turns": 1,
           "slot_state": {
@@ -5653,7 +5653,7 @@
         "significant": false
       },
       "isolation_check": {
-        "session_id": "ab-C-F-08-7e36ff158d",
+        "session_id": "ab-C-F-08-6a7642f17c",
         "topk": [
           {
             "item_id": "20829",

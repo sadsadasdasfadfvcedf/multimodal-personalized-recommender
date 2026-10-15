@@ -15,6 +15,7 @@ src/contracts.py
     2. 提供 to_dict / from_dict，from_dict 对非法输入返回可解释错误；
     3. 不依赖 pydantic，保证离线可运行。
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -63,22 +64,27 @@ class _Validator:
                 )
             elif not is_non_empty_str(self.payload.get(name)):
                 self.problems.append(
-                    {"code": ErrorCode.TYPE_MISMATCH.value, "field": name,
-                     "message": f"{name} 必须是非空字符串"}
+                    {"code": ErrorCode.TYPE_MISMATCH.value, "field": name, "message": f"{name} 必须是非空字符串"}
                 )
         ts = self.payload.get("timestamp")
         if is_non_empty_str(ts) and not is_iso8601(ts):
             self.problems.append(
-                {"code": ErrorCode.INVALID_TIMESTAMP.value, "field": "timestamp",
-                 "message": "timestamp 必须是 ISO8601，例如 2026-01-01T00:00:00+00:00"}
+                {
+                    "code": ErrorCode.INVALID_TIMESTAMP.value,
+                    "field": "timestamp",
+                    "message": "timestamp 必须是 ISO8601，例如 2026-01-01T00:00:00+00:00",
+                }
             )
         src = self.payload.get("source")
         if is_non_empty_str(src):
             base = src.split(":")[0]
             if base not in VALID_SOURCES:
                 self.problems.append(
-                    {"code": ErrorCode.INVALID_SOURCE.value, "field": "source",
-                     "message": f"source 必须是 {VALID_SOURCES} 之一，或 '<source>:<detail>' 形式"}
+                    {
+                        "code": ErrorCode.INVALID_SOURCE.value,
+                        "field": "source",
+                        "message": f"source 必须是 {VALID_SOURCES} 之一，或 '<source>:<detail>' 形式",
+                    }
                 )
 
     def require(self, name: str, *, types: tuple = (str,), allow_none: bool = False) -> None:
@@ -92,8 +98,11 @@ class _Validator:
             return
         if types and not isinstance(value, types):
             self.problems.append(
-                {"code": ErrorCode.TYPE_MISMATCH.value, "field": name,
-                 "message": f"{name} 类型应为 {[t.__name__ for t in types]}"}
+                {
+                    "code": ErrorCode.TYPE_MISMATCH.value,
+                    "field": name,
+                    "message": f"{name} 类型应为 {[t.__name__ for t in types]}",
+                }
             )
 
     def optional(self, name: str, *, types: tuple, default: Any = None) -> None:
@@ -101,8 +110,11 @@ class _Validator:
             return
         if not isinstance(self.payload[name], types):
             self.problems.append(
-                {"code": ErrorCode.TYPE_MISMATCH.value, "field": name,
-                 "message": f"{name} 类型应为 {[t.__name__ for t in types]}"}
+                {
+                    "code": ErrorCode.TYPE_MISMATCH.value,
+                    "field": name,
+                    "message": f"{name} 类型应为 {[t.__name__ for t in types]}",
+                }
             )
 
     def enum(self, name: str, allowed: tuple) -> None:
@@ -111,8 +123,11 @@ class _Validator:
             return
         if value not in allowed:
             self.problems.append(
-                {"code": ErrorCode.INVALID_INPUT.value, "field": name,
-                 "message": f"{name}={value!r} 非法，应为 {allowed} 之一"}
+                {
+                    "code": ErrorCode.INVALID_INPUT.value,
+                    "field": name,
+                    "message": f"{name}={value!r} 非法，应为 {allowed} 之一",
+                }
             )
 
     def fail_if_any(self) -> Result | None:
@@ -152,11 +167,10 @@ class VisualTag:
     raw: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        return {"tag": self.tag, "confidence": round(float(self.confidence), 4),
-                "source": self.source, "raw": self.raw}
+        return {"tag": self.tag, "confidence": round(float(self.confidence), 4), "source": self.source, "raw": self.raw}
 
     @classmethod
-    def from_dict(cls, payload: dict) -> "VisualTag":
+    def from_dict(cls, payload: dict) -> VisualTag:
         return cls(
             tag=str(payload.get("tag", "")).strip(),
             confidence=float(payload.get("confidence", 0.0) or 0.0),
@@ -256,11 +270,10 @@ class Constraint:
     source: str = "intent"
 
     def to_dict(self) -> dict:
-        return {"field": self.field, "op": self.op, "value": self.value,
-                "kind": self.kind, "source": self.source}
+        return {"field": self.field, "op": self.op, "value": self.value, "kind": self.kind, "source": self.source}
 
     @classmethod
-    def from_dict(cls, payload: dict) -> "Constraint":
+    def from_dict(cls, payload: dict) -> Constraint:
         return cls(
             field=str(payload.get("field", "")),
             op=str(payload.get("op", "eq")),
@@ -280,12 +293,15 @@ class Slot:
     evidence: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {"name": self.name, "value": self.value,
-                "confidence": round(float(self.confidence), 4),
-                "evidence": list(self.evidence)}
+        return {
+            "name": self.name,
+            "value": self.value,
+            "confidence": round(float(self.confidence), 4),
+            "evidence": list(self.evidence),
+        }
 
     @classmethod
-    def from_dict(cls, payload: dict) -> "Slot":
+    def from_dict(cls, payload: dict) -> Slot:
         return cls(
             name=str(payload.get("name", "")),
             value=payload.get("value"),
@@ -353,21 +369,25 @@ class RecommendationRequest:
             v.enum("intent", VALID_INTENTS)
             top_k = payload.get("top_k")
             if top_k is not None and (not isinstance(top_k, int) or isinstance(top_k, bool) or top_k < 1):
-                v.problems.append({"code": ErrorCode.INVALID_INPUT.value, "field": "top_k",
-                                   "message": "top_k 必须是 >=1 的整数"})
+                v.problems.append(
+                    {"code": ErrorCode.INVALID_INPUT.value, "field": "top_k", "message": "top_k 必须是 >=1 的整数"}
+                )
             excl = payload.get("exclude_item_ids")
             if excl is not None and not all(isinstance(x, str) for x in excl):
-                v.problems.append({"code": ErrorCode.TYPE_MISMATCH.value, "field": "exclude_item_ids",
-                                   "message": "exclude_item_ids 必须是字符串数组"})
+                v.problems.append(
+                    {
+                        "code": ErrorCode.TYPE_MISMATCH.value,
+                        "field": "exclude_item_ids",
+                        "message": "exclude_item_ids 必须是字符串数组",
+                    }
+                )
             return None
 
         validated = _result_of("RecommendationRequest", payload, build)
         if not validated.ok:
             return validated
-        slots = {k: Slot.from_dict(v) for k, v in (payload.get("slots") or {}).items()
-                 if isinstance(v, dict)}
-        constraints = [Constraint.from_dict(c) for c in (payload.get("constraints") or [])
-                       if isinstance(c, dict)]
+        slots = {k: Slot.from_dict(v) for k, v in (payload.get("slots") or {}).items() if isinstance(v, dict)}
+        constraints = [Constraint.from_dict(c) for c in (payload.get("constraints") or []) if isinstance(c, dict)]
         req = cls(
             trace_id=payload["trace_id"],
             user_id=payload["user_id"],
@@ -476,13 +496,13 @@ class EvidencePack:
 
     trace_id: str
     item_id: str
-    product_facts: dict = field(default_factory=dict)      # 来自商品目录/价格表
+    product_facts: dict = field(default_factory=dict)  # 来自商品目录/价格表
     candidate_sources: list[str] = field(default_factory=list)  # 候选来源
     matched_constraints: list[dict] = field(default_factory=list)  # 命中的约束
-    visual_tags: list[VisualTag] = field(default_factory=list)     # 视觉标签（含置信度）
-    evidence_snippets: list[dict] = field(default_factory=list)    # RAG 检索片段
-    session_signals: list[dict] = field(default_factory=list)      # 会话偏好信号
-    consistency: dict = field(default_factory=dict)               # 一致性核验结果
+    visual_tags: list[VisualTag] = field(default_factory=list)  # 视觉标签（含置信度）
+    evidence_snippets: list[dict] = field(default_factory=list)  # RAG 检索片段
+    session_signals: list[dict] = field(default_factory=list)  # 会话偏好信号
+    consistency: dict = field(default_factory=dict)  # 一致性核验结果
     schema_version: str = SCHEMA_VERSION
 
     def to_dict(self) -> dict:
@@ -543,4 +563,3 @@ def make_event(
         gesture=gesture,
         session_id=session_id,
     )
-

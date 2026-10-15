@@ -1,6 +1,6 @@
 {
   "stage": "03",
-  "generated_at": "2026-10-15T05:55:01+00:00",
+  "generated_at": "2026-10-15T06:01:20+00:00",
   "modes": {
     "runtime_mode": "offline",
     "multimodal": "offline_stub",
@@ -11,7 +11,7 @@
   },
   "scenarios": [
     {
-      "trace_id": "tr-d0cd19549fe04020",
+      "trace_id": "tr-2dc59197aa334f17",
       "status": "ok",
       "intent": "filter",
       "error": null,
@@ -112,13 +112,13 @@
       "presentation_text": "按你的条件（婚礼场景装饰品）筛选结果：\n1. 闪粉悬挂蝴蝶串（参考价 £2.1） —— 它属于「装饰品」品类。参考价 £2.1（来源：historical_mode）。符合你的预算要求：价格 2.1 不超过…\n2. 金汤力饮食金属标牌（参考价 £2.55） —— 它属于「装饰品」品类。参考价 £2.55（来源：historical_mode）。符合你的预算要求：价格 2.55 不…\n3. 闪粉蝴蝶发夹（参考价 £2.55） —— 它属于「装饰品」品类。参考价 £2.55（来源：historical_mode）。符合你的预算要求：价格 2.55 不…\n4. 用酒烹饪金属标志（参考价 £2.08）\n5. 你把我搞糊涂了金属标志（参考价 £1.69）",
       "voice_available": false,
       "latency_ms": {
-        "event_ms": 0.042,
-        "intent_ms": 0.646,
-        "recall_ms": 1.898,
-        "rank_ms": 0.363,
-        "present_ms": 0.025,
-        "dispatch_ms": 2.83,
-        "total_ms": 3.729
+        "event_ms": 0.044,
+        "intent_ms": 0.724,
+        "recall_ms": 2.101,
+        "rank_ms": 0.406,
+        "present_ms": 0.027,
+        "dispatch_ms": 3.131,
+        "total_ms": 4.142
       },
       "recall": {
         "sources": [
@@ -218,7 +218,7 @@
       "scenario_name": "正常链路：语音要礼物 → 多路召回 → 重排"
     },
     {
-      "trace_id": "tr-f9aab97639534750",
+      "trace_id": "tr-2ea4cbaa301b4e02",
       "status": "empty",
       "intent": "discover",
       "error": {
@@ -232,11 +232,11 @@
       "presentation_text": null,
       "voice_available": null,
       "latency_ms": {
-        "event_ms": 0.029,
-        "intent_ms": 0.663,
-        "recall_ms": 0.036,
-        "dispatch_ms": 0.049,
-        "total_ms": 0.98
+        "event_ms": 0.032,
+        "intent_ms": 0.61,
+        "recall_ms": 0.014,
+        "dispatch_ms": 0.022,
+        "total_ms": 0.784
       },
       "recall": {
         "sources": [],
@@ -273,7 +273,7 @@
       "scenario_name": "空结果：所有召回来源不可用"
     },
     {
-      "trace_id": "tr-346b4480f3c84411",
+      "trace_id": "tr-be65c1f8c25244fa",
       "status": "degraded",
       "intent": "filter",
       "error": null,
@@ -374,13 +374,13 @@
       "presentation_text": "（当前条件下没有完全匹配的商品，以下为热门兜底）按你的条件（园艺用品）筛选结果：\n1. 摄政风格三层蛋糕架（参考价 £12.75） —— 它属于「厨房用品」品类。参考价 £12.75（来源：historical_mode）。它来自「推荐系统 v146 个性…\n2. 茶与同情热水袋（参考价 £4.25） —— 它属于「生活用品」品类。参考价 £4.25（来源：historical_mode）。它来自「推荐系统 v146 个性化…\n3. 套装/5个红点盖玻璃碗（参考价 £2.95） —— 它属于「厨房用品」品类。参考价 £2.95（来源：historical_mode）。它来自「推荐系统 v146 个性化…\n4. 草莓陶瓷小饰品罐（参考价 £1.25）\n5. 玫瑰摄政风格茶杯碟（参考价 £2.95）",
       "voice_available": false,
       "latency_ms": {
-        "event_ms": 0.022,
-        "intent_ms": 0.563,
-        "recall_ms": 0.941,
-        "rank_ms": 1.625,
+        "event_ms": 0.021,
+        "intent_ms": 0.648,
+        "recall_ms": 1.183,
+        "rank_ms": 1.797,
         "present_ms": 0.022,
-        "dispatch_ms": 3.215,
-        "total_ms": 3.934
+        "dispatch_ms": 3.638,
+        "total_ms": 4.449
       },
       "recall": {
         "sources": [
@@ -466,7 +466,7 @@
       "scenario_name": "降级：硬约束过滤后为空 → 热门兜底"
     },
     {
-      "trace_id": "tr-ffab0bc8c0e648a4",
+      "trace_id": "tr-5a32d3a758294d75",
       "status": "ok",
       "intent": "discover",
       "error": null,
@@ -565,13 +565,13 @@
       "presentation_text": "派对场景派对用品推荐：\n1. 粉色仙女蛋糕包装纸（参考价 £0.42） —— 它属于「派对用品」品类。参考价 £0.42（来源：historical_mode）。符合你的品类要求：派对用品（要求 …\n2. 你把我搞糊涂了金属标志（参考价 £1.69） —— 它属于「装饰品」品类。参考价 £1.69（来源：historical_mode）。它来自「历史购买相似召回」这一路的候…\n3. 请一次一人金属标志（参考价 £2.1） —— 它属于「家居装饰」品类。参考价 £2.1（来源：historical_mode）。它来自「历史购买相似召回」这一路的候…\n4. 幼儿园ABC彩绘字母（参考价 £6.75）\n5. 灯塔印刷金属标志（参考价 £4.95）",
       "voice_available": false,
       "latency_ms": {
-        "event_ms": 0.023,
-        "intent_ms": 0.597,
-        "recall_ms": 0.815,
-        "rank_ms": 0.879,
+        "event_ms": 0.025,
+        "intent_ms": 0.685,
+        "recall_ms": 0.959,
+        "rank_ms": 1.109,
         "present_ms": 0.021,
-        "dispatch_ms": 2.389,
-        "total_ms": 3.129
+        "dispatch_ms": 2.752,
+        "total_ms": 3.626
       },
       "recall": {
         "sources": [

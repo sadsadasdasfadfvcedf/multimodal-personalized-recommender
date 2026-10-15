@@ -16,12 +16,13 @@ src/ranking.py
           + w_source * source_trust           # 候选来源可信度
           + w_pref * session_pref_norm        # 会话偏好（点赞/倒赞/已见）
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from config import settings
+
 from .catalog import Catalog
 from .contracts import RecommendationRequest
 from .errors import ErrorCode, Result, fail, ok
@@ -117,8 +118,12 @@ def hard_filter(
         reasons: list[dict] = []
 
         if cand.item_id in exclude:
-            reasons.append({"constraint": {"field": "exclude_ids", "op": "not_in", "value": sorted(exclude)[:5]},
-                            "reason": "已排除（已购/本会话负反馈/请求显式排除）"})
+            reasons.append(
+                {
+                    "constraint": {"field": "exclude_ids", "op": "not_in", "value": sorted(exclude)[:5]},
+                    "reason": "已排除（已购/本会话负反馈/请求显式排除）",
+                }
+            )
         for c in applicable:
             if c["field"] == "price":
                 if price is None:
@@ -135,15 +140,22 @@ def hard_filter(
                 if wanted and not any(w.lower() in title.lower() for w in wanted):
                     reasons.append({"constraint": c, "reason": f"标题未命中颜色 {sorted(wanted)}"})
         if reasons:
-            dropped.append({"item_id": cand.item_id, "title": product.get("title", ""),
-                            "sources": cand.sources, "reasons": reasons})
+            dropped.append(
+                {
+                    "item_id": cand.item_id,
+                    "title": product.get("title", ""),
+                    "sources": cand.sources,
+                    "reasons": reasons,
+                }
+            )
         else:
             kept.append(cand)
     return kept, dropped, applicable
 
 
-def _constraint_match(cand: Candidate, request: RecommendationRequest, catalog: Catalog,
-                      session: SessionContext | None) -> tuple[float, list[dict], list[dict]]:
+def _constraint_match(
+    cand: Candidate, request: RecommendationRequest, catalog: Catalog, session: SessionContext | None
+) -> tuple[float, list[dict], list[dict]]:
     """软约束命中比例，并返回命中/未命中明细。"""
     product = catalog.product(cand.item_id) or {}
     title = f"{product.get('title', '')} {product.get('english_title', '')}".lower()
@@ -201,7 +213,8 @@ def rank(
     if not kept:
         # 降级：放宽硬约束中的类目，仅保留预算/颜色等可核验硬约束
         relaxed, dropped_relax, applied_relax = hard_filter(
-            candidates, request, catalog, exclude=exclude, relax_category=True)
+            candidates, request, catalog, exclude=exclude, relax_category=True
+        )
         if relaxed:
             kept, dropped, applied = relaxed, dropped_relax, applied_relax
             degraded = True
@@ -224,8 +237,11 @@ def rank(
 
     scored: list[ScoredCandidate] = []
     for cand in kept:
-        pref = session.preference_signal(cand.item_id, catalog.category_of(cand.item_id)) if session \
+        pref = (
+            session.preference_signal(cand.item_id, catalog.category_of(cand.item_id))
+            if session
             else {"score": 0.0, "reasons": []}
+        )
         ratio, matched, missed = _constraint_match(cand, request, catalog, session)
         trust = max((trust_table.get(label, 0.5) for label in cand.sources), default=0.5)
         base = cand.raw_scores.get("personalized")
@@ -233,20 +249,34 @@ def rank(
             # 非个性化候选打折，保证「推荐系统个性化精排」仍是主信号
             base = RANK["non_personalized_base_discount"] * max(cand.norm_scores.values() or [0.0])
         base = clamp(float(base), 0.0, 1.0)
-        pref_norm = clamp((pref["score"] + RANK["session_preference"]["max_boost"]) /
-                          (2 * RANK["session_preference"]["max_boost"]), 0.0, 1.0)
-        final = (weights["base_score"] * base
-                 + weights["constraint_match"] * ratio
-                 + weights["source_trust"] * trust
-                 + weights["session_preference"] * pref_norm)
-        scored.append(ScoredCandidate(
-            item_id=cand.item_id, final_score=final, base_score=base,
-            constraint_match=ratio, source_trust=trust, pref_score=pref["score"],
-            pref_reasons=list(pref["reasons"]), sources=list(cand.sources),
-            source_keys=list(cand.source_keys), matched_constraints=matched,
-            missed_constraints=missed, raw_scores=dict(cand.raw_scores),
-            evidence=dict(cand.evidence),
-        ))
+        pref_norm = clamp(
+            (pref["score"] + RANK["session_preference"]["max_boost"]) / (2 * RANK["session_preference"]["max_boost"]),
+            0.0,
+            1.0,
+        )
+        final = (
+            weights["base_score"] * base
+            + weights["constraint_match"] * ratio
+            + weights["source_trust"] * trust
+            + weights["session_preference"] * pref_norm
+        )
+        scored.append(
+            ScoredCandidate(
+                item_id=cand.item_id,
+                final_score=final,
+                base_score=base,
+                constraint_match=ratio,
+                source_trust=trust,
+                pref_score=pref["score"],
+                pref_reasons=list(pref["reasons"]),
+                sources=list(cand.sources),
+                source_keys=list(cand.source_keys),
+                matched_constraints=matched,
+                missed_constraints=missed,
+                raw_scores=dict(cand.raw_scores),
+                evidence=dict(cand.evidence),
+            )
+        )
 
     # 稳定排序：final 降序 → base 降序 → item_id 升序（保证可复现）
     scored.sort(key=lambda s: (-s.final_score, -s.base_score, s.item_id))

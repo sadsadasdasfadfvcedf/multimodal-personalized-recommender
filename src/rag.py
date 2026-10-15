@@ -11,6 +11,7 @@ src/rag.py
 关键约束：检索不到就返回空列表 —— 由 explain 层决定「无证据不编造」，
 绝不用 LLM 幻觉补全。
 """
+
 from __future__ import annotations
 
 import math
@@ -25,7 +26,54 @@ from config import settings
 CFG = settings.RAG_CONFIG
 
 # 停止词与标点
-_STOP = set("的 了 和 与 是 在 有 我 你 他 她 它 这 那 一个 一些 什么 怎么 吗 呢 都 也 就 很 要 想 请 帮 把 给 个 只 可以 a an the is are of to for and or in on with".split())
+_STOP = {
+    "的",
+    "了",
+    "和",
+    "与",
+    "是",
+    "在",
+    "有",
+    "我",
+    "你",
+    "他",
+    "她",
+    "它",
+    "这",
+    "那",
+    "一个",
+    "一些",
+    "什么",
+    "怎么",
+    "吗",
+    "呢",
+    "都",
+    "也",
+    "就",
+    "很",
+    "要",
+    "想",
+    "请",
+    "帮",
+    "把",
+    "给",
+    "个",
+    "只",
+    "可以",
+    "a",
+    "an",
+    "the",
+    "is",
+    "are",
+    "of",
+    "to",
+    "for",
+    "and",
+    "or",
+    "in",
+    "on",
+    "with",
+}
 _PUNCT = re.compile(r"[\s，。、；：！？“”‘’（）《》【】,.;:!?\"'()\[\]{}<>/\\|~`@#$%^&*_+=\-]+")
 
 _jieba = None
@@ -53,12 +101,12 @@ def _tokenize(text: str) -> list[str]:
             return tokens
     cleaned = _PUNCT.sub(" ", text)
     cleaned = " ".join(seg for seg in cleaned.split() if seg)
-    grams = [cleaned[i:i + 2] for i in range(max(0, len(cleaned) - 1))]
+    grams = [cleaned[i : i + 2] for i in range(max(0, len(cleaned) - 1))]
     return [g for g in grams if g.strip()] or [cleaned] if cleaned else []
 
 
 class _Chunk:
-    __slots__ = ("chunk_id", "doc", "text", "tokens", "tf")
+    __slots__ = ("chunk_id", "doc", "text", "tf", "tokens")
 
     def __init__(self, chunk_id: str, doc: str, text: str):
         self.chunk_id = chunk_id
@@ -80,7 +128,7 @@ class KnowledgeBase:
         self._loaded = False
 
     # ---------------- 构建 ----------------
-    def load(self) -> "KnowledgeBase":
+    def load(self) -> KnowledgeBase:
         if self._loaded:
             return self
         if not self.kb_dir.exists():
@@ -117,7 +165,7 @@ class KnowledgeBase:
                     buffer = para
                 else:
                     for i in range(0, len(para), max(1, size - overlap)):
-                        chunks.append(para[i:i + size])
+                        chunks.append(para[i : i + size])
                     buffer = ""
         if buffer:
             chunks.append(buffer)
@@ -156,9 +204,8 @@ class KnowledgeBase:
         else:
             normalized = []
         return [
-            {"chunk_id": c.chunk_id, "doc": c.doc, "text": c.text,
-             "score": s, "raw_score": round(raw, 6)}
-            for (s, c), raw in zip(normalized[:k], [x[0] for x in scored[:k]])
+            {"chunk_id": c.chunk_id, "doc": c.doc, "text": c.text, "score": s, "raw_score": round(raw, 6)}
+            for (s, c), raw in zip(normalized[:k], [x[0] for x in scored[:k]], strict=True)
             if s >= min_score
         ]
 

@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-10-15T05:55:21+00:00",
+  "generated_at": "2026-10-15T06:01:40+00:00",
   "documents": [
     {
       "doc": "architecture.md#正常样例与边界样例",
-      "bytes": 6809,
+      "bytes": 6810,
       "statuses": {
         "normal": "ok",
         "conflict": "conflict",
@@ -17,7 +17,7 @@
     },
     {
       "doc": "timeout_and_degradation.md",
-      "bytes": 3263,
+      "bytes": 3264,
       "scenarios": 4
     },
     {
@@ -27,7 +27,7 @@
     },
     {
       "doc": "performance_and_failures.md",
-      "bytes": 3343,
+      "bytes": 3344,
       "cases": 8
     }
   ],

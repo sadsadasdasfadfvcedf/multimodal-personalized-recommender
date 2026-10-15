@@ -20,6 +20,7 @@ accept_rate 直接等价于「解释里不编造」的达标率，是本项目�
 
 输出：outputs/llm_model_compare.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -54,33 +55,48 @@ def _discover_models(adapter: MultimodalAdapter) -> list[dict]:
 def _prepare_samples(orchestrator, catalog, kb, limit: int) -> list[dict]:
     resp = orchestrator.handle(QUERY, user_id="15547", session_id="llm-compare").data
     event = make_event(user_id="15547", source="voice", text=QUERY["text"])
-    intent = understand(event, catalog_categories=catalog.categories(),
-                        session_id="llm-compare", mode="offline")
+    intent = understand(event, catalog_categories=catalog.categories(), session_id="llm-compare", mode="offline")
     request = intent.data["request"]
 
     samples: list[dict] = []
     for item in resp.get("recommendations", [])[:limit]:
-        pack_result = build_pack(item, request=request, catalog=catalog, session=None, kb=kb,
-                                 sources=item.get("sources"),
-                                 matched_constraints=item.get("evidence", {}).get("matched_constraints"))
+        pack_result = build_pack(
+            item,
+            request=request,
+            catalog=catalog,
+            session=None,
+            kb=kb,
+            sources=item.get("sources"),
+            matched_constraints=item.get("evidence", {}).get("matched_constraints"),
+        )
         if not pack_result.ok:
             continue
         pack = pack_result.data
         base = explain(item, pack)
-        samples.append({"item": item, "pack": pack,
-                        "template": base.data["text"] if base.ok else "",
-                        "prompt": build_grounded_prompt(item, pack)})
+        samples.append(
+            {
+                "item": item,
+                "pack": pack,
+                "template": base.data["text"] if base.ok else "",
+                "prompt": build_grounded_prompt(item, pack),
+            }
+        )
     return samples
 
 
 def _evaluate(adapter: MultimodalAdapter, model: dict, samples: list[dict], catalog) -> dict:
     cfg = settings.LLM_EXPLAIN_CONFIG
-    record: dict = {"model": model["name"], "path": model["path"], "size_mb": model["size_mb"],
-                    "samples": [], "error": None}
+    record: dict = {
+        "model": model["name"],
+        "path": model["path"],
+        "size_mb": model["size_mb"],
+        "samples": [],
+        "error": None,
+    }
     started = time.perf_counter()
-    batch = adapter.generate_batch([s["prompt"] for s in samples],
-                                   max_new_tokens=cfg["max_new_tokens"],
-                                   temperature=cfg["temperature"])
+    batch = adapter.generate_batch(
+        [s["prompt"] for s in samples], max_new_tokens=cfg["max_new_tokens"], temperature=cfg["temperature"]
+    )
     record["seconds"] = round(time.perf_counter() - started, 2)
     if not batch.ok:
         record["error"] = batch.error.to_dict() if batch.error else {"message": "unknown"}
@@ -91,25 +107,27 @@ def _evaluate(adapter: MultimodalAdapter, model: dict, samples: list[dict], cata
     record["seconds_per_explanation"] = round(record["seconds"] / max(1, len(outputs)), 2)
     accepted = 0
     reasons: list[str] = []
-    for sample, out in zip(samples, outputs):
+    for sample, out in zip(samples, outputs, strict=False):
         raw_output = str(out.get("text") or "")
         evaluated = evaluate_output(raw_output, sample["item"], sample["pack"], catalog)
         ok_flag = evaluated["accepted"]
         accepted += 1 if ok_flag else 0
         if not ok_flag:
             reasons.extend(v.get("type", "?") for v in evaluated["rejection"]["violations"])
-        record["samples"].append({
-            "item_id": sample["item"].get("item_id"),
-            "title": sample["item"].get("title"),
-            "raw": raw_output[:300],
-            "normalized": evaluated["text"],
-            "fluency_actions": evaluated["fluency_actions"],
-            "fact_violations": evaluated["fact"].violations[:3],
-            "format_violations": evaluated["format"],
-            "fluency_violations": evaluated["fluency"],
-            "accepted": ok_flag,
-            "final_text": evaluated["text"] if ok_flag else sample["template"],
-        })
+        record["samples"].append(
+            {
+                "item_id": sample["item"].get("item_id"),
+                "title": sample["item"].get("title"),
+                "raw": raw_output[:300],
+                "normalized": evaluated["text"],
+                "fluency_actions": evaluated["fluency_actions"],
+                "fact_violations": evaluated["fact"].violations[:3],
+                "format_violations": evaluated["format"],
+                "fluency_violations": evaluated["fluency"],
+                "accepted": ok_flag,
+                "final_text": evaluated["text"] if ok_flag else sample["template"],
+            }
+        )
     record["accepted"] = accepted
     record["attempted"] = len(outputs)
     record["accept_rate"] = round(accepted / max(1, len(outputs)), 4)
@@ -148,9 +166,15 @@ def main() -> int:
     if not samples:
         print("没有可用样本")
         return 1
-    report["samples"] = [{"item_id": s["item"].get("item_id"), "title": s["item"].get("title"),
-                          "price": s["item"].get("price"),
-                          "facts": s["pack"].product_facts} for s in samples]
+    report["samples"] = [
+        {
+            "item_id": s["item"].get("item_id"),
+            "title": s["item"].get("title"),
+            "price": s["item"].get("price"),
+            "facts": s["pack"].product_facts,
+        }
+        for s in samples
+    ]
     print(f"样本 {len(samples)} 条（同一批商品与提示词）")
 
     discovered = _discover_models(adapter)
@@ -177,8 +201,10 @@ def main() -> int:
             if record.get("error"):
                 print(f"   加载/生成失败：{record['error'].get('message', '')[:80]}")
                 continue
-            print(f"   接受率 {record['accept_rate']:.0%}（{record['accepted']}/{record['attempted']}）"
-                  f"，耗时 {record['seconds']}s（均 {record['seconds_per_explanation']}s/条）")
+            print(
+                f"   接受率 {record['accept_rate']:.0%}（{record['accepted']}/{record['attempted']}）"
+                f"，耗时 {record['seconds']}s（均 {record['seconds_per_explanation']}s/条）"
+            )
             if record["reject_reasons"]:
                 print(f"   拦截类型：{record['reject_reasons']}")
     finally:
@@ -189,11 +215,20 @@ def main() -> int:
 
     ok_models = [m for m in report["models"] if m.get("accept_rate") is not None]
     report["comparison"] = sorted(
-        [{"model": m["model"], "size_mb": m["size_mb"], "accept_rate": m["accept_rate"],
-          "accepted": m["accepted"], "attempted": m["attempted"],
-          "seconds_per_explanation": m["seconds_per_explanation"],
-          "reject_reasons": m["reject_reasons"]} for m in ok_models],
-        key=lambda x: (-x["accept_rate"], x["seconds_per_explanation"]))
+        [
+            {
+                "model": m["model"],
+                "size_mb": m["size_mb"],
+                "accept_rate": m["accept_rate"],
+                "accepted": m["accepted"],
+                "attempted": m["attempted"],
+                "seconds_per_explanation": m["seconds_per_explanation"],
+                "reject_reasons": m["reject_reasons"],
+            }
+            for m in ok_models
+        ],
+        key=lambda x: (-x["accept_rate"], x["seconds_per_explanation"]),
+    )
     report["best"] = report["comparison"][0]["model"] if report["comparison"] else None
     report["notes"] = [
         "accept_rate = 通过事实门控 + 格式门控的比例，等价于「解释不编造」的达标率。",
@@ -205,9 +240,11 @@ def main() -> int:
     print("")
     print("对比结果：")
     for row in report["comparison"]:
-        print(f"  {row['model']:<28} 接受率 {row['accept_rate']:>5.0%}  "
-              f"({row['accepted']}/{row['attempted']})  {row['seconds_per_explanation']}s/条  "
-              f"{row['size_mb']}MB")
+        print(
+            f"  {row['model']:<28} 接受率 {row['accept_rate']:>5.0%}  "
+            f"({row['accepted']}/{row['attempted']})  {row['seconds_per_explanation']}s/条  "
+            f"{row['size_mb']}MB"
+        )
     print(f"\n最优：{report['best']}")
     print(f"[11_llm_model_compare] 证据已写入 {path.name}")
     return 0

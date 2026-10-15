@@ -15,6 +15,7 @@ integrated_ai_project · 全局配置
     from config import settings
     settings.PATHS["outputs"]
 """
+
 from __future__ import annotations
 
 import os
@@ -109,7 +110,7 @@ def _search_roots(names: list[str]) -> Path | None:
     """在若干常见相对位置探测兄弟项目目录（不使用任何硬编码绝对路径）。"""
     home = Path.home()
     bases = [
-        PROJECT_ROOT.parent,               # 同目录并排部署
+        PROJECT_ROOT.parent,  # 同目录并排部署
         PROJECT_ROOT.parent.parent,
         home / "Desktop",
         home / "Documents" / "trae_projects",
@@ -124,14 +125,12 @@ def _search_roots(names: list[str]) -> Path | None:
 
 
 # 外部「推荐系统」（v146）根目录
-RECOMMENDER_ROOT: Path | None = (
-    _env_path("INTEGRATED_RECOMMENDER_ROOT")
-    or _search_roots(["推荐系统", "recsys", "recommender_system"])
+RECOMMENDER_ROOT: Path | None = _env_path("INTEGRATED_RECOMMENDER_ROOT") or _search_roots(
+    ["推荐系统", "recsys", "recommender_system"]
 )
 # 外部「智能多模态AI助手」根目录
-MULTIMODAL_ROOT: Path | None = (
-    _env_path("INTEGRATED_MULTIMODAL_ROOT")
-    or _search_roots(["multimodal_ai", "Multimodal_AI"])
+MULTIMODAL_ROOT: Path | None = _env_path("INTEGRATED_MULTIMODAL_ROOT") or _search_roots(
+    ["multimodal_ai", "Multimodal_AI"]
 )
 
 # 外部系统「发布制品」相对路径（只读，属于对外接口而非内部变量）
@@ -256,12 +255,30 @@ IMAGE_CONFIG: dict = {
     "max_bytes": 3 * 1024 * 1024,
     # 取不到图时的类目兜底图标
     "category_emoji": {
-        "家居装饰": "🕯️", "装饰品": "🎁", "礼品": "🎁", "厨房用品": "🍽️",
-        "生活用品": "🧺", "收纳用品": "📦", "派对用品": "🎉", "手工用品": "🧵",
-        "文具用品": "✏️", "饰品": "💍", "购物袋": "🛍️", "玩具": "🧸",
-        "园艺用品": "🪴", "花园用品": "🪴", "办公用品": "🗂️", "宠物用品": "🐾",
-        "婴儿用品": "🍼", "家具": "🪑", "工具": "🔧", "洗浴用品": "🧴",
-        "浴室用品": "🛁", "配饰": "🎀", "其他": "🛍️", "类别": "🛍️",
+        "家居装饰": "🕯️",
+        "装饰品": "🎁",
+        "礼品": "🎁",
+        "厨房用品": "🍽️",
+        "生活用品": "🧺",
+        "收纳用品": "📦",
+        "派对用品": "🎉",
+        "手工用品": "🧵",
+        "文具用品": "✏️",
+        "饰品": "💍",
+        "购物袋": "🛍️",
+        "玩具": "🧸",
+        "园艺用品": "🪴",
+        "花园用品": "🪴",
+        "办公用品": "🗂️",
+        "宠物用品": "🐾",
+        "婴儿用品": "🍼",
+        "家具": "🪑",
+        "工具": "🔧",
+        "洗浴用品": "🧴",
+        "浴室用品": "🛁",
+        "配饰": "🎀",
+        "其他": "🛍️",
+        "类别": "🛍️",
     },
     "default_emoji": "🛍️",
 }
@@ -296,21 +313,42 @@ INTENT_CONFIG: dict = {
 # 领域词表（词汇属于配置，不属于商品 ID）
 SLOT_LEXICON: dict = {
     "category_synonyms": {
-        "厨房": "厨房用品", "厨具": "厨房用品", "餐具": "厨房用品", "杯": "厨房用品",
-        "家居": "家居装饰", "装饰": "家居装饰", "摆件": "家居装饰", "相框": "家居装饰",
-        "收纳": "收纳用品", "储物": "收纳用品", "箱子": "收纳用品",
-        "派对": "派对用品", "生日": "派对用品", "节日": "派对用品",
-        "手工": "手工用品", "DIY": "手工用品",
-        "生活": "生活用品", "日用": "生活用品",
-        "饰品": "饰品", "首饰": "饰品",
-        "文具": "文具用品", "笔": "文具用品",
-        "婴儿": "其他", "儿童": "其他", "玩具": "玩具",
-        "园艺": "园艺用品", "花": "园艺用品", "植物": "园艺用品",
-        "礼物": "装饰品", "礼品": "装饰品",
-        "袋": "购物袋", "包装": "购物袋",
+        "厨房": "厨房用品",
+        "厨具": "厨房用品",
+        "餐具": "厨房用品",
+        "杯": "厨房用品",
+        "家居": "家居装饰",
+        "装饰": "家居装饰",
+        "摆件": "家居装饰",
+        "相框": "家居装饰",
+        "收纳": "收纳用品",
+        "储物": "收纳用品",
+        "箱子": "收纳用品",
+        "派对": "派对用品",
+        "生日": "派对用品",
+        "节日": "派对用品",
+        "手工": "手工用品",
+        "DIY": "手工用品",
+        "生活": "生活用品",
+        "日用": "生活用品",
+        "饰品": "饰品",
+        "首饰": "饰品",
+        "文具": "文具用品",
+        "笔": "文具用品",
+        "婴儿": "其他",
+        "儿童": "其他",
+        "玩具": "玩具",
+        "园艺": "园艺用品",
+        "花": "园艺用品",
+        "植物": "园艺用品",
+        "礼物": "装饰品",
+        "礼品": "装饰品",
+        "袋": "购物袋",
+        "包装": "购物袋",
         "宠物": "宠物用品",
         "办公": "办公用品",
-        "浴室": "家居装饰", "洗浴": "生活用品",
+        "浴室": "家居装饰",
+        "洗浴": "生活用品",
     },
     "colors": {
         "白色": ["白", "白色", "奶白", "white"],
@@ -327,18 +365,32 @@ SLOT_LEXICON: dict = {
         "奶油色": ["奶油色", "米白", "cream"],
     },
     "scenes": {
-        "客厅": "客厅", "卧室": "卧室", "厨房": "厨房", "餐厅": "餐厅",
-        "浴室": "浴室", "卫生间": "浴室", "花园": "花园", "庭院": "花园",
-        "办公室": "办公室", "书房": "书房", "婚礼": "婚礼", "圣诞": "圣诞",
-        "生日": "生日", "派对": "派对", "情人节": "情人节", "万圣节": "万圣节",
-        "礼物": "送礼", "送礼": "送礼", "乔迁": "乔迁",
+        "客厅": "客厅",
+        "卧室": "卧室",
+        "厨房": "厨房",
+        "餐厅": "餐厅",
+        "浴室": "浴室",
+        "卫生间": "浴室",
+        "花园": "花园",
+        "庭院": "花园",
+        "办公室": "办公室",
+        "书房": "书房",
+        "婚礼": "婚礼",
+        "圣诞": "圣诞",
+        "生日": "生日",
+        "派对": "派对",
+        "情人节": "情人节",
+        "万圣节": "万圣节",
+        "礼物": "送礼",
+        "送礼": "送礼",
+        "乔迁": "乔迁",
     },
     "budget": {
         # 关键词 → 修饰方向
         "under_words": ["以内", "以下", "不超过", "不超", "最多", "低于", "under", "below", "less than"],
         "over_words": ["以上", "至少", "不低于", "高于", "over", "above", "more than"],
         "around_words": ["左右", "大概", "大约", "around", "about"],
-        "near": 0.15,          # “左右”允许 ±15% 的浮动
+        "near": 0.15,  # “左右”允许 ±15% 的浮动
         "currency": "GBP",
         "symbol": "£",
         "unit_words": ["元", "块", "英镑", "gbp", "pound", "pounds", "£"],
@@ -348,14 +400,49 @@ SLOT_LEXICON: dict = {
     "explain_markers": ["为什么", "解释", "理由", "依据", "怎么推荐", "why", "explain", "reason"],
     # 注意：不使用「好」「差」这类单字，避免“好东西”“哪个好”被误判成反馈
     "feedback_words": {
-        "positive": ["喜欢", "不错", "很好", "满意", "挺好", "好棒", "真棒", "点赞", "漂亮",
-                     "like", "great", "awesome"],
-        "negative": ["不喜欢", "不行", "太贵", "不好", "讨厌", "太差", "很差", "太丑", "难看",
-                     "不满意", "dislike", "bad"],
+        "positive": [
+            "喜欢",
+            "不错",
+            "很好",
+            "满意",
+            "挺好",
+            "好棒",
+            "真棒",
+            "点赞",
+            "漂亮",
+            "like",
+            "great",
+            "awesome",
+        ],
+        "negative": [
+            "不喜欢",
+            "不行",
+            "太贵",
+            "不好",
+            "讨厌",
+            "太差",
+            "很差",
+            "太丑",
+            "难看",
+            "不满意",
+            "dislike",
+            "bad",
+        ],
     },
     # 指代词：用于把「这个 / 第一个 / 刚才那款」解析为会话中的具体商品
-    "referential_markers": ["这个", "这款", "那款", "那个", "它", "这一个", "刚才那个",
-                            "上面那个", "第", "this one", "this"],
+    "referential_markers": [
+        "这个",
+        "这款",
+        "那款",
+        "那个",
+        "它",
+        "这一个",
+        "刚才那个",
+        "上面那个",
+        "第",
+        "this one",
+        "this",
+    ],
     "undo_markers": ["撤销", "取消", "上一步", "算了", "undo", "revoke"],
     "reset_markers": ["重新开始", "清空", "重来", "reset", "clear"],
 }
@@ -371,24 +458,24 @@ CONFLICT_RULES: list[dict] = [
 # 8. 召回 / 排序（阶段3）
 # ============================================================
 RECALL_CONFIG: dict = {
-    "recall_k": 80,             # 每路召回条数
-    "merge_top_k": 120,         # 合并去重后进入排序的候选数
+    "recall_k": 80,  # 每路召回条数
+    "merge_top_k": 120,  # 合并去重后进入排序的候选数
     # session_focus：把会话焦点/刚点赞的商品强制放回候选池，
     # 保证「反馈后排序变化」可观察、可解释（否则被点过的商品可能因分路原因掉出候选池）
     "sources_enabled": ["personalized", "similar", "category_hot", "session_focus", "popular", "history"],
     "dedupe_keep": "max_score",
-    "similar_seed_size": 3,     # 用 Top-N 种子商品做相似扩散
+    "similar_seed_size": 3,  # 用 Top-N 种子商品做相似扩散
     "dedupe_case_insensitive": True,  # 商品编码大小写视为同一商品（源数据存在 84970S/84970s 这类变体）
-    "popular_size": 200,        # 全局热门池大小
+    "popular_size": 200,  # 全局热门池大小
 }
 
 RANKING_CONFIG: dict = {
     "top_k": 8,
     "weights": {
-        "base_score": 0.55,         # 推荐系统原始分数（归一化后）
-        "constraint_match": 0.20,   # 命中硬约束的加权
-        "source_trust": 0.10,       # 来源可信度
-        "session_preference": 0.15, # 会话偏好（点赞/倒赞/浏览）
+        "base_score": 0.55,  # 推荐系统原始分数（归一化后）
+        "constraint_match": 0.20,  # 命中硬约束的加权
+        "source_trust": 0.10,  # 来源可信度
+        "session_preference": 0.15,  # 会话偏好（点赞/倒赞/浏览）
     },
     # 非个性化候选的基础分折扣：避免热门/相似候选仅凭「归一化到 1.0」就压过个性化精排
     "non_personalized_base_discount": 0.5,
@@ -413,7 +500,7 @@ RANKING_CONFIG: dict = {
         # 一并写入会话偏好。浏览是弱正信号（强度远低于点赞），只轻微上浮。
         "view_item_boost": 0.04,
         "view_category_boost": 0.03,
-        "view_max_count": 2,      # 同一商品最多累计计 2 次，防止反复打开刷分
+        "view_max_count": 2,  # 同一商品最多累计计 2 次，防止反复打开刷分
         "seen_penalty": 0.0,
         # 单品倒赞只屏蔽该商品；同类目累计倒赞达到该次数才降权整个类目
         "dislike_category_min_count": 2,
@@ -433,7 +520,7 @@ RAG_CONFIG: dict = {
     "chunk_overlap": 40,
     "top_k": 3,
     "min_score": 0.05,
-    "tokenizer": "jieba",       # jieba 不可用时自动退化为字符二元组
+    "tokenizer": "jieba",  # jieba 不可用时自动退化为字符二元组
 }
 
 # 币种符号（价格展示用；币种取自数据，符号在此集中映射）
@@ -443,7 +530,7 @@ EXPLANATION_CONFIG: dict = {
     # 每条解释至少要有 1 条可核验证据；否则不得编造
     "min_evidence": 1,
     "max_evidence": 4,
-    "price_tolerance": 0.01,     # 价格一致性核验容差
+    "price_tolerance": 0.01,  # 价格一致性核验容差
     # 视觉标签参与解释的最低有效置信度（低于此值降权后直接忽略）
     "visual_min_effective_confidence": 0.55,
     "no_evidence_text": "暂无可核验依据，因此不做推荐解释。",
@@ -485,16 +572,18 @@ LLM_EXPLAIN_CONFIG: dict = {
     "max_chars": 90,
     "max_lines": 1,
     "max_repeat": 2,
-    "min_chars": 20,   # 截断时至少保留的字符数，避免切出残句
-    "instruction": (
-        "你是电商推荐解释助手。请把下面的【事实】改写成一句自然、口语化的中文推荐理由。"
-    ),
+    "min_chars": 20,  # 截断时至少保留的字符数，避免切出残句
+    "instruction": ("你是电商推荐解释助手。请把下面的【事实】改写成一句自然、口语化的中文推荐理由。"),
     "output_rules": (
-        "回答中禁止出现任何阿拉伯数字（0-9 一个都不能有）；" + NL +
-        "需要表达价格或预算时，改用「价格实惠」「在你的预算范围内」这类说法；" + NL +
-        "类目只能照抄「事实」中给出的写法，不得替换成近义词；" + NL +
-        "不要分点、不要列举、不要重复粘贴「事实」原文；" + NL +
-        "只输出一句话，不超过 60 个字。"
+        "回答中禁止出现任何阿拉伯数字（0-9 一个都不能有）；"
+        + NL
+        + "需要表达价格或预算时，改用「价格实惠」「在你的预算范围内」这类说法；"
+        + NL
+        + "类目只能照抄「事实」中给出的写法，不得替换成近义词；"
+        + NL
+        + "不要分点、不要列举、不要重复粘贴「事实」原文；"
+        + NL
+        + "只输出一句话，不超过 60 个字。"
     ),
 }
 
@@ -520,20 +609,43 @@ FEEDBACK_CONFIG: dict = {
 # 11. 降级矩阵（阶段1/3/6 共用口径）
 # ============================================================
 DEGRADATION_MATRIX: list[dict] = [
-    {"scenario": "推荐系统 HTTP 不可用", "trigger": "连接失败/超时/未登录",
-     "fallback": "local_artifacts（读取发布制品）→ offline_snapshot（内置快照）", "level": "L1"},
-    {"scenario": "推荐系统制品缺失", "trigger": "文件不存在",
-     "fallback": "offline_snapshot 内置快照", "level": "L2"},
-    {"scenario": "真实多模态模型不可用", "trigger": "torch/mediapipe 缺失或未授权",
-     "fallback": "离线场景桩（data/cases 中的模态输入）", "level": "L1"},
-    {"scenario": "ASR 文本为空/过短", "trigger": "有效时长 < 400ms 或文本长度 < 2",
-     "fallback": "返回 E_EMPTY_TRANSCRIPT，不臆测意图", "level": "L2"},
-    {"scenario": "RAG 无命中", "trigger": "最高相似度 < min_score",
-     "fallback": "仅用结构化字段解释，不编造", "level": "L2"},
-    {"scenario": "硬约束过滤后无结果", "trigger": "candidates = 0",
-     "fallback": "放宽为软约束 + 热门兜底，并标记 degraded=true", "level": "L1"},
-    {"scenario": "语音呈现不可用", "trigger": "TTS 合成失败/超时",
-     "fallback": "仅文本呈现，voice_available=false", "level": "L2"},
+    {
+        "scenario": "推荐系统 HTTP 不可用",
+        "trigger": "连接失败/超时/未登录",
+        "fallback": "local_artifacts（读取发布制品）→ offline_snapshot（内置快照）",
+        "level": "L1",
+    },
+    {"scenario": "推荐系统制品缺失", "trigger": "文件不存在", "fallback": "offline_snapshot 内置快照", "level": "L2"},
+    {
+        "scenario": "真实多模态模型不可用",
+        "trigger": "torch/mediapipe 缺失或未授权",
+        "fallback": "离线场景桩（data/cases 中的模态输入）",
+        "level": "L1",
+    },
+    {
+        "scenario": "ASR 文本为空/过短",
+        "trigger": "有效时长 < 400ms 或文本长度 < 2",
+        "fallback": "返回 E_EMPTY_TRANSCRIPT，不臆测意图",
+        "level": "L2",
+    },
+    {
+        "scenario": "RAG 无命中",
+        "trigger": "最高相似度 < min_score",
+        "fallback": "仅用结构化字段解释，不编造",
+        "level": "L2",
+    },
+    {
+        "scenario": "硬约束过滤后无结果",
+        "trigger": "candidates = 0",
+        "fallback": "放宽为软约束 + 热门兜底，并标记 degraded=true",
+        "level": "L1",
+    },
+    {
+        "scenario": "语音呈现不可用",
+        "trigger": "TTS 合成失败/超时",
+        "fallback": "仅文本呈现，voice_available=false",
+        "level": "L2",
+    },
 ]
 
 
@@ -543,9 +655,25 @@ DEGRADATION_MATRIX: list[dict] = [
 PRIVACY_CONFIG: dict = {
     # 提交包中禁止出现的文件/目录
     "forbidden_patterns": [
-        "__pycache__", "*.pyc", "*.pyo", "*.pth", "*.pt", "*.safetensors", "*.bin",
-        "*.onnx", "*.mp3", "*.wav", "*.mp4", "*.avi", "*.jpg", "*.png", ".env",
-        "*.log", "*.zip", "*.sqlite", "*.db",
+        "__pycache__",
+        "*.pyc",
+        "*.pyo",
+        "*.pth",
+        "*.pt",
+        "*.safetensors",
+        "*.bin",
+        "*.onnx",
+        "*.mp3",
+        "*.wav",
+        "*.mp4",
+        "*.avi",
+        "*.jpg",
+        "*.png",
+        ".env",
+        "*.log",
+        "*.zip",
+        "*.sqlite",
+        "*.db",
     ],
     # 允许保留的目录例外（证据目录本身）
     "allowed_dirs": ["outputs", "docs", "artifacts"],

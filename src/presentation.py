@@ -11,6 +11,7 @@ src/presentation.py
 
 所有失败都被记录为结构化降级事件，不会静默吞掉。
 """
+
 from __future__ import annotations
 
 import shutil
@@ -105,8 +106,12 @@ def _sapi_synthesize(text: str, out_path: Path, timeout_s: int) -> tuple[bool, s
         "$s.Dispose();"
     )
     try:
-        proc = subprocess.run([powershell, "-NoProfile", "-NonInteractive", "-Command", script],
-                              capture_output=True, text=True, timeout=timeout_s)
+        proc = subprocess.run(
+            [powershell, "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+        )
     except subprocess.TimeoutExpired:
         _cleanup_partial(out_path)
         return False, "Windows 离线 TTS 超时"
@@ -121,15 +126,14 @@ def _sapi_synthesize(text: str, out_path: Path, timeout_s: int) -> tuple[bool, s
     return True, "windows-sapi"
 
 
-def synthesize(text: str, *, out_dir: Path | None = None, voice: str | None = None,
-               engine: str | None = None) -> dict:
+def synthesize(text: str, *, out_dir: Path | None = None, voice: str | None = None, engine: str | None = None) -> dict:
     """合成语音。返回 {"available", "path", "engine", "error", "bytes"}。"""
     voice_cfg = CFG["voice"]
     out_dir = Path(out_dir) if out_dir else settings.PATHS["artifacts"]
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = Path(voice_cfg["output_name"]).stem
-    edge_path = out_dir / f"{stem}.mp3"     # edge-tts 输出 mp3
-    sapi_path = out_dir / f"{stem}.wav"     # Windows SAPI 输出 wav
+    edge_path = out_dir / f"{stem}.mp3"  # edge-tts 输出 mp3
+    sapi_path = out_dir / f"{stem}.wav"  # Windows SAPI 输出 wav
     timeout_s = int(voice_cfg["timeout_s"])
     zh_voice = voice or voice_cfg["voice_zh"]
     prefer = engine or voice_cfg["engine"]
@@ -148,15 +152,26 @@ def synthesize(text: str, *, out_dir: Path | None = None, voice: str | None = No
     for name, path, fn in attempts:
         ok_flag, detail = fn()
         if ok_flag:
-            return {"available": True, "path": str(path), "engine": detail,
-                    "error": None, "bytes": path.stat().st_size, "fallbacks": errors}
+            return {
+                "available": True,
+                "path": str(path),
+                "engine": detail,
+                "error": None,
+                "bytes": path.stat().st_size,
+                "fallbacks": errors,
+            }
         errors.append(f"{name}: {detail}")
-    return {"available": False, "path": None, "engine": None,
-            "error": "; ".join(errors), "bytes": 0}
+    return {"available": False, "path": None, "engine": None, "error": "; ".join(errors), "bytes": 0}
 
 
-def present(items: list[dict], *, channel: str = "text", header: str | None = None,
-            with_voice: bool = True, dry_run: bool = False) -> dict:
+def present(
+    items: list[dict],
+    *,
+    channel: str = "text",
+    header: str | None = None,
+    with_voice: bool = True,
+    dry_run: bool = False,
+) -> dict:
     """统一呈现入口：文本 + 可选语音。"""
     text = build_text(items, header=header)
     spoken = build_spoken_text(items, header=header)
@@ -177,8 +192,12 @@ def present(items: list[dict], *, channel: str = "text", header: str | None = No
         result["audio_path"] = voice_result["path"]
         result["engine"] = voice_result["engine"]
         if not voice_result["available"]:
-            result["degradations"].append({
-                "level": "L2", "reason": f"语音呈现不可用，已降级为纯文本: {voice_result['error']}",
-                "from": "voice+text", "to": "text",
-            })
+            result["degradations"].append(
+                {
+                    "level": "L2",
+                    "reason": f"语音呈现不可用，已降级为纯文本: {voice_result['error']}",
+                    "from": "voice+text",
+                    "to": "text",
+                }
+            )
     return result

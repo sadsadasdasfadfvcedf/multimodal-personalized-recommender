@@ -10,15 +10,16 @@ src/errors.py
     {"ok": True,  "error": None, "data": {...}}
     {"ok": False, "error": {"code": "E_INVALID_INPUT", "message": "...", "field": "budget"}, "data": None}
 """
+
 from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class ErrorCode(str, Enum):
+class ErrorCode(StrEnum):
     """全项目错误码表。字符串枚举，便于直接落盘为 JSON。"""
 
     # 输入 / 契约类
@@ -149,7 +150,7 @@ class Result:
 
     # ---------- 构造 ----------
     @classmethod
-    def success(cls, data: Any = None, **meta: Any) -> "Result":
+    def success(cls, data: Any = None, **meta: Any) -> Result:
         return cls(ok=True, data=data, error=None, meta=meta)
 
     @classmethod
@@ -159,7 +160,7 @@ class Result:
         message: str = "",
         field: str | None = None,
         **context: Any,
-    ) -> "Result":
+    ) -> Result:
         return cls(ok=False, data=None, error=AppError(code, message, field, context))
 
     # ---------- 序列化 ----------
@@ -171,7 +172,7 @@ class Result:
             "meta": self.meta,
         }
 
-    def raise_if_error(self) -> "Result":
+    def raise_if_error(self) -> Result:
         """在必须失败的链路上把 Result 转成异常。"""
         if not self.ok and self.error:
             raise IntegrationError(self.error)
@@ -197,4 +198,3 @@ def as_error_dict(exc: BaseException) -> dict[str, Any]:
         ErrorCode.INTERNAL_ERROR,
         f"{type(exc).__name__}: {exc}",
     ).to_dict()
-
