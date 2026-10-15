@@ -37,3 +37,18 @@ artifacts/
 # 编辑器（.vscode/ 是有意提交的共享配置：任务 / 调试 / 设置 / 扩展建议）
 .idea/
 .vscode/*.log
+
+# 生成物（可再生产物，不进版本库）
+# ---------------------------------------------------------------------------
+# outputs/ 与下面 4 篇文档均由脚本从源码重新生成：
+#     python scripts/run_all_offline.py     # 刷新 outputs/
+#     python scripts/08_gen_docs.py         # 刷新下列文档
+# 提交包由 scripts/06_e2e_acceptance.py 从工作区文件组装、不读 git，
+# 因此不跟踪它们不影响交付内容；同时避免每次跑测试都让 git status 变脏。
+# 注意：docs/architecture.md 是「手写正文 + 生成样例章节」的混合文件，
+#       必须继续跟踪（其生成章节会随证据变化，属于已知的少量 churn）。
+outputs/
+docs/error_case_analysis.md
+docs/timeout_and_degradation.md
+docs/explanation_anomalies.md
+docs/performance_and_failures.md
