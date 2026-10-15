@@ -447,6 +447,29 @@ SLOT_LEXICON: dict = {
     "reset_markers": ["重新开始", "清空", "重来", "reset", "clear"],
 }
 
+# 中文数字字符集（输入归一化与预算解析共用，避免两处各写一份）
+CN_NUM_CHARS = "零〇一壹二两贰三叁四肆五伍六陆七柒八捌九玖十拾百佰千仟"
+
+# 输入侧归一化（ASR 文本 / 手输文本进入意图解析前的保守清洗）
+#
+# 原则：只做**等价改写**，以及高置信度错别字的**定向**纠正。
+# 明确不做：英文词删除、复读截断、任意中文数字替换 ——
+#   前两项属于生成侧流畅度治理（见 src/text_norm.normalize_fluency），
+#   用在用户输入上会把「iPhone 手机壳」这类真实信息删掉。
+INPUT_NORM: dict = {
+    "trad_to_simp": True,
+    "fullwidth_to_halfwidth": True,
+    "collapse_split_digits": True,
+    # 错别字规则只在「数量词紧邻方向词」的位置生效，因此「他是内行」不会被误改成「他以内行」。
+    "typo_rules": [
+        {"pattern": rf"是内(?=\s*[\d{CN_NUM_CHARS}])", "replace": "以内", "desc": "是内→以内（预算方向词）"},
+        {"pattern": rf"已内(?=\s*[\d{CN_NUM_CHARS}])", "replace": "以内", "desc": "已内→以内（预算方向词）"},
+        {"pattern": rf"(?<=[\d{CN_NUM_CHARS}])一内", "replace": "以内", "desc": "一内→以内（预算方向词）"},
+        {"pattern": rf"是下(?=\s*[\d{CN_NUM_CHARS}])", "replace": "以下", "desc": "是下→以下（预算方向词）"},
+        {"pattern": rf"(?<=[\d{CN_NUM_CHARS}])一上", "replace": "以上", "desc": "一上→以上（预算方向词）"},
+    ],
+}
+
 # 约束冲突规则（阶段2：约束冲突可检测）
 CONFLICT_RULES: list[dict] = [
     {"id": "budget_range", "desc": "预算下限高于上限", "fields": ["budget_min", "budget_max"]},

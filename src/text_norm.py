@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import re
 
+from config import settings
+
 NL = chr(10)
 
 # 繁体专有字表（zhconv zh-cn 词表推导，仅保留 CJK 统一汉字）
@@ -162,6 +164,83 @@ def find_latin(text: str) -> list[str]:
         if word.lower() not in seen:
             seen.append(word.lower())
     return seen
+
+
+# ------------------------------------------------------------
+# 输入侧归一化（与生成侧的 normalize_fluency 严格区分）
+# ------------------------------------------------------------
+# 只覆盖全角数字与拉丁字母。刻意**不**包含全角中文标点（，。！？：；（））——
+# 它们是正常的中文标点，转成 ASCII 会改变文本面貌（实测：逗号被转成 ","）。
+_FULLWIDTH_RE = re.compile(r"[\uff10-\uff19\uff21-\uff3a\uff41-\uff5a]")
+# 只匹配「每个数字组都是单个数字」的形态，因此 "300 500" 这类两个独立数字不会被误合并
+_SPLIT_DIGITS_RE = re.compile(r"(?<!\d)\d(?:[ \u3000]\d)+(?!\d)")
+
+
+def _to_halfwidth(text: str) -> str:
+    """全角数字与拉丁字母转半角（"３００" → "300"、"ＡＢ" → "AB"）。"""
+    return "".join(
+        chr(ord(ch) - 0xFEE0)
+        if ("\uff10" <= ch <= "\uff19" or "\uff21" <= ch <= "\uff3a" or "\uff41" <= ch <= "\uff5a")
+        else ch
+        for ch in text
+    )
+
+
+def _collapse_split_digits(text: str) -> str:
+    """折叠被空格拆开的数字串："3 0 0 以内" → "300 以内"。"""
+    return _SPLIT_DIGITS_RE.sub(lambda m: re.sub(r"[ \u3000]", "", m.group(0)), text)
+
+
+def normalize_input(text: str) -> tuple[str, list[dict]]:
+    """输入侧归一化：繁转简 + 全角转半角 + 定向错别字纠正 + 折叠被空格拆开的数字。
+
+    与 `normalize_fluency` 的关键区别：**绝不删除英文词、绝不截断文本**。
+    用户说的话里每个字都可能是信息，这里只做等价改写，并返回处置明细供追溯。
+    """
+    cfg = settings.INPUT_NORM
+    actions: list[dict] = []
+    out = text or ""
+
+    if cfg["fullwidth_to_halfwidth"] and _FULLWIDTH_RE.search(out):
+        out = _to_halfwidth(out)
+        actions.append({"action": "fullwidth_to_halfwidth"})
+
+    if cfg["trad_to_simp"]:
+        traditional = find_traditional(out)
+        if traditional:
+            converter, engine = _load_converter()
+            if converter is not None:
+                out = converter(out)
+                actions.append(
+                    {
+                        "action": "traditional_to_simplified",
+                        "engine": engine,
+                        "chars": len(traditional),
+                        "sample": traditional[:6],
+                    }
+                )
+            else:
+                actions.append(
+                    {
+                        "action": "traditional_detected_no_converter",
+                        "chars": len(traditional),
+                        "sample": traditional[:6],
+                    }
+                )
+
+    for rule in cfg["typo_rules"]:
+        pattern = re.compile(rule["pattern"])
+        if pattern.search(out):
+            out = pattern.sub(rule["replace"], out)
+            actions.append({"action": "typo_corrected", "desc": rule["desc"]})
+
+    if cfg["collapse_split_digits"]:
+        collapsed = _collapse_split_digits(out)
+        if collapsed != out:
+            out = collapsed
+            actions.append({"action": "collapse_split_digits"})
+
+    return out, actions
 
 
 def normalize_fluency(text: str) -> tuple[str, list[dict]]:

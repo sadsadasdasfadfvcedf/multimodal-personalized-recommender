@@ -31,6 +31,7 @@ from config import settings
 from ..catalog import Catalog  # noqa: F401  (类型提示用，实际不访问其内部)
 from ..contracts import InteractionEvent, VisualTag
 from ..errors import ErrorCode, Result, fail, ok
+from ..text_norm import normalize_input
 from ..utils import is_non_empty_str
 from .base import AdapterBase
 
@@ -201,6 +202,7 @@ class MultimodalAdapter(AdapterBase):
         gesture_in = spec.get("gesture")
 
         steps: list[dict] = []
+        norm_actions: list[dict] = []
 
         # 1) ASR 文本治理
         if text is not None:
@@ -213,6 +215,12 @@ class MultimodalAdapter(AdapterBase):
                 )
             text = str(text).strip()
             steps.append({"stage": "asr", "action": "accepted", "text_len": len(text)})
+
+            # 1.5) 输入侧归一化：繁转简 / 全角转半角 / 定向错别字 / 折叠被空格拆开的数字。
+            # 只做等价改写，不删除任何内容；原文仍保留在 event.raw.spec.text 中以便追溯。
+            text, norm_actions = normalize_input(text)
+            if norm_actions:
+                steps.append({"stage": "text_norm", "action": "normalized", "detail": norm_actions})
 
         # 2) 视觉标签治理
         tags, tag_actions = self._govern_tags(visual_tags)
@@ -275,7 +283,7 @@ class MultimodalAdapter(AdapterBase):
             visual_tags=tags,
             gesture=gesture,
             session_id=session_id,
-            raw={"spec": spec},
+            raw={"spec": spec, "text_norm": norm_actions} if norm_actions else {"spec": spec},
         )
         return ok(event, steps=steps, mode=self.active_mode)
 

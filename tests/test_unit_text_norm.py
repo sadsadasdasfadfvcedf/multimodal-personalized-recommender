@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from src import text_norm
 
 
@@ -70,3 +72,43 @@ def test_describe_shape():
     assert set(d) == {"traditional_markers", "converter", "english_map_size"}
     assert d["english_map_size"] == len(text_norm.EN_REPLACEMENTS)
     assert d["traditional_markers"] > 0
+
+
+# ------------------------------------------------------------
+# 输入侧归一化 normalize_input（与生成侧 normalize_fluency 是两套口径）
+# ------------------------------------------------------------
+@pytest.mark.parametrize(
+    "text,expected,action",
+    [
+        ("300以內的水杯", "300以内的水杯", "traditional_to_simplified"),
+        ("３００以内的水杯", "300以内的水杯", "fullwidth_to_halfwidth"),
+        ("3 0 0 以内", "300 以内", "collapse_split_digits"),
+        ("预算是内300的水杯", "预算以内300的水杯", "typo_corrected"),
+    ],
+)
+def test_normalize_input_fixes_known_input_defects(text, expected, action):
+    """这四条都对应实测复现过的输入缺陷（ASR 出繁体、用户拆着写数字、把「以内」写成「是内」）。"""
+    out, actions = text_norm.normalize_input(text)
+    assert out == expected
+    assert action in [a["action"] for a in actions]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "他是内行，推荐点东西",  # 「是内」在非数量语境不得改写
+        "已内存不足怎么办",
+        "推荐，看看。",  # 中文标点必须保持全角，不能被转成 , .
+        "iPhone 手机壳 300以内",  # 英文词不得删除（那是生成侧的行为）
+        "买2个 ball 装饰",
+    ],
+)
+def test_normalize_input_leaves_safe_text_untouched(text):
+    """输入侧只做等价改写：这些文本一旦被改动就是误伤。"""
+    out, _ = text_norm.normalize_input(text)
+    assert out == text
+
+
+def test_normalize_input_is_idempotent_on_clean_text():
+    clean = "300以内的水杯，谢谢。"
+    assert text_norm.normalize_input(clean) == (clean, [])

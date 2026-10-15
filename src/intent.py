@@ -39,6 +39,55 @@ CONFLICT_RULES = settings.CONFLICT_RULES
 
 _NUM_RE = re.compile(r"(\d+(?:[.,]\d+)?)")
 
+_CN_DIGITS = {
+    "零": 0,
+    "〇": 0,
+    "一": 1,
+    "壹": 1,
+    "二": 2,
+    "两": 2,
+    "贰": 2,
+    "三": 3,
+    "叁": 3,
+    "四": 4,
+    "肆": 4,
+    "五": 5,
+    "伍": 5,
+    "六": 6,
+    "陆": 6,
+    "七": 7,
+    "柒": 7,
+    "八": 8,
+    "捌": 8,
+    "九": 9,
+    "玖": 9,
+}
+_CN_UNITS = {"十": 10, "拾": 10, "百": 100, "佰": 100, "千": 1000, "仟": 1000}
+_CN_NUM_RE = re.compile("[" + settings.CN_NUM_CHARS + "]{1,12}")
+
+
+def _cn_to_int(text: str) -> int | None:
+    """中文数字串转整数：三百→300、一百五→150、十五→15、一千二百三十→1230。"""
+    if not text:
+        return None
+    section = number = 0
+    last_unit = 0
+    for ch in text:
+        if ch in _CN_DIGITS:
+            number = _CN_DIGITS[ch]
+        elif ch in _CN_UNITS:
+            unit = _CN_UNITS[ch]
+            section += (number or 1) * unit
+            last_unit = unit
+            number = 0
+        else:
+            return None
+    if number and last_unit >= 10:
+        # 口语尾随数字按上一单位的十分之一进位：「一百五」=150、「一千二」=1200
+        section += number * (last_unit // 10)
+        number = 0
+    return (section + number) or None
+
 
 # ============================================================
 # 结果结构
@@ -124,24 +173,48 @@ def _match_budget(text: str) -> dict | None:
         w in text for w in ["预算", "价格", "花费", "价位", "budget", "price"]
     )
 
-    pairs: list[tuple[float, str | None, str | None, str]] = []
-    for m in _NUM_RE.finditer(text):
-        value = float(m.group(1).replace(",", ""))
-        window = text[max(0, m.start() - 6) : min(len(text), m.end() + 6)]
-        wl = window.lower()
-        direction = marker = None
+    def _direction(window: str) -> tuple[str | None, str | None]:
+        lowered = window.lower()
         for group, label in (
             (cfg["under_words"], "under"),
             (cfg["over_words"], "over"),
             (cfg["around_words"], "around"),
         ):
             for word in group:
-                if word in wl or word in window:
-                    direction, marker = label, word
-                    break
-            if direction:
-                break
-        pairs.append((value, direction, marker, m.group(0)))
+                if word in lowered or word in window:
+                    return label, word
+        return None, None
+
+    matches: list[tuple[int, int, float, str]] = []
+    for m in _NUM_RE.finditer(text):
+        value = float(m.group(1).replace(",", ""))
+        # 0 不是有意义的预算；顺带挡住「3 0 0」被逐位拆开后产出 price<=0 这种不可能约束
+        if value > 0:
+            matches.append((m.start(), m.end(), value, m.group(0)))
+    # 中文数字（三百 / 五百 / 一百五）：必须是「数量词紧邻方向词或计量单位」的形态才采纳。
+    # 用紧邻 3 字判断而不是 ±6 字窗口 —— 后者会让「推荐一些两百块以内」里的
+    # 「一」（来自「一些」）借到远处窗口中的「以内」，产出 price<=1 这种错误约束。
+    markers = [*cfg["under_words"], *cfg["over_words"], *cfg["around_words"], *cfg["unit_words"]]
+
+    def _adjacent_marker(idx_from: int, idx_to: int) -> bool:
+        before = text[max(0, idx_from - 3) : idx_from]
+        after = text[idx_to : idx_to + 3]
+        return any(w in before or w in after for w in markers)
+
+    for m in _CN_NUM_RE.finditer(text):
+        cn_value = _cn_to_int(m.group(0))
+        if not cn_value:
+            continue
+        if not _adjacent_marker(m.start(), m.end()):
+            continue
+        matches.append((m.start(), m.end(), float(cn_value), m.group(0)))
+    matches.sort(key=lambda item: item[0])
+
+    pairs: list[tuple[float, str | None, str | None, str]] = []
+    for start, end, value, raw in matches:
+        window = text[max(0, start - 6) : min(len(text), end + 6)]
+        direction, marker = _direction(window)
+        pairs.append((value, direction, marker, raw))
     if not pairs:
         return None
 

@@ -126,3 +126,76 @@ def test_category_scene_conflict_does_not_over_fire(categories):
         _, slots = _intent_of(_event(text), categories)
         conflict_ids = [c["id"] for c in intent.detect_conflicts(slots)]
         assert "category_scene" not in conflict_ids, f"{text} 误报冲突：{conflict_ids}"
+
+
+# ------------------------------------------------------------
+# 中文数字预算（三百以内 / 五百元以下 / 一百五左右）
+# ------------------------------------------------------------
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("三百以内的水杯", 300.0),
+        ("五百元以下的厨房用品", 500.0),
+        ("一百二十以内", 120.0),
+        ("两千五左右", 2500.0 * 1.15),
+    ],
+)
+def test_extract_chinese_numeral_budget(text, expected, categories):
+    """「三百以内」这种写法 ASR 与手输都会出现，此前整句解析不出预算。"""
+    _, slots = _intent_of(_event(text), categories)
+    assert slots["budget_max"].value == pytest.approx(expected, rel=1e-3)
+
+
+def test_chinese_numeral_around_gives_a_range(categories):
+    _, slots = _intent_of(_event("一百五左右的杯子"), categories)
+    assert slots["budget_max"].value == pytest.approx(172.5, rel=1e-3)
+    assert slots["budget_min"].value == pytest.approx(127.5, rel=1e-3)
+
+
+def test_chinese_numeral_does_not_steal_distant_direction_word(categories):
+    """回归锁：「推荐一些两百块以内的装饰」曾产出 price<=1 ——
+    「一」（来自「一些」）借到了 ±6 字窗口里远处的「以内」。
+    正确答案是 200，且只应有一个预算上限。"""
+    _, slots = _intent_of(_event("推荐一些两百块以内的装饰"), categories)
+    assert slots["budget_max"].value == pytest.approx(200.0)
+
+
+@pytest.mark.parametrize("text", ["十分好看的水杯", "一起看看有什么", "三百"])
+def test_word_containing_numeral_char_is_not_a_budget(text, categories):
+    """没有紧邻的方向词/计量单位时，数词不得被当成预算。"""
+    _, slots = _intent_of(_event(text), categories)
+    assert "budget_max" not in slots
+    assert "budget_min" not in slots
+
+
+# ------------------------------------------------------------
+# 适配器：输入侧归一化在进入意图解析之前完成
+# ------------------------------------------------------------
+@pytest.mark.parametrize(
+    "raw,normalized,expected_budget",
+    [
+        ("预算是内300的水杯", "预算以内300的水杯", 300.0),
+        ("300以內的水杯", "300以内的水杯", 300.0),
+        ("３００以内的水杯", "300以内的水杯", 300.0),
+        ("3 0 0 以内", "300 以内", 300.0),
+    ],
+)
+def test_adapter_normalizes_input_before_intent(raw, normalized, expected_budget, categories):
+    adapter = MultimodalAdapter()
+    result = adapter.parse_event({"source": "voice", "text": raw}, user_id="u-test")
+    assert result.ok
+    assert result.data.text == normalized
+    # 原文必须保留，否则「报告数字可追溯」无从谈起
+    assert result.data.raw["spec"]["text"] == raw
+    assert result.data.raw.get("text_norm"), "归一化处置明细应写入 raw 以便追溯"
+
+    slots = intent.extract_slots(result.data, catalog_categories=categories)
+    assert slots["budget_max"].value == pytest.approx(expected_budget)
+
+
+def test_adapter_leaves_clean_input_without_norm_record():
+    adapter = MultimodalAdapter()
+    result = adapter.parse_event({"source": "voice", "text": "300以内的水杯"}, user_id="u-test")
+    assert result.ok
+    assert result.data.text == "300以内的水杯"
+    assert "text_norm" not in result.data.raw

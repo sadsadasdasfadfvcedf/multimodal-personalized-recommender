@@ -30,6 +30,7 @@ from src.text_norm import (
     describe,
     find_traditional,
     normalize_fluency,
+    normalize_input,
     verify_fluency,
 )
 from src.utils import now_iso, write_json
@@ -133,6 +134,30 @@ def main() -> int:
     kept, fired_normal = _WORKER._truncate_repetition(normal)
     check("T-09", "正常文本不应被误截断", not fired_normal and kept == normal, {"fired": fired_normal})
 
+    # ---------- 7) 输入侧归一化（ASR / 手输文本进入意图解析前） ----------
+    # 与上面 1~6 的关键区别：1~6 治理的是**模型输出**（可以删词、可以截断）；
+    # 这里治理的是**用户输入**，只做等价改写，绝不删除英文词、绝不截断。
+    # 实测背景：ASR 会输出繁体（「300以內的水杯」原本整句解析不出预算），
+    # 用户也会把「以内」写成「是内」，把「3 0 0」拆着写。
+    input_cases = [
+        ("T-10", "繁体输入应转为简体", "300以內的水杯", "300以内的水杯", "traditional_to_simplified"),
+        ("T-11", "全角数字应转半角", "３００以内的水杯", "300以内的水杯", "fullwidth_to_halfwidth"),
+        ("T-12", "被空格拆开的数字应折叠", "3 0 0 以内", "300 以内", "collapse_split_digits"),
+        ("T-13", "「是内」应定向纠正为「以内」", "预算是内300的水杯", "预算以内300的水杯", "typo_corrected"),
+        ("T-14", "非数量语境的「是内」不得被改写", "他是内行，推荐点东西", "他是内行，推荐点东西", None),
+        ("T-15", "中文标点不得被转成半角", "推荐，看看。", "推荐，看看。", None),
+        ("T-16", "英文词不得被删除（与生成侧区分）", "iPhone 手机壳 300以内", "iPhone 手机壳 300以内", None),
+    ]
+    for cid, desc, raw_text, expect, expect_action in input_cases:
+        out, acts = normalize_input(raw_text)
+        names = [a["action"] for a in acts]
+        check(
+            cid,
+            desc,
+            out == expect and (expect_action is None or expect_action in names),
+            {"input": raw_text, "output": out, "actions": names, "expect": expect},
+        )
+
     # ---------- 汇总 ----------
     total = len(RESULTS)
     passed = sum(1 for r in RESULTS if r["passed"])
@@ -154,6 +179,8 @@ def main() -> int:
         "中英混排规范化与门控": _all("T-04", "T-05", "T-06b", "T-06c"),
         "无转换器时安全降级": _all("T-07"),
         "循环复读截断且不误伤正常文本": _all("T-08", "T-09"),
+        "输入侧归一化：繁体/全角/拆位数字/定向纠错": _all("T-10", "T-11", "T-12", "T-13"),
+        "输入侧归一化不得误伤：非数量语境/中文标点/英文词": _all("T-14", "T-15", "T-16"),
     }
     path = write_json(settings.PATHS["outputs"] / "text_norm_check.json", report)
 
