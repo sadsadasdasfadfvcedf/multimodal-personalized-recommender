@@ -47,6 +47,24 @@
 | 0.35 – 0.55 | 降权保留 | 0.5 | `confidence × 0.5` |
 | ≥ 0.55 | 正常使用 | 1.0 | `confidence` |
 
+**文本治理口径**（`config.INPUT_NORM`）：`text` 字段进入意图解析前会做一次**等价改写**。
+
+`text` 是**归一化之后**的文本；原文始终保留在 `raw.spec.text`，处置明细写在 `raw.text_norm`（未触发时为缺省，不出现该字段）。
+
+| 处置 | 触发条件 | 举例 |
+|---|---|---|
+| `traditional_to_simplified` | 检出繁体字且装有 `zhconv` / `opencc` | `300以內的水杯` → `300以内的水杯` |
+| `fullwidth_to_halfwidth` | 出现全角数字或拉丁字母 | `３００以内` → `300以内` |
+| `typo_corrected` | 方向词紧邻数量词但写错 | `预算是内300` → `预算以内300` |
+| `collapse_split_digits` | 数字被空格逐位拆开 | `3 0 0 以内` → `300 以内` |
+
+原则：**只做等价改写** —— 不删除英文词、不截断文本。那是生成侧 `normalize_fluency` 的口径
+（用于 LLM 输出），用在用户输入上会把 `iPhone 手机壳` 这类真实信息删掉。因此输入侧对
+`iPhone 手机壳 300以内` 原样保留。归一化只作用于 `text`；`visual_tags` / `gesture` 不受影响。
+
+中文数字预算不在此改写（改写任意中文数字会误伤「十分好看」）：它在 `src/intent.py` 的预算解析里按
+「数量词紧邻方向词或计量单位」的形态识别，`三百以内` → 300、`一百五左右` → 150±15%。
+
 ## 4. RecommendationRequest（结构化推荐请求）
 
 ```json
@@ -167,7 +185,7 @@
 
 | 方法 | 说明 |
 |---|---|
-| `parse_event(spec, user_id, session_id)` | 把模态输入解析为标准 `InteractionEvent`，执行置信度治理 |
+| `parse_event(spec, user_id, session_id)` | 把模态输入解析为标准 `InteractionEvent`，执行文本归一化（见 §3）与置信度治理 |
 | `transcribe(audio_path)` | real 模式调用 ASR；offline 返回 `E_MODALITY_UNAVAILABLE` |
 | `describe_image(image_path, question)` | real 模式调用 VL |
 | `recognize_gesture(landmarks, face)` | real 模式调用手势识别 |
