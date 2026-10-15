@@ -76,7 +76,11 @@ def main() -> int:
 
     # ---------- 1) 设备 ----------
     health = adapter.worker_health()
-    report["devices"] = health.data if health.ok else {"error": health.error.to_dict()}
+    if health.ok:
+        report["devices"] = health.data
+    else:
+        assert health.error is not None
+        report["devices"] = {"error": health.error.to_dict()}
     report["steps"].append(
         {
             "step": "devices",

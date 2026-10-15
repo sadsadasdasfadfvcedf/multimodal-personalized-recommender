@@ -146,7 +146,11 @@ class _Validator:
 def _result_of(schema_name: str, payload: Any, builder) -> Result:
     v = _Validator(payload, schema_name)
     if not v.require_object():
-        return v.fail_if_any()
+        # require_object() 返回 False 时必定登记了 problem，故 fail_if_any() 不会是 None；
+        # 显式断言把这个不变量写出来，同时让类型收窄。
+        failure = v.fail_if_any()
+        assert failure is not None, "校验失败但未登记问题"
+        return failure
     problem = builder(v)
     if problem is not None:
         return problem

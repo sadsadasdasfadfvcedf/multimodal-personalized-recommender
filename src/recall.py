@@ -19,16 +19,35 @@ src/recall.py
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from config import settings
 
-from .adapters.base import AdapterBase
 from .catalog import Catalog
 from .contracts import RecommendationRequest
 from .errors import Result, ok
 from .session import SessionContext
 from .utils import minmax_normalize
+
+
+class _RecommenderLike(Protocol):
+    """recall() 需要的推荐侧能力。
+
+    这里用结构化类型（Protocol）而不是 AdapterBase —— 多路召回调用的是
+    **推荐系统适配器**特有的方法，它们并不在基类上；把参数标成基类会让
+    类型检查器认为这些调用非法，标成 Protocol 则如实表达「需要什么能力」。
+    """
+
+    def personalized_candidates(self, user_id: str, k: int = 80) -> Result: ...
+
+    def similar_candidates(self, seed_item_ids: list[str], k: int = 40, exclude: set[str] | None = None) -> Result: ...
+
+    def category_candidates(self, category: str, k: int = 40, exclude: set[str] | None = None) -> Result: ...
+
+    def history_candidates(self, user_id: str, k: int = 30, exclude: set[str] | None = None) -> Result: ...
+
+    def popular_candidates(self, k: int = 60, exclude: set[str] | None = None) -> Result: ...
+
 
 CFG = settings.RECALL_CONFIG
 SOURCE_LABELS = settings.RECOMMENDER_ADAPTER["sources"]
@@ -60,7 +79,7 @@ class Candidate:
 
 def recall(
     request: RecommendationRequest,
-    adapter: AdapterBase,
+    adapter: _RecommenderLike,
     catalog: Catalog,
     session: SessionContext | None = None,
 ) -> Result:

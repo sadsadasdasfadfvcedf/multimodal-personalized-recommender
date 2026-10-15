@@ -32,6 +32,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 NL = chr(10)
 
@@ -163,7 +164,7 @@ def _root() -> str:
 # actions
 # ------------------------------------------------------------
 def action_devices(params: dict):
-    out = {"microphones": [], "cameras": [], "default_input_index": None}
+    out: dict[str, Any] = {"microphones": [], "cameras": [], "default_input_index": None}
     try:
         import pyaudio
 
@@ -387,7 +388,7 @@ def action_gesture_batch(params: dict):
         raise FileNotFoundError("没有匹配的图片: " + pattern)
 
     detector = HumanDetector()
-    results = []
+    results: list[dict] = []
     try:
         for path in files:
             frame = _imread(path)
@@ -397,7 +398,7 @@ def action_gesture_batch(params: dict):
             res = detector.process_frame(frame)
             hands = res.get("hands")
             face = res.get("face")
-            entry = {
+            entry: dict[str, Any] = {
                 "image": Path(path).name,
                 "hands_detected": 0,
                 "gestures": [],
@@ -424,7 +425,7 @@ def action_gesture_batch(params: dict):
             detector.close()
 
     hit = [r for r in results if r["gestures"]]
-    summary = {}
+    summary: dict[str, Any] = {}
     for r in hit:
         for g in r["gestures"]:
             summary[g["name"]] = summary.get(g["name"], 0) + 1

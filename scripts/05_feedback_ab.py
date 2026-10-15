@@ -13,6 +13,8 @@ scripts/05_feedback_ab.py
 
 from __future__ import annotations
 
+from typing import Any
+
 from _bootstrap import banner
 
 from config import settings
@@ -156,7 +158,7 @@ def main() -> int:
             ms = (r.get(stage) or {}).get("latency_ms") or {}
             if ms.get("total_ms") is not None:
                 latencies.append(float(ms["total_ms"]))
-    perf = {
+    perf: dict[str, Any] = {
         "cases": len(records),
         "passed": sum(1 for r in records if r.get("passed")),
         "failed": sum(1 for r in records if not r.get("passed")),
@@ -182,7 +184,7 @@ def main() -> int:
         },
     }
 
-    report = {
+    report: dict[str, Any] = {
         "stage": "05",
         "title": "反馈闭环 / 反馈前后 A-B 对照",
         "generated_at": now_iso(),

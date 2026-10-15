@@ -80,7 +80,7 @@ class Chat:
             "error": "❌",
         }
         print(
-            f"\n{icons.get(status, '·')} [{status}] 意图={intent}",
+            f"\n{icons.get(str(status), '·')} [{status}] 意图={intent}",
             f"| 推荐适配器={resp.get('trace', {}).get('modes', {}).get('recommender')}",
         )
 
@@ -183,7 +183,7 @@ class Chat:
             print(f"❌ 抓帧失败: {cap.error}")
             return
         print("⏳ 视觉理解中…（约 20-40 秒）")
-        vl = ad.describe_image(str(frame), question or None)
+        vl = ad.describe_image(str(frame), question or "")
         if not vl.ok:
             print(f"❌ 视觉理解失败: {vl.error}")
             return
@@ -270,12 +270,12 @@ class Chat:
                     continue
                 if cmd == "view":
                     if not arg:
-                        target = self.orch.store.get(self.session_id)
-                        target = target.focus_item_id if target else None
-                        if not target:
+                        sess = self.orch.store.get(self.session_id)
+                        focus = sess.focus_item_id if sess else None
+                        if not focus:
                             print("用法：/view <商品编号>（如 /view 20829）")
                             continue
-                        arg = target
+                        arg = focus
                     self._send({"source": "browse", "item_id": arg})
                     continue
                 if cmd == "vision":

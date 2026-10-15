@@ -17,6 +17,8 @@ scripts/01_contract_test.py
 
 from __future__ import annotations
 
+from typing import Any
+
 from _bootstrap import banner
 
 from config import settings
@@ -52,6 +54,16 @@ def _err_of(result) -> str | None:
     return result.error.code.value if (not result.ok and result.error) else None
 
 
+def _err_field(result) -> str | None:
+    """失败结果里的出错字段（显式收窄 AppError | None）。"""
+    return result.error.field if (not result.ok and result.error is not None) else None
+
+
+def _err_message(result) -> str | None:
+    """失败结果里的错误消息。"""
+    return result.error.message if (not result.ok and result.error is not None) else None
+
+
 def main() -> int:
     banner("阶段1 · 接口契约测试")
     Catalog.from_snapshot()  # 仅验证快照可加载；失败会抛异常，故不绑定变量
@@ -71,7 +83,7 @@ def main() -> int:
     )
 
     res = InteractionEvent.from_dict({"user_id": "15547"})
-    problems = (res.error.context or {}).get("problems", []) if not res.ok else []
+    problems = (res.error.context or {}).get("problems", []) if (not res.ok and res.error is not None) else []
     fields = sorted({p["field"] for p in problems})
     check(
         "C-02",
@@ -88,7 +100,7 @@ def main() -> int:
         "失败",
         "非法时间戳格式",
         f"code={ErrorCode.INVALID_TIMESTAMP.value}",
-        {"code": _err_of(res), "field": res.error.field if not res.ok else None},
+        {"code": _err_of(res), "field": _err_field(res)},
         _err_of(res) == ErrorCode.INVALID_TIMESTAMP.value,
     )
 
@@ -98,7 +110,7 @@ def main() -> int:
         "失败",
         "非法 source 取值",
         f"code={ErrorCode.INVALID_SOURCE.value}",
-        {"code": _err_of(res), "field": res.error.field if not res.ok else None},
+        {"code": _err_of(res), "field": _err_field(res)},
         _err_of(res) == ErrorCode.INVALID_SOURCE.value,
     )
 
@@ -214,8 +226,8 @@ def main() -> int:
         "失败",
         "缺少 item_id",
         "code=E_MISSING_FIELD",
-        {"code": _err_of(res), "field": res.error.field if not res.ok else None},
-        _err_of(res) == ErrorCode.MISSING_FIELD.value and res.error.field == "item_id",
+        {"code": _err_of(res), "field": _err_field(res)},
+        _err_of(res) == ErrorCode.MISSING_FIELD.value and _err_field(res) == "item_id",
     )
 
     bad = item.to_dict()
@@ -294,7 +306,7 @@ def main() -> int:
         "thumbs_up → 正反馈映射",
         "polarity=positive 且 modality=feedback",
         {"polarity": (gesture or {}).get("polarity"), "modality": res.data.modality if res.ok else None},
-        res.ok and gesture["polarity"] == "positive" and res.data.modality == "feedback",
+        res.ok and (gesture or {}).get("polarity") == "positive" and res.data.modality == "feedback",
     )
 
     res = mm.parse_event({"source": "gesture", "gesture": {"name": "thumbs_down", "confidence": 0.88}}, user_id="15547")
@@ -305,7 +317,7 @@ def main() -> int:
         "thumbs_down → 负反馈映射",
         "polarity=negative",
         {"polarity": (gesture or {}).get("polarity")},
-        res.ok and gesture["polarity"] == "negative",
+        res.ok and (gesture or {}).get("polarity") == "negative",
     )
 
     # ---------------------------------------------------------
@@ -338,7 +350,7 @@ def main() -> int:
         "失败",
         "未知用户 → 明确 E_NO_RESULT（不是空列表）",
         f"code={ErrorCode.NO_RESULT.value}",
-        {"code": _err_of(res), "message": res.error.message if not res.ok else None},
+        {"code": _err_of(res), "message": _err_message(res)},
         _err_of(res) == ErrorCode.NO_RESULT.value,
     )
 
@@ -393,7 +405,7 @@ def main() -> int:
         bucket = by_category.setdefault(r["category"], {"total": 0, "passed": 0})
         bucket["total"] += 1
         bucket["passed"] += 1 if r["passed"] else 0
-    report = {
+    report: dict[str, Any] = {
         "stage": "01",
         "title": "接口契约与降级矩阵验证",
         "generated_at": now_iso(),

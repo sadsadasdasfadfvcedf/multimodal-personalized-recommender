@@ -44,7 +44,7 @@ def main() -> int:
     http_cfg = settings.RECOMMENDER_ADAPTER["http"]
     base_url = http_cfg["base_url"].rstrip("/")
     probe = _probe(base_url, http_cfg["timeout_s"])
-    user = os.getenv(http_cfg["username_env"])
+    user = os.getenv(http_cfg["username_env"]) or ""  # 环境变量缺失时给空串，避免把 None 传进 handle()
     password = os.getenv(http_cfg["password_env"])
 
     report = {
@@ -94,7 +94,8 @@ def main() -> int:
 
     # 端到端三轮（HTTP 模式）
     orch_http = Orchestrator(mode="auto", with_voice=False)
-    turns = [
+    # 显式标注：元组第二个元素类型不齐（dict 混排）会让 mypy 推断成 object
+    turns: list[tuple[str, dict]] = [
         ("voice", {"source": "voice", "text": "我要给朋友挑一个结婚礼物，500以内"}),
         ("gesture", {"source": "gesture", "gesture": {"name": "thumbs_up", "confidence": 0.92}}),
         ("text", {"source": "text", "text": "为什么推荐第一个"}),

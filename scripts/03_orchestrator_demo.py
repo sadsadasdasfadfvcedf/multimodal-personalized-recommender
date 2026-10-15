@@ -26,7 +26,7 @@ from src.errors import ErrorCode, fail
 from src.orchestrator import Orchestrator
 from src.utils import now_iso, write_json, write_jsonl
 
-SCENARIOS = [
+SCENARIOS: list[dict] = [
     {
         "id": "NORMAL",
         "name": "正常链路：语音要礼物 → 多路召回 → 重排",

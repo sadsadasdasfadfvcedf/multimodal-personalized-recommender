@@ -302,6 +302,7 @@ class Orchestrator:
         with timer.track("browse_ms"):
             viewed = session.add_view(item_id, category=category)
         if not viewed.ok:
+            assert viewed.error is not None
             return {"status": "error", "recommendations": [], "error": viewed.error.to_dict()}
 
         # 复用推荐主链路做重排，让「浏览」的影响可见（与点赞一致的口径）
@@ -356,6 +357,7 @@ class Orchestrator:
         with timer.track("feedback_ms"):
             feedback_result = session.add_feedback(str(target), str(polarity), category=category)
         if not feedback_result.ok:
+            assert feedback_result.error is not None
             return {"status": "error", "recommendations": [], "error": feedback_result.error.to_dict()}
         session.pending_clarification = None
 

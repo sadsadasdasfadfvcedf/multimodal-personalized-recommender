@@ -13,6 +13,8 @@ scripts/04_explanation_test.py
 
 from __future__ import annotations
 
+from typing import Any
+
 from _bootstrap import banner
 
 from config import settings
@@ -206,7 +208,7 @@ def main() -> int:
     write_jsonl(settings.output_path("stage04_cases"), records)
 
     passed = sum(1 for r in records if r.get("passed"))
-    summary = {
+    summary: dict[str, Any] = {
         "stage": "04",
         "generated_at": now_iso(),
         "summary": {

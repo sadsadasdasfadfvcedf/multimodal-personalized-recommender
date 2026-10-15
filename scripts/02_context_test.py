@@ -37,6 +37,11 @@ def _near(a, b) -> bool:
     return a == b
 
 
+def _code_value(error) -> str:
+    """AppError.code 声明为 ErrorCode | str；__post_init__ 已归一，这里统一取字符串值。"""
+    return error.code.value if hasattr(error.code, "value") else str(error.code)
+
+
 def _slots_match(expected: dict, actual: dict) -> tuple[bool, list[str]]:
     problems: list[str] = []
     for key, want in expected.items():
@@ -61,7 +66,8 @@ def run_case(case: dict, catalog: Catalog, adapter: MultimodalAdapter) -> dict:
 
     event_result = adapter.parse_event(case["spec"], user_id=str(case["user_id"]))
     if not event_result.ok:
-        record["actual"] = {"status": "error", "code": event_result.error.code.value}
+        assert event_result.error is not None
+        record["actual"] = {"status": "error", "code": _code_value(event_result.error)}
         if expect.get("status") == "error":
             record["passed"] = True
         else:
@@ -104,7 +110,8 @@ def run_case(case: dict, catalog: Catalog, adapter: MultimodalAdapter) -> dict:
             "intent_confidence": intent_dict["intent_confidence"],
         }
     else:
-        code = result.error.code.value
+        assert result.error is not None
+        code = _code_value(result.error)
         status = "conflict" if code == ErrorCode.CONSTRAINT_CONFLICT.value else "clarification"
         context = result.error.context or {}
         intent_dict = context.get("intent_result") or {}
@@ -216,11 +223,13 @@ def session_checks() -> list[dict]:
     add("B-08", "点赞产生正向会话偏好信号", signal_like.ok and pref["score"] > 0, {"preference": pref}, kind="成功")
 
     store.end("s-merge")
+    merged = store.get("s-merge")
+    assert merged is not None
     add(
         "B-09",
         "会话结束清理状态",
-        store.get("s-merge").ended and not store.get("s-merge").slot_state,
-        {"ended": store.get("s-merge").ended, "slots": list(store.get("s-merge").slot_state)},
+        merged.ended and not merged.slot_state,
+        {"ended": merged.ended, "slots": list(merged.slot_state)},
         kind="边界",
     )
 

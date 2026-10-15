@@ -1308,7 +1308,7 @@ class App:
         cap = ad.capture_frame(str(frame))
         if not cap.ok:
             return {"ok": False, "error": f"抓帧失败: {cap.error}"}
-        vl = ad.describe_image(str(frame), question or None)
+        vl = ad.describe_image(str(frame), question or "")
         if not vl.ok:
             return {"ok": False, "error": f"视觉理解失败: {vl.error}"}
         desc = (vl.data or {}).get("response") or ""

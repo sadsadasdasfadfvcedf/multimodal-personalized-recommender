@@ -38,6 +38,7 @@ from src.utils import now_iso, write_json
 _SPEC = importlib.util.spec_from_file_location(
     "mm_worker_for_test", str(settings.PROJECT_ROOT / "scripts" / "mm_worker.py")
 )
+assert _SPEC is not None and _SPEC.loader is not None, "mm_worker 模块加载失败"
 _WORKER = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_WORKER)
 

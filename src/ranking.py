@@ -20,6 +20,7 @@ src/ranking.py
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from config import settings
 
@@ -239,7 +240,8 @@ def rank(
 
     scored: list[ScoredCandidate] = []
     for cand in kept:
-        pref = (
+        # 值类型不齐（score 是 float，reasons 是 list），显式标注避免推断成联合类型
+        pref: dict[str, Any] = (
             session.preference_signal(cand.item_id, catalog.category_of(cand.item_id))
             if session
             else {"score": 0.0, "reasons": []}

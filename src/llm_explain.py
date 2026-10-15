@@ -93,7 +93,7 @@ def verify_format(text: str) -> list[dict]:
     window = 8
     grams = [compact[i : i + window] for i in range(max(0, len(compact) - window + 1))]
     if grams:
-        seen = {}
+        seen: dict[str, int] = {}
         worst, worst_count = "", 0
         for gram in grams:
             seen[gram] = seen.get(gram, 0) + 1

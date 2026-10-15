@@ -101,10 +101,11 @@ def main() -> int:
 
     transcript: list[dict] = []
     for idx, (source, text, label) in enumerate(SCRIPT, start=1):
+        spec: dict
         if source == "gesture":
             spec = {"source": "gesture", "gesture": {"name": "thumbs_up", "confidence": 0.92}}
         else:
-            spec = {"source": source, "text": text}
+            spec = {"source": source, "text": text or ""}
         result = orch.handle(spec, user_id=args.user, session_id=session_id)
         if not result.ok:
             print(f"第 {idx} 轮失败：{result.error}")
