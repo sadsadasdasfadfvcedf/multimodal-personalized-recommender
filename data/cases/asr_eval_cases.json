@@ -1,0 +1,221 @@
+{
+  "version": "1.0",
+  "note": "ASR 识别质量固定测试集。覆盖本项目六类意图与槽位词；参考文本即 TTS 合成文本。must_have 为术语锚点。",
+  "cases": [
+    {
+      "id": "D-01",
+      "intent": "discover",
+      "text": "推荐一些婚礼用的装饰品",
+      "must_have": [
+        "婚礼",
+        "装饰"
+      ]
+    },
+    {
+      "id": "D-02",
+      "intent": "discover",
+      "text": "随便看看有什么好看的厨房小物",
+      "must_have": [
+        "厨房"
+      ]
+    },
+    {
+      "id": "D-03",
+      "intent": "discover",
+      "text": "帮我找点生日派对用的东西",
+      "must_have": [
+        "生日",
+        "派对"
+      ]
+    },
+    {
+      "id": "D-04",
+      "intent": "discover",
+      "text": "我想逛逛收纳用品",
+      "must_have": [
+        "收纳"
+      ]
+    },
+    {
+      "id": "F-01",
+      "intent": "filter",
+      "text": "三百以内的白色马克杯",
+      "must_have": [
+        "300",
+        "白色",
+        "杯"
+      ]
+    },
+    {
+      "id": "F-02",
+      "intent": "filter",
+      "text": "预算五百元以下的厨房用品",
+      "must_have": [
+        "500",
+        "厨房"
+      ]
+    },
+    {
+      "id": "F-03",
+      "intent": "filter",
+      "text": "一千块以内的红色装饰品",
+      "must_have": [
+        "1000",
+        "红色",
+        "装饰"
+      ]
+    },
+    {
+      "id": "F-04",
+      "intent": "filter",
+      "text": "只看蓝色的收纳箱",
+      "must_have": [
+        "蓝色",
+        "收纳"
+      ]
+    },
+    {
+      "id": "F-05",
+      "intent": "filter",
+      "text": "价格不超过两百的派对用品",
+      "must_have": [
+        "200",
+        "派对"
+      ]
+    },
+    {
+      "id": "F-06",
+      "intent": "filter",
+      "text": "要一百五左右的生活用品",
+      "must_have": [
+        "150",
+        "生活"
+      ]
+    },
+    {
+      "id": "S-01",
+      "intent": "similar",
+      "text": "找一些和这个相似的杯子",
+      "must_have": [
+        "相似",
+        "杯"
+      ]
+    },
+    {
+      "id": "S-02",
+      "intent": "similar",
+      "text": "有没有同款的收纳篮",
+      "must_have": [
+        "同款",
+        "收纳"
+      ]
+    },
+    {
+      "id": "S-03",
+      "intent": "similar",
+      "text": "和刚才那个差不多的装饰品",
+      "must_have": [
+        "差不多",
+        "装饰"
+      ]
+    },
+    {
+      "id": "C-01",
+      "intent": "compare",
+      "text": "对比一下这两个马克杯",
+      "must_have": [
+        "对比",
+        "马克杯"
+      ]
+    },
+    {
+      "id": "C-02",
+      "intent": "compare",
+      "text": "这两个哪个更好",
+      "must_have": [
+        "哪个"
+      ]
+    },
+    {
+      "id": "C-03",
+      "intent": "compare",
+      "text": "比较一下红色和蓝色的杯子",
+      "must_have": [
+        "比较",
+        "红色",
+        "蓝色"
+      ]
+    },
+    {
+      "id": "E-01",
+      "intent": "explain",
+      "text": "为什么推荐第一个",
+      "must_have": [
+        "为什么",
+        "推荐"
+      ]
+    },
+    {
+      "id": "E-02",
+      "intent": "explain",
+      "text": "解释一下推荐理由",
+      "must_have": [
+        "解释",
+        "理由"
+      ]
+    },
+    {
+      "id": "B-01",
+      "intent": "feedback",
+      "text": "这个我很喜欢",
+      "must_have": [
+        "喜欢"
+      ]
+    },
+    {
+      "id": "B-02",
+      "intent": "feedback",
+      "text": "这个不太行，换一个",
+      "must_have": [
+        "不太行"
+      ]
+    },
+    {
+      "id": "B-03",
+      "intent": "feedback",
+      "text": "太贵了，有没有便宜点的",
+      "must_have": [
+        "太贵",
+        "便宜"
+      ]
+    },
+    {
+      "id": "B-04",
+      "intent": "feedback",
+      "text": "点赞，就买这个",
+      "must_have": [
+        "点赞"
+      ]
+    },
+    {
+      "id": "X-01",
+      "intent": "edge",
+      "text": "嗯",
+      "must_have": [
+        "嗯"
+      ],
+      "edge": true
+    },
+    {
+      "id": "X-02",
+      "intent": "edge",
+      "text": "我想给朋友挑一个结婚礼物，预算五百以内，最好是白色的，放在客厅里",
+      "must_have": [
+        "结婚",
+        "500",
+        "白色",
+        "客厅"
+      ]
+    }
+  ]
+}
