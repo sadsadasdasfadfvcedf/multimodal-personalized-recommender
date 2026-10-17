@@ -203,6 +203,7 @@ python -m pip install -r requirements.txt
 | `python scripts/10_real_llm_check.py` | 真实 LLM 解释链路（可选） | `outputs/real_llm_check.json` |
 | `python scripts/11_llm_model_compare.py` | LLM 选型对比（可选） | `outputs/llm_model_compare.json` |
 | `python scripts/12_text_norm_check.py` | 文本规范化与流畅度门控 | `outputs/text_norm_check.json` |
+| `python scripts/14_asr_quality_check.py` | ASR 识别质量评测（需权重，可选） | `outputs/asr_quality_check.json`、`artifacts/asr_eval/` |
 | `python scripts/13_webui_acceptance.py` | 网页改版验收（需 webui 在跑 + Edge） | `outputs/webui_acceptance.json` |
 | `python scripts/clean_workspace.py` | 打包前清理 | 删除 `__pycache__` / `*.pyc` |
 
@@ -363,6 +364,12 @@ python scripts/05_feedback_ab.py   # 任选一个阶段重跑
    原文保留在 `event.raw.spec.text`，处置明细写入 `event.raw.text_norm`。
    中文数字预算同样支持：`三百以内` → 300、`一百五左右` → 150±15%。
    回归证据：`outputs/text_norm_check.json` 的 T-10 ~ T-16。
+9. **ASR 质量已分「采集端 / 转写端」实测**（`outputs/asr_quality_check.json`）：
+   转写端在 24 条固定测试音频上 **CER=0.000**（23/24 全对，唯一例外是单字「嗯」返回空），
+   术语召回 97.8%、数字召回 100%、热推理延迟 p50 124ms（冷启动约 26s）。
+   但真机 4s 录音峰值只有 **-24.9 dBFS / RMS -41.5 dBFS**，比合成音频低约 19–24 dB，
+   同一模型返回空文本 —— 说明瓶颈在**采集端输入电平**，不在模型。
+   现场演示前应先检查麦克风增益（`scripts/00_check_env.py` 不测电平）。
 
 ## 9. 降级方式（真实模型/外部服务不可用时）
 

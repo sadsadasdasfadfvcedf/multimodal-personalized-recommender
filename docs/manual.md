@@ -396,6 +396,7 @@ integrated_ai_project/
 
 ```text
 │  ├─ 12_text_norm_check.py                    文本规范化与流畅度门控
+│  ├─ 14_asr_quality_check.py                  ASR 识别质量评测（可选）
 │  ├─ 13_webui_acceptance.py                   网页改版验收（10 项，需 Edge）
 │  ├─ run_all_offline.py                       一键跑完整离线套件（汇总表）
 ```
@@ -527,6 +528,7 @@ python chat.py --user 14156         # 换用户（15547 林先生 / 14156 陈小
 | python scripts/10_real_llm_check.py | 真实 LLM 解释链路（可选） | outputs/real_llm_check.json |
 | python scripts/11_llm_model_compare.py | LLM 选型对比（可选） | outputs/llm_model_compare.json |
 | python scripts/12_text_norm_check.py | 文本规范化与流畅度门控 | outputs/text_norm_check.json |
+| python scripts/14_asr_quality_check.py | ASR 识别质量评测（需权重，可选） | outputs/asr_quality_check.json |
 | python scripts/13_webui_acceptance.py | 网页改版验收（需 webui 在跑 + Edge） | outputs/webui_acceptance.json |
 | python scripts/run_all_offline.py | 一键跑完整离线套件（9 个脚本，约 24 秒） | 刷新全部 outputs/ 证据 |
 | python scripts/clean_workspace.py | 打包前清理 | 删除 __pycache__ / *.pyc |
