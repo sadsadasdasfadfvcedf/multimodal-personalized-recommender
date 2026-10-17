@@ -39,6 +39,9 @@ code "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_a
 python scripts/run_all_offline.py          # 9 个脚本，约 24 秒，末尾出汇总表
 ```
 
+中文 cmd / PowerShell 里可以直接运行：脚本启动时会把控制台代码页切到 UTF-8（65001），
+不会再因为 `▶` / `✅` 这类字符抛 `UnicodeEncodeError`。
+
 详细用法见 **`.vscode/README.md`**。
 
 ## 1. 快速开始
@@ -181,7 +184,7 @@ python -m pip install -r requirements.txt
 | `numpy` | 数值处理 | 使用纯 Python 实现 |
 | `jieba` | 中文分词（RAG 检索） | 退化为字符二元组 |
 | `requests` | 推荐系统 HTTP 模式 | 跳过 HTTP 策略，使用本地制品/内置快照 |
-| `edge-tts` | 在线语音合成 | 回退 Windows SAPI（离线），再失败则纯文本 |
+| `edge-tts` | 在线语音合成 | 回退 Windows SAPI（System.Speech → SAPI COM，离线）；无语音包/无音频会话时回退纯文本（`00_check_env.py` 会预检） |
 | `zhconv` | 繁体转简体（LLM 输出规范化） | 仅做检测，检出繁体即回退模板解释 |
 
 ## 3. 运行

@@ -9,7 +9,7 @@
 | R-01 | 真实 ASR/VL 模型在答辩机不可用（缺 GPU/驱动/依赖） | 技术 | 高 | 高 | **P0** | 适配器三级降级；`--mode offline` 默认不加载重型模型；离线场景桩与真实链路共用同一契约 | `src/adapters/multimodal_adapter.py` |
 | R-02 | 推荐系统服务未启动 / 端口被占用 | 技术 | 中 | 中 | P1 | HTTP → 发布制品 → 内置快照自动降级，并在 trace 留痕 | `src/adapters/recommender_adapter.py` |
 | R-03 | 麦克风/摄像头被其他进程占用 | 环境 | 中 | 中 | P2 | 演示前运行 `00_check_env.py`；准备场景桩作为替补 | `scripts/00_check_env.py` |
-| R-04 | 语音合成依赖网络（edge-tts） | 环境 | 中 | 低 | P2 | 自动回退 Windows SAPI 离线引擎；再失败则纯文本呈现 | `src/presentation.py` |
+| R-04 | 语音合成依赖网络（edge-tts） | 环境 | 中 | 低 | P2 | 自动回退 Windows SAPI（System.Speech → SAPI COM）；无语音包/无音频会话时回退纯文本，`00_check_env.py` 会预检 | `src/presentation.py` |
 | R-05 | 硬约束过滤后无结果导致空屏 | 产品 | 中 | 高 | **P0** | 分层降级并显式标注 `degraded=true` + `constraint_satisfied=false` + 提示语 | `src/ranking.py` |
 | R-06 | 解释出现幻觉（编造属性/价格） | 合规 | 中 | 高 | **P0** | 解释只读 `EvidencePack`；无实质性证据直接 `E_NO_EVIDENCE`；价格一致性核验；接入真实 LLM 后增加**事实门控 + 格式门控**，不过则回退模板 | `src/explain.py` / `src/evidence.py` / `src/llm_explain.py` |
 | R-07 | 负反馈污染其他会话 | 产品 | 低 | 高 | P1 | 偏好按 `session_id` 隔离；A/B 脚本含隔离复核（会话 C） | `src/session.py` / `src/feedback.py` |
@@ -84,6 +84,7 @@
 2. 相似索引以商品标题/描述/类目离线生成，对同义不同名的商品召回有限；
 3. 意图理解目前是**规则 + 词表**方案，未使用学习型分类器（阶段文档允许的进阶项）；
 4. 语音呈现依赖 Windows SAPI 或 edge-tts，未接入 multimodal_ai 的完整 TTS 音色体系；
+   SAPI 需要系统语音包与可用音频会话，否则 `voice_available=false` 并回退纯文本（`00_check_env.py` 会先实测一句）；
 5. 真实多模态模式已**实测通过**（RTX 4060 / Realtek 麦克风 / 640×480 摄像头）；
    限制在于：真实手势依赖真人配合，本机验证使用历史手势快照回放；
    真实 LLM 解释已接入：Qwen3-4B-Instruct-2507 可用率 100%（4/4），Qwen2-1.5B 为 50%；

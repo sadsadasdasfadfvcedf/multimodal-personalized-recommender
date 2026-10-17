@@ -128,7 +128,7 @@
 | 7 | 可控精排 | 硬约束先过滤（预算/类目/颜色/排除项）；0.55 基础分 + 0.20 约束命中 + 0.10 来源可信 + 0.15 会话偏好重排；空结果放宽与热门兜底 | src/ranking.py | 3 | 硬约束核验 0 违规； 三类 trace：ok / empty / degraded |
 | 8 | 证据包 | 商品事实、候选来源、命中约束、视觉标签、KB 片段、价格一致性核验 | src/evidence.py src/catalog.py | 4 | 解释↔证据对照表 证据条数 9 / 6 / 6 / 7 / 8 |
 | 9 | RAG 解释 | 纯 Python BM25 检索 6 篇知识库文档 / 18 个片段；可选接入真实 LLM，但须连过事实、格式、流畅度三道门控 | src/explain.py src/rag.py src/llm_explain.py | 4 | stage04_explanations.json 7/7；Qwen3-4B 门控通过 4/4 |
-| 10 | 文本 / 语音呈现 | 文本回复 + TTS 语音播报（edge-tts → Windows SAPI → 纯文本三级）；播报内容是文本的摘录而非新内容 | src/presentation.py | 4 | 呈现一致性检查通过 （92 字文本 → 14 字播报） |
+| 10 | 文本 / 语音呈现 | 文本回复 + TTS 语音播报（edge-tts → Windows SAPI System.Speech → SAPI COM → 纯文本四级）；播报内容是文本的摘录而非新内容 | src/presentation.py | 4 | 呈现一致性检查通过 （92 字文本 → 14 字播报） |
 | 11 | 反馈闭环 | 点赞 / 倒赞写入会话偏好、正负互斥、反馈前后 A/B 对照、负反馈不污染其他会话 | src/feedback.py | 5 | stage05_feedback_ab.json 8/8：成功 3 · 无变化 3 · 反向 1 · 失败 1 |
 | 12 | 可观测与验收 | 全链路 trace、降级矩阵、故障注入、隐私扫描、打包清单、一键端到端验收 | src/orchestrator.py src/privacy.py | 3 · 6 | stage06_acceptance.json 隐私扫描 PASS（文件数随文档增删变动，以 stage06_acceptance.json 为准） |
 
@@ -265,6 +265,7 @@
 
 ```text
 ⑨ 呈现      文本 + 语音播报；TTS 不可用 → 纯文本（voice_available=false）
+           演示前先跑 00_check_env，最后一行会打印「离线语音是否可用」
 ```
 
 ```text
@@ -456,7 +457,7 @@ integrated_ai_project/
 | numpy | 数值处理 | 使用纯 Python 实现 |
 | jieba | 中文分词（RAG 检索） | 退化为字符二元组 |
 | requests | 推荐系统 HTTP 模式 | 跳过 HTTP 策略，使用本地制品 / 内置快照 |
-| edge-tts | 在线语音合成 | 回退 Windows SAPI（离线），再失败则纯文本 |
+| edge-tts | 在线语音合成 | 回退 Windows SAPI（System.Speech → SAPI COM，离线）；无语音包/无音频会话时回退纯文本 |
 | zhconv | 繁体转简体（LLM 输出规范化） | 仅做检测，检出繁体即回退模板解释 |
 
 表 6-1  可选依赖与降级行为
