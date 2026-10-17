@@ -10,6 +10,7 @@ scripts/00_check_env.py
     3. 两个适配器的健康状态与降级情况
     4. 知识库索引条数
     5. 关键依赖可用性（numpy / jieba / requests / edge-tts / torch）
+    6. 离线语音自检（Windows SAPI / SAPI COM，演示前必看）
 
 输出：outputs/env_check.json
 """
@@ -23,6 +24,7 @@ from _bootstrap import PROJECT_ROOT, banner  # noqa: F401
 from config import settings
 from src.adapters import MultimodalAdapter, RecommenderAdapter
 from src.catalog import Catalog
+from src.presentation import probe_offline_tts
 from src.rag import KnowledgeBase
 from src.utils import now_iso, write_json
 
@@ -59,6 +61,10 @@ def main() -> int:
         name: ("available" if importlib.util.find_spec(name) is not None else "missing") for name in DEPS
     }
 
+    # 6) 离线语音自检：不联网，只测本地 SAPI。纯文本降级仍然是可用状态，
+    #    但演示前应当知道「到底有没有声音」。
+    report["presentation"] = probe_offline_tts()
+
     print(f"项目根目录      : {settings.PROJECT_ROOT}")
     print(f"运行模式        : {settings.RUNTIME['mode']}（allow_real_models={settings.RUNTIME['allow_real_models']}）")
     print(f"推荐系统根目录  : {settings.RECOMMENDER_ROOT}")
@@ -70,6 +76,11 @@ def main() -> int:
     print(f"多模态适配器    : {multimodal.active_mode}（降级 {len(multimodal.degradations)} 次）")
     print(f"知识库          : {kb.size()} 个片段 / {len(kb.docs())} 篇文档")
     print("依赖状态        : " + ", ".join(f"{k}={v}" for k, v in report["dependencies"].items()))
+    voice = report["presentation"]
+    print(
+        "离线语音        : "
+        + (f"可用（{voice['engine']}）" if voice["available"] else "不可用 → 将回退纯文本（详情见 env_check.json）")
+    )
 
     path = write_json(settings.PATHS["outputs"] / "env_check.json", report)
     print(f"\n[00_check_env] 环境检查报告已写入 {path}")

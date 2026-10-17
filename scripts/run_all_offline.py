@@ -19,7 +19,10 @@ import subprocess
 import sys
 import time
 
-from _bootstrap import PROJECT_ROOT, banner
+# 父进程不写 __pycache__，否则 stage06 的缓存清理结果会随运行方式变化
+sys.dont_write_bytecode = True
+
+from _bootstrap import PROJECT_ROOT, banner  # noqa: E402
 
 SUITE = [
     ("00", "环境检查", "00_check_env.py"),

@@ -6,8 +6,13 @@ src/presentation.py
 
 语音引擎优先级：
     1. edge-tts（在线，音质好；需要网络）
-    2. Windows SAPI（离线，System.Speech；随 Windows 提供）
-    3. 不可用 → 仅文本呈现，voice_available=false（L2 降级，会记录到证据里）
+    2. Windows SAPI · System.Speech（离线，.NET Framework 程序集）
+    3. Windows SAPI · COM（离线，SAPI.SpVoice；PowerShell 5.1 / 7 都可用）
+    4. 不可用 → 仅文本呈现，voice_available=false（L2 降级，会记录到证据里）
+
+为什么本地要留两条：`System.Speech` 依赖 .NET Framework 程序集，在精简环境或
+只装了 PowerShell 7 的机器上可能加载失败；SAPI COM 覆盖面更广。`00_check_env.py`
+会用 `probe_offline_tts()` 在演示前实测一句，避免现场才发现没有语音。
 
 所有失败都被记录为结构化降级事件，不会静默吞掉。
 """
@@ -128,6 +133,80 @@ def _sapi_synthesize(text: str, out_path: Path, timeout_s: int) -> tuple[bool, s
     return True, "windows-sapi"
 
 
+def _sapi_com_synthesize(text: str, out_path: Path, timeout_s: int) -> tuple[bool, str]:
+    """Windows 离线 TTS（SAPI COM）。
+
+    与 System.Speech 的差别：SAPI COM 在 Windows PowerShell 5.1 与 PowerShell 7
+    下都可用；System.Speech 依赖 .NET Framework 程序集，部分环境会加载失败。
+    输出固定为 16kHz / 16bit / 单声道，与项目的 ASR 输入规格一致。
+    """
+    powershell = shutil.which("powershell") or shutil.which("pwsh")
+    if not powershell:
+        return False, "未找到 PowerShell，无法使用 Windows 离线 TTS"
+    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as fh:
+        fh.write(text)
+        text_path = Path(fh.name)
+    out_lit = str(out_path).replace("'", "''")
+    text_lit = str(text_path).replace("'", "''")
+    script = (
+        "$ErrorActionPreference='Stop';"
+        "$v = New-Object -ComObject SAPI.SpVoice;"
+        "$f = New-Object -ComObject SAPI.SpAudioFormat; $f.Type = 18;"
+        "$s = New-Object -ComObject SAPI.SpFileStream; $s.Format = $f;"
+        f"$s.Open('{out_lit}', 3, $false);"
+        "$v.AudioOutputStream = $s;"
+        f"$t = Get-Content -Raw -Encoding UTF8 -LiteralPath '{text_lit}';"
+        "$null = $v.Speak($t);"
+        "$s.Close();"
+    )
+    try:
+        proc = subprocess.run(
+            [powershell, "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+        )
+    except subprocess.TimeoutExpired:
+        _cleanup_partial(out_path)
+        return False, "Windows SAPI COM 合成超时"
+    finally:
+        text_path.unlink(missing_ok=True)
+    if proc.returncode != 0:
+        _cleanup_partial(out_path)
+        return False, f"Windows SAPI COM 失败: {(proc.stderr or '').strip()[:160]}"
+    if not (out_path.exists() and out_path.stat().st_size > 0):
+        _cleanup_partial(out_path)
+        return False, "Windows SAPI COM 未产生有效音频"
+    return True, "windows-sapi-com"
+
+
+def probe_offline_tts(timeout_s: int = 10) -> dict:
+    """演示前自检：只用本地引擎合成一句极短文本（不联网）。
+
+    返回 {available, engine, path, bytes, errors}。
+    无音频会话 / 未装语音包的机器会在这里暴露，而不是等到答辩现场。
+    """
+    out_dir = settings.PATHS["artifacts"] / "tts_probe"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "probe.wav"
+    errors: list[str] = []
+    for name, fn in (
+        ("windows-sapi", lambda: _sapi_synthesize("演示前语音自检", out_path, timeout_s)),
+        ("windows-sapi-com", lambda: _sapi_com_synthesize("演示前语音自检", out_path, timeout_s)),
+    ):
+        ok_flag, detail = fn()
+        if ok_flag and out_path.exists() and out_path.stat().st_size > 0:
+            return {
+                "available": True,
+                "engine": detail,
+                "path": str(out_path),
+                "bytes": out_path.stat().st_size,
+                "errors": errors,
+            }
+        errors.append(f"{name}: {detail}")
+    return {"available": False, "engine": None, "path": None, "bytes": 0, "errors": errors}
+
+
 def synthesize(text: str, *, out_dir: Path | None = None, voice: str | None = None, engine: str | None = None) -> dict:
     """合成语音。返回 {"available", "path", "engine", "error", "bytes"}。"""
     voice_cfg = CFG["voice"]
@@ -147,6 +226,7 @@ def synthesize(text: str, *, out_dir: Path | None = None, voice: str | None = No
     if prefer == "edge-tts":
         attempts.append(("edge-tts", edge_path, lambda: _edge_tts_synthesize(text, edge_path, zh_voice, timeout_s)))
     attempts.append(("windows-sapi", sapi_path, lambda: _sapi_synthesize(text, sapi_path, timeout_s)))
+    attempts.append(("windows-sapi-com", sapi_path, lambda: _sapi_com_synthesize(text, sapi_path, timeout_s)))
     if prefer != "edge-tts":
         attempts.append(("edge-tts", edge_path, lambda: _edge_tts_synthesize(text, edge_path, zh_voice, timeout_s)))
 

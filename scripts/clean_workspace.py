@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import shutil
+import time
 
 from _bootstrap import PROJECT_ROOT
 
@@ -51,8 +52,21 @@ def clean(dry_run: bool = False) -> dict:
             if dry_run:
                 removed_dirs.append(str(path.relative_to(PROJECT_ROOT)))
             else:
-                shutil.rmtree(path)
-                removed_dirs.append(str(path.relative_to(PROJECT_ROOT)))
+                rel = str(path.relative_to(PROJECT_ROOT))
+                # Windows 上 .mypy_cache / __pycache__ 可能被杀毒、索引或刚退出的
+                # 工具进程短暂占用（WinError 32）。这里不能直接崩：删不掉就记入
+                # skipped，交给隐私扫描判定，而不是让整条验收链路报 traceback。
+                # Windows 上杀毒/索引/刚退出的工具进程可能短暂占用缓存文件，
+                # 单次 rmtree 会「删一半」。重试三次再判定为 skipped。
+                for _ in range(3):
+                    shutil.rmtree(path, ignore_errors=True)
+                    if not path.exists():
+                        break
+                    time.sleep(0.2)
+                if path.exists():
+                    skipped.append(f"{rel}（被占用，本次未删除）")
+                else:
+                    removed_dirs.append(rel)
         elif path.is_file() and (
             (
                 path.parent == PROJECT_ROOT
@@ -64,8 +78,13 @@ def clean(dry_run: bool = False) -> dict:
             if dry_run:
                 removed_files.append(str(path.relative_to(PROJECT_ROOT)))
             else:
-                path.unlink()
-                removed_files.append(str(path.relative_to(PROJECT_ROOT)))
+                rel = str(path.relative_to(PROJECT_ROOT))
+                try:
+                    path.unlink()
+                except OSError:
+                    skipped.append(f"{rel}（被占用，本次未删除）")
+                else:
+                    removed_files.append(rel)
 
     return {"dirs": removed_dirs, "files": removed_files, "skipped": skipped}
 

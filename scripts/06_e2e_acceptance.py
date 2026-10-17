@@ -205,9 +205,13 @@ def main() -> int:
 
     # 2.3 TTS 不可用 → 纯文本呈现
     with fault("tts_unavailable"):
+        # 注意：合成链路有三条引擎（edge-tts / System.Speech / SAPI COM），
+        # 故障注入必须把它们全部屏蔽，否则后一条会成功兜住、测不出降级。
         original_sapi = presentation_mod._sapi_synthesize
+        original_com = presentation_mod._sapi_com_synthesize
         original_edge = presentation_mod._edge_tts_synthesize
         presentation_mod._sapi_synthesize = lambda *a, **k: (False, "故障注入：SAPI 不可用")  # type: ignore
+        presentation_mod._sapi_com_synthesize = lambda *a, **k: (False, "故障注入：SAPI COM 不可用")  # type: ignore
         presentation_mod._edge_tts_synthesize = lambda *a, **k: (False, "故障注入：edge-tts 不可用")  # type: ignore
         try:
             tts_resp = orch.handle(
@@ -215,6 +219,7 @@ def main() -> int:
             ).data
         finally:
             presentation_mod._sapi_synthesize = original_sapi  # type: ignore
+            presentation_mod._sapi_com_synthesize = original_com  # type: ignore
             presentation_mod._edge_tts_synthesize = original_edge  # type: ignore
     scenarios.append(
         {
@@ -287,6 +292,7 @@ def main() -> int:
         "cleanup": {
             "removed_dirs": cleaned["dirs"],
             "removed_files": cleaned["files"],
+            "skipped": cleaned.get("skipped", []),
             "note": "运行脚本会重新生成 __pycache__；提交前执行 scripts/clean_workspace.py 即可",
         },
         "privacy_scan": {k: v for k, v in privacy.items() if k != "policy"},
