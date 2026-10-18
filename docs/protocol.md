@@ -160,6 +160,11 @@
 
 > `answer`（可选）：寒暄 / 身份问答的直接回答。此时 `recommendations` 为空、
 > `intent_result.intent="chitchat"`，前端应展示 `answer` 而不是「找到 N 件商品」。
+>
+> `intent_result.intent="chat"` 时同样是 `answer` + 空 `recommendations`，
+> 表示**开放问答**（由常驻 LLM 生成，保留多轮上下文）。模型不可用时
+> `status="degraded"`，`answer` 为固定降级提示，并附带 `chat_error`；
+> 前端展示方式与 `chitchat` 相同。
 
 ## 8. 错误码表（`src/errors.py:ErrorCode`）
 

@@ -84,6 +84,7 @@ python scripts/clean_workspace.py
 | `INTEGRATED_DEMO_USER` | 账号 | 未设置 | HTTP 模式演示账号（不在代码中出现） |
 | `INTEGRATED_DEMO_PASSWORD` | 口令 | 未设置 | HTTP 模式演示口令（不在代码中出现） |
 | `INTEGRATED_TIMEOUT_S` | 秒 | `5.0` | 适配器默认超时 |
+| `INTEGRATED_CHAT_TIMEOUT_S` | 秒 | `180` | 单轮开放问答生成超时 |
 
 示例（启用推荐系统 HTTP 模式）：
 
@@ -196,7 +197,30 @@ python -c "from modelscope import snapshot_download; snapshot_download('Qwen/Qwe
 > 因为本机直连 huggingface.co 不可达会让 transformers 长时间挂起（实测 30 分钟无进展）。
 > 需要联网时设 `INTEGRATED_MM_ONLINE=1`。
 
-### 5.6 多模态助手（可选）
+### 5.6 常驻开放问答（可选）
+
+`webui.py --real` / `chat.py --real` 下，非购物类问句（概念解释、写作、翻译、计算等）
+会交给常驻的 `scripts/llm_chat_worker.py`，由 `src/llm_chat.py` 管理生命周期：
+
+- **只加载一次**：首次对话拉起 worker 并加载 Qwen3-4B（约 25~40 秒），后续消息走同一进程；
+- **多轮上下文**：worker 内复用 `TextLLM.chat` 的 6 轮历史；`/reset`、网页「⟳ 重来」、
+  切换用户都会调用 `chat.reset()` 清空；
+- **进程隔离**：worker 以 `cwd=multimodal_ai`、`PYTHONPATH=multimodal_ai` 启动，避免两个
+  项目的 `config` / `src` 同名包冲突；协议走 stdin/stdout JSON 行；
+- **降级**：worker 启动失败或超时，本轮 `status=degraded`，`answer` 为固定提示，
+  推荐链路不受影响；
+- **不污染默认离线模式**：只有 `multimodal.active_mode == "real"` 时才创建 ChatService，
+  `python webui.py` 默认仍不加载任何重型模型。
+
+| 环境变量 | 默认 | 作用 |
+|---|---|---|
+| `INTEGRATED_CHAT_TIMEOUT_S` | `180` | 单轮生成超时（秒） |
+| `MULTIMODAL_LLM_PATH` | 自动探测 | 覆盖 LLM 权重目录 |
+
+实测（本机 RTX 4060，Qwen3-4B-Instruct-2507）：冷启动 26.6 秒，第二轮 4.2 秒，
+技术追问 3.5 秒；`你是谁` 仍走 0.02 秒固定文案。
+
+### 5.7 多模态助手（可选）
 
 真实 ASR/VL/手势需要摄像头、麦克风与重型依赖。离线演示使用 `data/cases` 中的模态输入替代，
 两者的 `InteractionEvent` 契约完全一致。
