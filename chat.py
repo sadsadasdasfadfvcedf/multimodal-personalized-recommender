@@ -60,6 +60,9 @@ class Chat:
         # allow_real 必须显式传参：settings.RUNTIME 在 import 时已求值，
         # 之后再改环境变量不会生效。
         self.orch = Orchestrator(mode=mode, allow_real=allow_real, with_voice=with_voice, use_llm=use_llm)
+        _asr = getattr(self.orch, "asr", None)
+        if _asr is not None:
+            _asr.prewarm()
         self.session_id = self.orch.store.default_session_id(user_id)
         self.with_voice = with_voice
         self.media_dir = settings.PATHS["artifacts"] / "chat"
@@ -138,7 +141,10 @@ class Chat:
             print(f"❌ 录音失败: {rec.error}")
             return
         print("⏳ 识别中…")
-        asr = ad.transcribe(str(wav))
+        asr_service = getattr(self.orch, "asr", None)
+        asr = (
+            asr_service.transcribe(str(wav), sample_rate=16000) if asr_service is not None else ad.transcribe(str(wav))
+        )
         if not asr.ok:
             print(f"❌ 识别失败: {asr.error}")
             return
@@ -294,6 +300,9 @@ class Chat:
         _chat = getattr(self.orch, "chat", None)
         if _chat is not None:
             _chat.stop()
+        _asr = getattr(self.orch, "asr", None)
+        if _asr is not None:
+            _asr.stop()
 
 
 def main() -> int:

@@ -169,6 +169,11 @@ PAGE = r"""<!DOCTYPE html>
   .pgrid.list .pimg{width:132px;flex:none;aspect-ratio:auto}
   .pgrid.list .pbody{flex:1}
   .pgrid.list .pcard h3{-webkit-line-clamp:3;min-height:0}
+  .loadmore{display:block;width:calc(100% - 32px);margin:0 16px 16px;padding:11px;border:1px dashed var(--line-strong);
+            border-radius:10px;background:#fff;color:var(--brand-ink);font-size:13px;cursor:pointer}
+  .loadmore:hover{background:var(--brand-soft)}
+  .loadmore[hidden]{display:none}
+  .loadmore:disabled{opacity:.6;cursor:wait}
   .pcard{position:relative;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;
          background:#fff;display:flex;flex-direction:column;
          transition:box-shadow .16s,border-color .16s,transform .1s}
@@ -298,6 +303,11 @@ PAGE = r"""<!DOCTYPE html>
   .act .shot{display:block;width:100%;max-width:520px;border-radius:10px;border:1px solid var(--line);
              background:#0f1117}
   .act .shotcap{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .mgesture{margin-top:10px;font-size:12.5px}
+  .mgesture .mstatus{padding:6px 9px;border-radius:8px;background:#f7f8fc;color:var(--muted)}
+  .mgesture .mstatus.ok{background:#eafaf0;color:#0a7b43}
+  .mgesture .mstatus.err{background:#fff1f1;color:#b42318}
+  .mgesture .shot{display:block;width:100%;max-width:420px;margin-top:6px;border-radius:8px;border:1px solid var(--line)}
   .badge{margin-left:auto;flex:none;font-size:11px;border-radius:999px;padding:1.5px 8px;
          background:#f1f2f7;color:var(--muted);white-space:nowrap}
   .badge.pending{background:var(--brand-soft);color:var(--brand-ink)}
@@ -505,6 +515,7 @@ PAGE = r"""<!DOCTYPE html>
       </div>
     </div>
     <div class="pgrid" id="pgrid"></div>
+    <button class="loadmore" id="loadMore" hidden>加载更多商品</button>
     <div class="empty" id="empty" style="display:none"></div>
   </section>
 
@@ -565,6 +576,7 @@ const grid = $('pgrid'), stream = $('stream');
 let busy = false, needReal = false, currentItems = [], picked = new Map(), ratings = new Map();
 let activeFilters = [], sortMode = 'match', viewMode = 'grid', userSaid = [];
 let pageSize = 8, lastQuery = null;   // null = 首页货架；字符串 = 最近一次文字需求
+let currentLimit = 8, loadingMore = false, hasMore = true;
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
 const INTENT_ZH = {discover:'随便看看', similar:'找相似', filter:'条件筛选',
@@ -642,13 +654,22 @@ function sorted(items){
   if (sortMode === 'priceDesc') a.sort((x,y) => (y.price ?? -1) - (x.price ?? -1));
   return a;   // match：保持后端返回顺序
 }
-function renderShelf(items, title, subtitle, resp){
-  currentItems = items || [];
+function renderShelf(items, title, subtitle, resp, append){
+  if (append){
+    const seen = new Set(currentItems.map(x => String(x.item_id)));
+    currentItems = currentItems.concat((items || []).filter(x => !seen.has(String(x.item_id))));
+  } else {
+    currentItems = items || [];
+    currentLimit = currentItems.length;
+    hasMore = currentItems.length > 0;
+  }
   if (resp) activeFilters = filtersFrom(resp);
   renderFilters();
   $('shelfTitle').textContent = title || '推荐结果';
   $('shelfCnt').textContent = currentItems.length ? ('共 ' + currentItems.length + ' 件') : '';
   grid.className = 'pgrid' + (viewMode === 'list' ? ' list' : '');
+  const lm = $('loadMore');
+  if (lm) lm.hidden = !hasMore || !currentItems.length;
   if (!currentItems.length){
     grid.innerHTML = '';
     const e = $('empty'); e.style.display = 'block';
@@ -687,6 +708,28 @@ function renderShelf(items, title, subtitle, resp){
         '<button class="cmpbtn" data-cmp>' + (isPicked ? '✓ 已加入对比' : '加入对比') + '</button>' +
       '</div></article>';
   }).join('');
+}
+
+async function loadMore(){
+  if (loadingMore || !hasMore || !currentItems.length) return;
+  loadingMore = true;
+  const btn = $('loadMore');
+  btn.hidden = false; btn.disabled = true; btn.textContent = '正在加载更多商品…';
+  const target = Math.min(120, currentLimit + 12);
+  const text = lastQuery || '推荐一些热门商品';
+  try{
+    const d = await post('/api/more', {text, top_k: target});
+    if (d.ok){
+      const before = currentItems.length;
+      renderShelf(d.items || [], $('shelfTitle').textContent, '', null, true);
+      currentLimit = Math.max(target, currentItems.length);
+      hasMore = currentItems.length > before && (d.items || []).length >= target && currentLimit < 120;
+    } else {
+      hasMore = false;
+    }
+  }catch(e){ hasMore = false; }
+  btn.disabled = false; btn.textContent = '加载更多商品'; btn.hidden = !hasMore;
+  loadingMore = false;
 }
 
 /* ============ 助手对话 ============ */
@@ -943,6 +986,46 @@ async function openCompare(){
 }
 
 /* ============ 商品详情 ============ */
+async function modalGesture(itemId){
+  const box = $('modalGesture'); if (!box || box.dataset.busy === '1') return;
+  box.dataset.busy = '1';
+  const status = (text, cls) => {
+    box.innerHTML = '<div class="mstatus' + (cls ? ' ' + cls : '') + '">' + text + '</div>';
+  };
+  for (let left = 3; left > 0; left--){
+    status('✋ 请把手举到脸旁边，保持手势… ' + left);
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  status('正在连拍并识别…');
+  try{
+    const d = await post('/api/gesture', {item_id: itemId});
+    const shot = d.preview_url ? '<a class="shotwrap" href="' + esc(d.preview_url) +
+      '" target="_blank" rel="noopener"><img class="shot" src="' + esc(d.preview_url) +
+      '" alt="手势抓拍画面"></a><div class="shotcap">抓拍画面 · 点击查看大图</div>' : '';
+    if (d.ok && (d.gesture === 'thumbs_up' || d.gesture === 'thumbs_down')){
+      const pol = (((d.response || {}).feedback) || {}).polarity ||
+                  (d.gesture === 'thumbs_up' ? 'positive' : 'negative');
+      const dir = pol === 'positive' ? 'up' : 'down';
+      ratings.set(String(itemId), dir);
+      const up = $('sheet').querySelector('[data-rate="up"]');
+      const down = $('sheet').querySelector('[data-rate="down"]');
+      if (up && dir === 'up'){ up.style.background = '#dcfce7'; up.textContent = '👍 已喜欢'; }
+      if (down && dir === 'down'){ down.style.background = '#fee2e2'; down.textContent = '👎 已不喜欢'; }
+      const card = document.querySelector('.pcard[data-item="' + itemId + '"]');
+      if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', b.dataset.like === dir));
+      box.innerHTML = '<div class="mstatus ok">已识别 ' + esc(d.gesture) + '，已更新该商品评价</div>' + shot;
+    } else if (d.ok){
+      box.innerHTML = '<div class="mstatus ok">已识别 ' + esc(d.gesture) +
+        (d.message ? ' · ' + esc(d.message) : '') + '</div>' + shot;
+    } else {
+      box.innerHTML = '<div class="mstatus err">' + esc(d.error || '手势未识别') + '</div>' + shot;
+    }
+  }catch(e){
+    box.innerHTML = '<div class="mstatus err">网络失败：' + esc(e.message) + '</div>';
+  }
+  box.dataset.busy = '0';
+}
+
 async function openDetail(itemId){
   $('modal').classList.add('show');
   $('sheet').innerHTML = '<button class="x" data-close="#modal" aria-label="关闭">✕</button>' +
@@ -978,8 +1061,9 @@ async function openDetail(itemId){
             '<button data-rate="down" style="border:none;border-radius:8px;padding:6px 12px;background:#f1f2f7;color:#5c6379">👎 不喜欢</button>' +
             '<button data-cmp2="' + esc(p.item_id) + '" style="border:1px solid #e8eaf2;border-radius:8px;padding:6px 12px;background:#fff;color:#5c6379;margin-left:6px">' +
               (picked.has(p.item_id) ? '✓ 已加入对比' : '▦ 加入对比') + '</button>' +
+            '<button data-gesture2="' + esc(p.item_id) + '" style="border:1px solid #d9d1ff;border-radius:8px;padding:6px 12px;background:#f5f2ff;color:#5b3fd6;margin-left:6px">✋ 手势评价</button>' +
           '</dd>' +
-        '</dl></div></div>' + reason +
+        '</dl><div id="modalGesture" class="mgesture"></div></div></div>' + reason +
       '<div class="sec"><h3>相似商品（点开继续看）</h3><div class="mini">' + sim + '</div></div>';
     $('sheet').querySelectorAll('[data-item]').forEach(el => {
       el.onclick = ev => { ev.stopPropagation(); openDetail(el.dataset.item); };
@@ -995,6 +1079,8 @@ async function openDetail(itemId){
         toast('已更新对比栏');
       }
     };
+    const g2 = $('sheet').querySelector('[data-gesture2]');
+    if (g2) g2.onclick = ev => { ev.stopPropagation(); modalGesture(itemId); };
   }catch(e){
     $('sheet').innerHTML = '<button class="x" data-close="#modal">✕</button>' +
       '<div class="sec errline">' + esc(e.message) + '</div>';
@@ -1181,6 +1267,12 @@ $('fchips').addEventListener('click', ev => {
   const b = ev.target.closest('[data-drop]'); if (b) dropFilter(b.dataset.drop);
 });
 $('sortSel').addEventListener('change', ev => { sortMode = ev.target.value; renderShelf(currentItems); });
+$('loadMore').addEventListener('click', loadMore);
+if ('IntersectionObserver' in window){
+  new IntersectionObserver(entries => {
+    if (entries.some(e => e.isIntersecting)) loadMore();
+  }, {rootMargin: '320px'}).observe($('loadMore'));
+}
 $('pageSize').addEventListener('change', async ev => {
   pageSize = Number(ev.target.value) || 8;
   if (lastQuery === null){ await loadHomeShelf(true); return; }
@@ -1481,6 +1573,9 @@ class App:
         # allow_real 必须**显式传参**：settings.RUNTIME 在 import 时即已求值，
         # 之后再 os.environ[...]="1" 不会生效（这是实测踩到的坑）。
         self.orch = Orchestrator(mode=mode, allow_real=allow_real, with_voice=with_voice, use_llm=use_llm)
+        _asr = getattr(self.orch, "asr", None)
+        if _asr is not None:
+            _asr.prewarm()
         self.session_id = self.orch.store.default_session_id(user_id)
         self.with_voice = with_voice
         self.media = settings.PATHS["artifacts"] / "webui"
@@ -1540,7 +1635,10 @@ class App:
         rec = ad.record_audio(str(wav), seconds=seconds)
         if not rec.ok:
             return _err(ErrorCode.MODALITY_UNAVAILABLE, f"录音失败: {rec.error}")
-        asr = ad.transcribe(str(wav))
+        asr_service = getattr(self.orch, "asr", None)
+        asr = (
+            asr_service.transcribe(str(wav), sample_rate=16000) if asr_service is not None else ad.transcribe(str(wav))
+        )
         if not asr.ok:
             return _err(ErrorCode.MODALITY_UNAVAILABLE, f"识别失败: {asr.error}")
         text = (asr.data or {}).get("text") or ""
@@ -1550,10 +1648,17 @@ class App:
         out["transcript"] = text
         return out
 
-    def gesture(self) -> dict:
+    def gesture(self, item_id: str | None = None) -> dict:
         ad = self.orch.multimodal
         if ad.active_mode != "real":
             return _err(ErrorCode.MODALITY_UNAVAILABLE, "手势识别需要 --real 模式")
+        if item_id:
+            with self.lock:
+                session = self.orch.store.get(self.session_id)
+                if session is not None:
+                    session.focus_item_id = str(item_id)
+                    if str(item_id) not in session.last_item_ids:
+                        session.last_item_ids = [str(item_id), *session.last_item_ids]
         cfg = settings.MULTIMODAL_ADAPTER["gesture"]
         count = max(1, int(cfg.get("capture_frames", 5)))
         interval = max(0, int(cfg.get("capture_interval_ms", 250)))
@@ -1719,7 +1824,7 @@ class App:
 
     def more(self, text: str, top_k: int = 16) -> dict:
         """把当前商品列表扩到 top_k 件；用独立会话，不污染对话历史。"""
-        top_k = max(1, min(40, int(top_k)))
+        top_k = max(1, min(120, int(top_k)))
         spec = {"source": "text", "text": text or "推荐一些热门商品"}
         sid = f"{self.session_id}-more-{int(time.time() * 1000)}"
         with self.lock:
@@ -1732,12 +1837,48 @@ class App:
         if not res.ok:
             return _from_app_error(res.error)
         resp = res.data
-        for item in resp.get("recommendations", []):
+        items = list(resp.get("recommendations", []))
+        # 推荐系统的候选池通常只到 40 件；无限滚动再往后时用目录热门补齐，
+        # 明确标注「商品目录补充」，不冒充个性化精排结果。
+        if len(items) < top_k:
+            catalog = self.orch.catalog
+            seen = {str(item.get("item_id")) for item in items}
+            candidates = list(catalog.popular.get("global_top") or [])
+            if len(candidates) < top_k:
+                candidates.extend(k for k in catalog.catalog if k not in candidates)
+            for iid in candidates:
+                if len(items) >= top_k:
+                    break
+                iid = str(iid)
+                if iid in seen:
+                    continue
+                product = catalog.product(iid)
+                if not product:
+                    continue
+                items.append(
+                    {
+                        "item_id": iid,
+                        "title": product.get("title") or product.get("english_title") or iid,
+                        "category": product.get("category", "其他"),
+                        "price": product.get("price"),
+                        "currency": product.get("currency", catalog.currency),
+                        "score": max(0.10, 0.30 - 0.001 * len(items)),
+                        "rank": len(items) + 1,
+                        "sources": ["商品目录补充"],
+                        "evidence": {"matched_constraints": []},
+                        "explanation": "来自商品目录的更多商品，未参与个性化精排。",
+                        "explanation_source": "template",
+                        "explanation_grounded": True,
+                        "evidence_count": 0,
+                    }
+                )
+                seen.add(iid)
+        for item in items:
             iid = str(item.get("item_id") or "")
             if iid:
                 item["img_url"] = "/api/img/" + urllib.parse.quote(iid)
                 item["emoji"] = category_emoji(item.get("category", ""))
-        return {"ok": True, "items": resp.get("recommendations", []), "top_k": top_k}
+        return {"ok": True, "items": items, "top_k": top_k}
 
     def view(self, item_id: str) -> dict:
         """「继续浏览」弱反馈：用户打开商品详情即上报一次。
@@ -1920,7 +2061,7 @@ def make_handler(app: App):
                 elif self.path == "/api/voice":
                     self._json(app.voice(float(body.get("seconds", 4))))
                 elif self.path == "/api/gesture":
-                    self._json(app.gesture())
+                    self._json(app.gesture(str(body.get("item_id") or "") or None))
                 elif self.path == "/api/vision":
                     self._json(app.vision(str(body.get("question", ""))))
                 elif self.path == "/api/undo":
@@ -1999,6 +2140,9 @@ def main() -> int:
         _chat = getattr(app.orch, "chat", None)
         if _chat is not None:
             _chat.stop()
+        _asr = getattr(app.orch, "asr", None)
+        if _asr is not None:
+            _asr.stop()
     return 0
 
 

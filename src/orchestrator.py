@@ -23,6 +23,7 @@ from typing import Any
 from config import settings
 
 from .adapters import MultimodalAdapter, RecommenderAdapter
+from .asr_service import AsrService
 from .catalog import Catalog
 from .contracts import RecommendationItem, RecommendationRequest
 from .errors import ErrorCode, Result, ok
@@ -80,6 +81,10 @@ class Orchestrator:
             self.chat = ChatService()
         else:
             self.chat = None
+        # 常驻 ASR：同样只在 real 模式启用，避免默认离线加载重型模型
+        self.asr: Any | None = (
+            AsrService() if settings.ASR_CONFIG["enabled"] and self.multimodal.active_mode == "real" else None
+        )
 
     # ============================================================
     # 主入口
