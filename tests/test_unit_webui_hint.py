@@ -50,6 +50,34 @@ def test_err_helper_includes_protocol_fields():
     assert payload["extra"] == "x"
 
 
+def test_gesture_action_mapping_covers_six_gestures():
+    w = _webui()
+    assert w._gesture_action("victory")[0] == "snapshot"
+    assert w._gesture_action("open_palm")[0] == "stop"
+    assert w._gesture_action("index_up")[0] == "start_listening"
+    assert w._gesture_action("index_down")[0] == "mute"
+    assert w._gesture_action("unknown_pose")[0] == "unknown"
+
+
+def test_pick_gesture_uses_votes_then_confidence():
+    """连拍结果按票数优先、同票数看最高置信度。"""
+    rows = [
+        {"hands_detected": 1, "gestures": [{"name": "thumbs_up", "confidence": 0.7}]},
+        {"hands_detected": 1, "gestures": [{"name": "thumbs_up", "confidence": 0.9}]},
+        {"hands_detected": 1, "gestures": [{"name": "victory", "confidence": 0.99}]},
+    ]
+    name, conf, votes, hands = _webui()._pick_gesture(rows)
+    assert name == "thumbs_up"
+    assert conf == 0.9
+    assert votes == {"thumbs_up": 2, "victory": 1}
+    assert hands == 3
+
+
+def test_pick_gesture_returns_none_without_gesture():
+    name, conf, votes, hands = _webui()._pick_gesture([{"hands_detected": 1, "gestures": []}])
+    assert name is None and conf == 0.0 and votes == {} and hands == 1
+
+
 def test_from_app_error_maps_code_and_field():
     w = _webui()
     err = w.ErrorCode.ITEM_NOT_FOUND

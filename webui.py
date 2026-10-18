@@ -711,10 +711,15 @@ function finishAction(id, state, label, detail){
   if (detail) el.querySelector('.d').innerHTML = detail;
   bottom();
 }
+function updateAction(id, detail){
+  const el = $(id); if (!el) return;
+  const d = el.querySelector('.d'); if (d) d.textContent = detail;
+  bottom();
+}
 /* P1-8：失败时给至少一个可点击的下一步 */
 function actionSuggestions(kind){
   const how = {voice:'请靠近麦克风、在安静环境说一句完整的话，说完停顿 1 秒。',
-               gesture:'正对镜头，手离镜头 40–80cm，清楚比出：✋ 停止 · ☝️ 开麦 · ✌️ 拍照 · 👍 音量+ · 👎 音量- · 👇 静音。',
+               gesture:'把手举到脸旁边、靠近画面中央，离镜头约 50–80cm；倒计时结束后保持手势约 1 秒：👍 点赞 · 👎 倒赞 · ✌️ 截图 · ✋ 停止播放 · ☝️ 开始录音 · 👇 暂停播放。',
                vision:'确保画面有光、主体在取景框内，再点一次。'}[kind] || '';
   return '<div class="sugg">' +
     '<button data-retry="' + kind + '">重试一次</button>' +
@@ -1025,6 +1030,13 @@ async function act(kind){
                 gesture:{i:'✋', t:'手势识别', d:'正在抓取画面并识别手势…'},
                 vision:{i:'👁', t:'画面理解', d:'正在抓取画面并做视觉理解（约 20~40 秒）…'}}[kind];
   const id = addAction(meta.i, meta.t, meta.d);
+  if (kind === 'gesture'){
+    for (let left = 3; left > 0; left--){
+      updateAction(id, '请把手举到脸旁边，保持手势… ' + left);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    updateAction(id, '倒计时结束，正在连拍并识别…');
+  }
   try{
     const d = await post('/api/' + kind, kind === 'voice' ? {seconds: 4} : {});
     if (kind === 'voice'){
@@ -1037,8 +1049,20 @@ async function act(kind){
                      esc(d.error || '没听清内容') + actionSuggestions('voice'));
       }
     } else if (kind === 'gesture'){
-      if (d.ok){ finishAction(id, 'ok', '已识别', '手势：<b>' + esc(d.gesture) + '</b>'); renderBot(d.response, true); }
-      else finishAction(id, 'warn', '未识别', esc(d.error) + actionSuggestions('gesture'));
+      if (d.ok){
+        const label = '手势：<b>' + esc(d.gesture) + '</b>';
+        if (d.action === 'stop' || d.action === 'mute'){
+          document.querySelectorAll('audio').forEach(a => a.pause());
+        }
+        if (d.action === 'start_listening'){
+          finishAction(id, 'ok', '已识别', label + '，开始录音…');
+          setBusy(false);
+          setTimeout(() => act('voice'), 250);
+          return;
+        }
+        finishAction(id, 'ok', '已识别', label + (d.message ? ' · ' + esc(d.message) : ''));
+        if (d.response) renderBot(d.response, true);
+      } else finishAction(id, 'warn', '未识别', esc(d.error) + actionSuggestions('gesture'));
     } else if (kind === 'vision'){
       if (d.description){
         finishAction(id, d.ok ? 'ok' : 'warn', d.ok ? '已完成' : '部分完成',
@@ -1348,6 +1372,38 @@ def _err(
     return payload
 
 
+GESTURE_ACTIONS: dict[str, tuple[str, str]] = {
+    "open_palm": ("stop", "已暂停语音播放"),
+    "index_up": ("start_listening", "已识别 ☝️，开始录音"),
+    "index_down": ("mute", "已暂停播放"),
+    "victory": ("snapshot", "已保存当前画面"),
+}
+
+
+def _gesture_action(name: str) -> tuple[str, str]:
+    """非反馈类手势 → 页面动作。👍/👎 不在这里，走推荐反馈链路。"""
+    return GESTURE_ACTIONS.get(name, ("unknown", f"已识别 {name}"))
+
+
+def _pick_gesture(rows: list[dict]) -> tuple[str | None, float, dict[str, int], int]:
+    """从连拍识别结果中按「票数 → 最高置信度」选最佳手势。"""
+    votes: dict[str, int] = {}
+    confs: dict[str, float] = {}
+    hands = 0
+    for row in rows:
+        hands += int(row.get("hands_detected") or 0)
+        for item in row.get("gestures") or []:
+            name = str(item.get("name") or "")
+            if not name:
+                continue
+            votes[name] = votes.get(name, 0) + 1
+            confs[name] = max(confs.get(name, 0.0), float(item.get("confidence") or 0.0))
+    if not votes:
+        return None, 0.0, {}, hands
+    name = max(votes, key=lambda n: (votes[n], confs[n]))
+    return name, confs[name], votes, hands
+
+
 def _from_app_error(err) -> dict:
     if err is None:
         return _err(ErrorCode.INTERNAL_ERROR, "未知错误")
@@ -1438,24 +1494,49 @@ class App:
         ad = self.orch.multimodal
         if ad.active_mode != "real":
             return _err(ErrorCode.MODALITY_UNAVAILABLE, "手势识别需要 --real 模式")
-        frame = self.media / f"gesture_{self.turn}.jpg"
-        cap = ad.capture_frame(str(frame))
-        if not cap.ok:
-            return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {cap.error}")
-        g = ad.recognize_gesture(str(frame))
+        cfg = settings.MULTIMODAL_ADAPTER["gesture"]
+        count = max(1, int(cfg.get("capture_frames", 5)))
+        interval = max(0, int(cfg.get("capture_interval_ms", 250)))
+        stamp = time.strftime("%H%M%S")
+        burst_dir = self.media / f"gesture_{self.turn}_{stamp}"
+        cap = ad.capture_burst(str(burst_dir), count=count, interval_ms=interval)
+        rows: list[dict] = []
+        if cap.ok:
+            g = ad.recognize_gesture_batch(str(burst_dir / "*.jpg"), limit=count)
+        else:
+            # 连拍不可用时退回单帧，保证功能可用
+            frame = self.media / f"gesture_{self.turn}.jpg"
+            cap = ad.capture_frame(str(frame))
+            if not cap.ok:
+                return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {cap.error}")
+            g = ad.recognize_gesture(str(frame))
+            if g.ok:
+                rows = [dict(g.data or {})]
         if not g.ok:
             msg = f"手势识别失败: {g.error}"
             hint = _dep_hint(msg)
             return _err(ErrorCode.MODALITY_UNAVAILABLE, msg + (f"（{hint}）" if hint else ""), hint=hint)
-        gestures = (g.data or {}).get("gestures") or []
-        if not gestures:
-            return _err(ErrorCode.LOW_CONFIDENCE_MODALITY, (g.data or {}).get("note") or "未识别到已定义手势")
-        name = gestures[0]["name"]
-        out = self.handle_spec(
-            {"source": "gesture", "gesture": {"name": name, "confidence": gestures[0]["confidence"]}}
-        )
-        out["gesture"] = name
-        return out
+        if not rows:
+            rows = list((g.data or {}).get("results") or [])
+        name, confidence, votes, hands = _pick_gesture(rows)
+        if name is None:
+            return _err(
+                ErrorCode.LOW_CONFIDENCE_MODALITY,
+                f"未确认出手势（已抓取 {len(rows)} 帧，检测到手 {hands} 次）。"
+                "请等倒计时结束后把手举到脸旁边（画面中央），保持手势约 1 秒。",
+            )
+        extra = {
+            "gesture": name,
+            "gesture_confidence": round(confidence, 4),
+            "gesture_frames": len(rows),
+            "gesture_votes": votes,
+        }
+        if name in ("thumbs_up", "thumbs_down"):
+            out = self.handle_spec({"source": "gesture", "gesture": {"name": name, "confidence": confidence}})
+            out.update(extra)
+            return out
+        action, message = _gesture_action(name)
+        return {"ok": True, **extra, "action": action, "message": message}
 
     def vision(self, question: str) -> dict:
         ad = self.orch.multimodal

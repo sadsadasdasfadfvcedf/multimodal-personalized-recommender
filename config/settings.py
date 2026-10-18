@@ -239,6 +239,9 @@ MULTIMODAL_ADAPTER: dict = {
         "min_confidence": 0.60,
         # 手势 → 反馈极性映射（thumbs_up/down → 正/负反馈）
         "feedback_map": {"thumbs_up": "positive", "thumbs_down": "negative"},
+        # 网页端连拍：一次抓多帧，给用户留出摆姿势的时间，再按票数选最佳结果
+        "capture_frames": int(os.getenv("INTEGRATED_GESTURE_FRAMES", "5")),
+        "capture_interval_ms": int(os.getenv("INTEGRATED_GESTURE_INTERVAL_MS", "250")),
     },
 }
 

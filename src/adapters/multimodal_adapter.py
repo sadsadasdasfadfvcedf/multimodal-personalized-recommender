@@ -442,6 +442,24 @@ class MultimodalAdapter(AdapterBase):
         params = {"image": self._abs(image_path), "stable_frames": int(stable_frames)}
         return self.guard("recognize_gesture", lambda: self._run_worker("gesture", params))
 
+    def recognize_gesture_batch(self, pattern: str, *, limit: int = 8) -> Result:
+        """对一组连拍帧做手势识别（MediaPipe 只初始化一次）。"""
+        if self.active_mode != "real":
+            return fail(
+                ErrorCode.MODALITY_UNAVAILABLE,
+                "offline 模式不执行真实手势识别",
+                field="pattern",
+                active_mode=self.active_mode,
+            )
+        from pathlib import Path as _Path
+
+        p = _Path(str(pattern))
+        resolved = str(p.parent.resolve() / p.name)
+        return self.guard(
+            "recognize_gesture_batch",
+            lambda: self._run_worker("gesture_batch", {"pattern": resolved, "limit": int(limit)}),
+        )
+
     def generate_batch(self, prompts: list[str], *, max_new_tokens: int = 120, temperature: float = 0.2) -> Result:
         """批量真实文本生成（模型只加载一次，显著降低平均耗时）。"""
         if self.active_mode != "real":
@@ -462,6 +480,27 @@ class MultimodalAdapter(AdapterBase):
             "capture_frame",
             lambda: self._run_worker("capture", {"out": self._abs(out_path), "camera_index": int(camera_index)}),
         )
+
+    def capture_burst(
+        self,
+        out_dir: str,
+        *,
+        count: int = 5,
+        interval_ms: int = 250,
+        prefix: str = "frame",
+        camera_index: int = 0,
+    ) -> Result:
+        """连续抓取多帧（单进程内完成），供手势识别挑选最佳结果。"""
+        if self.active_mode != "real":
+            return fail(ErrorCode.MODALITY_UNAVAILABLE, "offline 模式不访问摄像头", field="out_dir")
+        params = {
+            "out_dir": self._abs(out_dir),
+            "count": int(count),
+            "interval_ms": int(interval_ms),
+            "prefix": prefix,
+            "camera_index": int(camera_index),
+        }
+        return self.guard("capture_burst", lambda: self._run_worker("capture_burst", params))
 
     def record_audio(self, out_path: str, seconds: float = 3.0, device_index: int | None = None) -> Result:
         """从真实麦克风录制一段音频。"""

@@ -317,6 +317,47 @@ def action_capture(params: dict):
     return {"path": out, "shape": list(frame.shape), "bytes": Path(out).stat().st_size}
 
 
+def action_capture_burst(params: dict):
+    """连续抓取多帧（同一进程内完成），供手势识别挑选最佳帧。
+
+    为什么需要：单帧抓拍时用户往往还没把手举到镜头前，实测抓到的是
+    「只有人脸、没有手」的画面。连拍 + 前端倒计时可以显著降低这种误判。
+    """
+    import time as _time
+
+    import cv2
+
+    out_dir = Path(params["out_dir"])
+    out_dir.mkdir(parents=True, exist_ok=True)
+    prefix = str(params.get("prefix") or "frame")
+    count = max(1, min(10, int(params.get("count", 5))))
+    interval_ms = max(0, min(1000, int(params.get("interval_ms", 250))))
+    warmup = max(1, min(30, int(params.get("warmup_frames", 8))))
+    index = int(params.get("camera_index", 0))
+
+    cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        raise RuntimeError("摄像头打开失败: index=" + str(index))
+    paths: list[str] = []
+    try:
+        for _ in range(warmup):
+            cap.read()
+        for i in range(count):
+            ok_flag, frame = cap.read()
+            if not ok_flag or frame is None:
+                continue
+            path = out_dir / f"{prefix}_{i:02d}.jpg"
+            _imwrite(path, frame)
+            paths.append(str(path))
+            if interval_ms and i < count - 1:
+                _time.sleep(interval_ms / 1000.0)
+    finally:
+        cap.release()
+    if not paths:
+        raise RuntimeError("摄像头连拍失败")
+    return {"paths": paths, "count": len(paths), "interval_ms": interval_ms}
+
+
 def action_record(params: dict):
     """从真实麦克风录制一段音频并落盘为 WAV（16bit PCM）。"""
     import wave
@@ -545,6 +586,7 @@ ACTIONS = {
     "gesture": action_gesture,
     "gesture_batch": action_gesture_batch,
     "capture": action_capture,
+    "capture_burst": action_capture_burst,
     "record": action_record,
     "llm": action_llm,
     "llm_batch": action_llm_batch,
