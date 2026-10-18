@@ -563,10 +563,11 @@ const matchPct = s => s == null ? null : Math.max(1, Math.min(99, Math.round(Num
 const intentZh = r => zh(INTENT_ZH, ((r.intent_result||{}).intent), '—');
 const statusZh = r => zh(STATUS_ZH, r.status || 'ok');
 
-function media(item, cls){
+function media(item, cls, eager){
   const emoji = item.emoji || '🛍️';
+  const load = eager ? ' loading="eager" fetchpriority="high"' : ' loading="lazy"';
   return '<div class="' + cls + '"><span class="ph">' + emoji + '</span>' +
-    (item.img_url ? '<img loading="lazy" src="' + esc(item.img_url) + '" alt="" onerror="this.remove()">' : '') +
+    (item.img_url ? '<img' + load + ' src="' + esc(item.img_url) + '" alt="" onerror="this.remove()">' : '') +
     '</div>';
 }
 function badge(status, extra){
@@ -645,7 +646,7 @@ function renderShelf(items, title, subtitle, resp){
     const isPicked = picked.has(it.item_id);
     return '<article class="pcard' + (isPicked ? ' picked' : '') + '" data-item="' + esc(it.item_id) + '">' +
       '<div class="rank' + (rank > 3 ? ' plain' : '') + '">TOP ' + rank + '</div>' +
-      media(it, 'pimg').replace('class="pimg"', 'class="pimg" data-open') +
+      media(it, 'pimg', rank <= 2).replace('class="pimg"', 'class="pimg" data-open') +
       '<div class="pacts">' +
         '<button data-like="up" class="' + (ratings.get(it.item_id) === 'up' ? 'on' : '') + '" title="喜欢" aria-label="喜欢">👍</button>' +
         '<button data-like="down" class="' + (ratings.get(it.item_id) === 'down' ? 'on' : '') + '" title="不喜欢" aria-label="不喜欢">👎</button>' +
@@ -876,7 +877,7 @@ async function openCompare(){
     if (!d.ok){ $('cmpSheet').innerHTML = '<button class="x" data-close="#cmpModal">✕</button>' +
       '<div class="sec errline">' + esc(d.error || '读取失败') + '</div>'; return; }
     const rows = [
-      ['商品', p => '<img class="cmpimg" src="' + p.img_url + '" alt="" onerror="this.remove()">'],
+      ['商品', p => '<img class="cmpimg" src="' + esc(p.img_url) + '" alt="" onerror="this.remove()">'],
       ['标题', p => esc(p.title)],
       ['参考价', p => '<b style="color:#dc2626">' + money(p.price) + '</b>'],
       ['类目', p => esc(p.emoji + ' ' + p.category)],
@@ -927,7 +928,7 @@ async function openDetail(itemId){
       '<p>' + esc(s.title) + '</p><span>' + money(s.price) + '</span></div>').join('');
     $('sheet').innerHTML =
       '<button class="x" data-close="#modal" aria-label="关闭">✕</button>' +
-      '<div class="top">' + media({img_url:p.img_url, emoji:p.emoji}, 'big') +
+      '<div class="top">' + media({img_url:p.img_url, emoji:p.emoji}, 'big', true) +
         '<div class="meta"><h2>' + esc(p.title) + '</h2>' +
         '<div class="en">' + esc(p.english_title || '') + '</div>' +
         '<dl class="kv">' +
@@ -1337,6 +1338,7 @@ class App:
         return self.handle_spec({"source": "text", "text": text})
 
     def voice(self, seconds: float) -> dict:
+        seconds = max(1.0, min(10.0, float(seconds)))  # 防止负数/超长录音拖死服务
         ad = self.orch.multimodal
         if ad.active_mode != "real":
             return _err(ErrorCode.MODALITY_UNAVAILABLE, "语音输入需要 --real 模式")
@@ -1460,7 +1462,14 @@ class App:
         """
         spec = {"source": "text", "text": "推荐一些热门商品"}
         with self.lock:
-            res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id + "-home")
+            # 首页只需要文本货架；合成语音会让 /api/home 从 ~5ms 涨到 ~3.3s，
+            # 直接把 LCP 拖到 4s+。这里在锁内临时 dry-run，调用完恢复。
+            prev_dry_run = self.orch.dry_run_voice
+            self.orch.dry_run_voice = True
+            try:
+                res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id + "-home")
+            finally:
+                self.orch.dry_run_voice = prev_dry_run
         if not res.ok:
             return _from_app_error(res.error)
         resp = res.data
@@ -1541,6 +1550,7 @@ class App:
             "user_id": self.user_id,
             "session_id": self.session_id,
             "modes": self.orch.modes(),
+            "ok": True,
             "voice": self.with_voice,
             "llm": bool(self.orch.llm_explainer.enabled),
         }
@@ -1557,6 +1567,16 @@ def make_handler(app: App):
             self.send_response(code)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
+            # 安全响应头（本地演示也加上，避免把页面当内嵌框架/嗅探类型）
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header(
+                "Content-Security-Policy",
+                "default-src 'self'; img-src 'self' data:; media-src 'self'; "
+                "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
+                "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'",
+            )
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(body)
@@ -1572,12 +1592,17 @@ def make_handler(app: App):
             length = int(self.headers.get("Content-Length") or 0)
             if not length:
                 return {}
+            if length > 1_000_000:  # 1MB 上限：本地接口不需要更大请求体
+                return {}
             try:
                 return json.loads(self.rfile.read(length).decode("utf-8"))
             except Exception:
                 return {}
 
         def do_GET(self):
+            if self.path == "/favicon.ico":
+                self._send(204, b"", "image/x-icon")
+                return
             if self.path in ("/", "/index.html"):
                 self._send(200, PAGE.encode("utf-8"), "text/html; charset=utf-8")
                 return
@@ -1591,7 +1616,7 @@ def make_handler(app: App):
                 item_id = urllib.parse.unquote(self.path[len("/api/img/") :].split("?")[0])
                 got = fetch_product_image(item_id)
                 if got is None:
-                    self._json({"error": "image not found"}, 404)
+                    self._json(_err(ErrorCode.ITEM_NOT_FOUND, "图片不存在", field="item_id"), 404)
                 else:
                     data, ctype = got
                     self._send(200, data, ctype)
@@ -1607,9 +1632,9 @@ def make_handler(app: App):
                     ctype = "audio/wav" if target.suffix == ".wav" else "audio/mpeg"
                     self._send(200, target.read_bytes(), ctype)
                 else:
-                    self._json({"error": "not found"}, 404)
+                    self._json(_err(ErrorCode.ITEM_NOT_FOUND, "音频不存在", field="name"), 404)
                 return
-            self._json({"error": "not found"}, 404)
+            self._json(_err(ErrorCode.INVALID_INPUT, f"未知路径：{self.path}", field="path"), 404)
 
         def do_POST(self):
             body = self._body()
@@ -1631,7 +1656,7 @@ def make_handler(app: App):
                     if isinstance(ids, list):
                         self._json(app.products(list(ids)))
                     else:
-                        self._json({"ok": False, "error": "item_ids must be a list"}, 400)
+                        self._json(_err(ErrorCode.INVALID_INPUT, "item_ids 必须是数组", field="item_ids"), 400)
                 elif self.path == "/api/view":
                     self._json(app.view(str(body.get("item_id", ""))))
                 elif self.path == "/api/feedback":
@@ -1644,7 +1669,7 @@ def make_handler(app: App):
                         app.orch.llm_explainer.enabled = enabled
                     self._json({"ok": True, "enabled": enabled})
                 else:
-                    self._json({"error": "not found"}, 404)
+                    self._json(_err(ErrorCode.INVALID_INPUT, f"未知接口：{self.path}", field="path"), 404)
             except Exception as exc:  # 任何异常都回结构化错误，不让页面卡死
                 msg = f"{type(exc).__name__}: {exc}"
                 hint = _dep_hint(msg)
