@@ -187,6 +187,30 @@ python -m pip install -r requirements.txt
 | `edge-tts` | 在线语音合成 | 回退 Windows SAPI（System.Speech → SAPI COM，离线）；无语音包/无音频会话时回退纯文本（`00_check_env.py` 会预检） |
 | `zhconv` | 繁体转简体（LLM 输出规范化） | 仅做检测，检出繁体即回退模板解释 |
 
+### 2.1 真实多模态依赖（版本必须配套）
+
+`--real` / `--mode auto` 会用到 mediapipe、torch、torchvision、transformers。这组依赖**硬耦合**，装错时错误信息不会指向根因：
+
+| 现象 | 根因 | 正确组合 |
+|---|---|---|
+| `'MessageFactory' object has no attribute 'GetPrototype'` | protobuf 版本过高 | mediapipe 0.10.14 要求 `protobuf>=4.25.3,<5` |
+| `operator torchvision::nms does not exist` | torchvision 与 torch 不配套 | torchvision 0.21.0 要求 `torch==2.6.0` |
+| `Could not import module 'AutoProcessor'` | 上一条的连锁反应 | 先修 torchvision |
+
+```powershell
+# CUDA 12.4
+python -m pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu124
+python -m pip install "protobuf>=4.25.3,<5" mediapipe==0.10.14 opencv-python>=4.8 transformers>=4.57
+```
+
+演示前跑一次深检（不联网）：
+
+```powershell
+python scripts/15_deps_check.py
+```
+
+`00_check_env.py` 每次都会做**快速版**检查（只读包元数据），发现问题会直接打印，并写入 `outputs/env_check.json` 的 `dependency_compat`。
+
 ## 3. 运行
 
 ### 3.1 分阶段证据生产（推荐验收顺序）
@@ -207,6 +231,7 @@ python -m pip install -r requirements.txt
 | `python scripts/11_llm_model_compare.py` | LLM 选型对比（可选） | `outputs/llm_model_compare.json` |
 | `python scripts/12_text_norm_check.py` | 文本规范化与流畅度门控 | `outputs/text_norm_check.json` |
 | `python scripts/14_asr_quality_check.py` | ASR 识别质量评测（需权重，可选） | `outputs/asr_quality_check.json`、`artifacts/asr_eval/` |
+| `python scripts/15_deps_check.py` | 真实多模态依赖深检（可选，不联网） | `outputs/deps_check.json` |
 | `python scripts/13_webui_acceptance.py` | 网页改版验收（需 webui 在跑 + Edge） | `outputs/webui_acceptance.json` |
 | `python scripts/clean_workspace.py` | 打包前清理 | 删除 `__pycache__` / `*.pyc` |
 
