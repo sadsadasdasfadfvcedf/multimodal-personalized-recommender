@@ -226,7 +226,7 @@
 
 | 方法 | 路径 | 请求 | 成功响应 | 失败响应 |
 |---|---|---|---|---|
-| GET | `/api/info` | — | `{ok, user_id, session_id, modes, voice, llm}` | — |
+| GET | `/api/info` | — | `{ok, user_id, session_id, modes, account, accounts[], voice, llm}` | — |
 | GET | `/api/home` | — | `{ok, title, subtitle, items[]}` | — |
 | GET | `/api/img/{item_id}` | — | 图片字节 | 404 `E_ITEM_NOT_FOUND` |
 | GET | `/api/product/{item_id}` | — | `{ok, product, similar[]}` | `{ok:false, code:E_ITEM_NOT_FOUND, ...}` |
@@ -238,6 +238,7 @@
 | POST | `/api/vision` | `{question}` | `{ok, description, response}` | 同上 |
 | POST | `/api/undo` / `/api/reset` | `{}` | `{ok, response}` | 同上 |
 | POST | `/api/products` | `{item_ids[]}` | `{ok, products[]}` | 400 `E_INVALID_INPUT` |
+| POST | `/api/user` | `{user_id}` | `{ok, account, session_id}` | `{ok:false, code:E_INVALID_INPUT, field:user_id}` |
 | POST | `/api/state` | `{}` | `{ok, state}` | — |
 | POST | `/api/llm` | `{}` | `{ok, enabled}` | — |
 
