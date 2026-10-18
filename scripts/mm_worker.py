@@ -240,6 +240,59 @@ def action_vl(params: dict):
     }
 
 
+def _configure_lenient_gesture() -> None:
+    """网页端显式手势：放宽阈值，容忍「手挡住脸」和「手掌贴画面下沿」。
+
+    严格模式（外部 GUI / 脚本）仍用 0.5 阈值 + 人脸误检过滤；
+    只有用户主动点「手势」并保持姿势时才走宽松模式。
+    """
+    # 运行时 cwd/PYTHONPATH 指向 multimodal_ai；mypy 会把 `config` 解析成本项目的
+    # config 包（没有 DETECTION_CONFIG），因此这里用动态导入避免静态误报。
+    import importlib
+
+    detection = importlib.import_module("config").DETECTION_CONFIG
+    detection["min_detection_confidence"] = 0.05
+    detection["min_tracking_confidence"] = 0.05
+    detection["gesture_min_confidence"] = 0.50
+    detection["gesture_thumb_min_confidence"] = 0.45
+    detection["gesture_margin"] = 0.03
+
+
+def _lenient_gesture_name(recognizer, hand_landmarks) -> str | None:
+    """绕过 face-overlap / 掌心尺寸门控，直接做几何分类。
+
+    实测用户把手举到脸前时，MediaPipe 会检测到手，但严格门控把它判成
+    「人脸误检」，且掌心贴画面下沿会让 is_plausible_hand 返回 False。
+    """
+    lm = hand_landmarks.landmark
+    xs = [p.x for p in lm]
+    ys = [p.y for p in lm]
+    width = max(xs) - min(xs)
+    height = max(ys) - min(ys)
+    if width < 0.02 or height < 0.04 or width > 0.9 or height > 0.98:
+        return None
+    name, confidence = recognizer._classify(lm)
+    recognizer.last_confidence = confidence
+    return name if name else None
+
+
+def _pick_best_gesture(recognizer, hands, face, lenient: bool):
+    """返回 (name, confidence)；宽松模式对每帧只取置信度最高的一个。"""
+    from src.gesture import GestureRecognizer
+
+    best: tuple[str, float] | None = None
+    for lm in hands.multi_hand_landmarks:
+        picked = GestureRecognizer.pick_hand([lm], getattr(hands, "multi_handedness", None))
+        if picked is None:
+            continue
+        name = _lenient_gesture_name(recognizer, picked) if lenient else recognizer.recognize(picked, face)
+        if name:
+            confidence = float(recognizer.last_confidence or 0.0)
+            if best is None or confidence > best[1]:
+                best = (name, confidence)
+    return best
+
+
 def action_gesture(params: dict):
     from src.gesture import GestureRecognizer
     from src.human_detector import HumanDetector
@@ -249,6 +302,9 @@ def action_gesture(params: dict):
     if frame is None:
         raise FileNotFoundError("无法读取图片: " + image_path)
 
+    lenient = bool(params.get("lenient"))
+    if lenient:
+        _configure_lenient_gesture()
     detector = HumanDetector()
     try:
         res = detector.process_frame(frame)
@@ -272,13 +328,9 @@ def action_gesture(params: dict):
     out["hands_detected"] = len(hands.multi_hand_landmarks)
     # stable_frames=1：单张图片也要能出结果（正常链路是连续帧确认）
     recognizer = GestureRecognizer(stable_frames=int(params.get("stable_frames", 1)))
-    for lm in hands.multi_hand_landmarks:
-        picked = GestureRecognizer.pick_hand([lm], getattr(hands, "multi_handedness", None))
-        if picked is None:
-            continue
-        name = recognizer.recognize(picked, face)
-        if name:
-            out["gestures"].append({"name": name, "confidence": round(float(recognizer.last_confidence or 0.0), 4)})
+    best = _pick_best_gesture(recognizer, hands, face, lenient)
+    if best:
+        out["gestures"].append({"name": best[0], "confidence": round(best[1], 4)})
     if not out["gestures"]:
         out["note"] = "检测到手，但未确认为已定义手势"
     return out
@@ -422,6 +474,9 @@ def action_gesture_batch(params: dict):
 
     pattern = params.get("pattern") or str(Path("outputs") / "gestures" / "*.jpg")
     limit = int(params.get("limit", 20))
+    lenient = bool(params.get("lenient"))
+    if lenient:
+        _configure_lenient_gesture()
     # 保留 glob.glob：Path.glob 不接受绝对路径模式，且对本处的 "**" 语义不同，
     # 直接替换会改变行为，故此处不采纳 PTH207。
     files = sorted(glob.glob(pattern))[:limit]  # noqa: PTH207
@@ -449,15 +504,9 @@ def action_gesture_batch(params: dict):
             if hands and getattr(hands, "multi_hand_landmarks", None):
                 entry["hands_detected"] = len(hands.multi_hand_landmarks)
                 recognizer = GestureRecognizer(stable_frames=1)
-                for lm in hands.multi_hand_landmarks:
-                    picked = GestureRecognizer.pick_hand([lm], getattr(hands, "multi_handedness", None))
-                    if picked is None:
-                        continue
-                    name = recognizer.recognize(picked, face)
-                    if name:
-                        entry["gestures"].append(
-                            {"name": name, "confidence": round(float(recognizer.last_confidence or 0.0), 4)}
-                        )
+                best = _pick_best_gesture(recognizer, hands, face, lenient)
+                if best:
+                    entry["gestures"].append({"name": best[0], "confidence": round(best[1], 4)})
             if not entry["gestures"]:
                 entry["note"] = "未确认出手势" if entry["hands_detected"] else "未检测到手"
             results.append(entry)

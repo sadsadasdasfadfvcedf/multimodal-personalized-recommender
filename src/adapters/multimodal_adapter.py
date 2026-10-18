@@ -430,7 +430,7 @@ class MultimodalAdapter(AdapterBase):
             params["max_pixels"] = int(max_pixels)
         return self.guard("describe_image", lambda: self._run_worker("vl", params))
 
-    def recognize_gesture(self, image_path: str, stable_frames: int = 1) -> Result:
+    def recognize_gesture(self, image_path: str, stable_frames: int = 1, *, lenient: bool = False) -> Result:
         """真实手势识别（MediaPipe + 几何判定）。"""
         if self.active_mode != "real":
             return fail(
@@ -439,10 +439,10 @@ class MultimodalAdapter(AdapterBase):
                 field="image_path",
                 active_mode=self.active_mode,
             )
-        params = {"image": self._abs(image_path), "stable_frames": int(stable_frames)}
+        params = {"image": self._abs(image_path), "stable_frames": int(stable_frames), "lenient": bool(lenient)}
         return self.guard("recognize_gesture", lambda: self._run_worker("gesture", params))
 
-    def recognize_gesture_batch(self, pattern: str, *, limit: int = 8) -> Result:
+    def recognize_gesture_batch(self, pattern: str, *, limit: int = 8, lenient: bool = False) -> Result:
         """对一组连拍帧做手势识别（MediaPipe 只初始化一次）。"""
         if self.active_mode != "real":
             return fail(
@@ -457,7 +457,9 @@ class MultimodalAdapter(AdapterBase):
         resolved = str(p.parent.resolve() / p.name)
         return self.guard(
             "recognize_gesture_batch",
-            lambda: self._run_worker("gesture_batch", {"pattern": resolved, "limit": int(limit)}),
+            lambda: self._run_worker(
+                "gesture_batch", {"pattern": resolved, "limit": int(limit), "lenient": bool(lenient)}
+            ),
         )
 
     def generate_batch(self, prompts: list[str], *, max_new_tokens: int = 120, temperature: float = 0.2) -> Result:

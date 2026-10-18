@@ -294,6 +294,10 @@ PAGE = r"""<!DOCTYPE html>
   .act.warn{border-left-color:var(--warn)} .act.err{border-left-color:var(--bad)}
   .act .t{font-weight:600} .act .d{color:var(--muted);font-size:12.5px;margin-top:2px}
   .act .d b{color:var(--ink)}
+  .act .shotwrap{display:block;line-height:0;margin-top:8px;cursor:zoom-in}
+  .act .shot{display:block;width:100%;max-width:520px;border-radius:10px;border:1px solid var(--line);
+             background:#0f1117}
+  .act .shotcap{font-size:11.5px;color:var(--muted);margin-top:3px}
   .badge{margin-left:auto;flex:none;font-size:11px;border-radius:999px;padding:1.5px 8px;
          background:#f1f2f7;color:var(--muted);white-space:nowrap}
   .badge.pending{background:var(--brand-soft);color:var(--brand-ink)}
@@ -486,6 +490,13 @@ PAGE = r"""<!DOCTYPE html>
           <option value="priceAsc">价格从低到高</option>
           <option value="priceDesc">价格从高到低</option>
         </select>
+        <label class="sr" for="pageSize">显示数量</label>
+        <select id="pageSize" aria-label="显示数量">
+          <option value="8">显示 8 件</option>
+          <option value="16">显示 16 件</option>
+          <option value="24">显示 24 件</option>
+          <option value="40">显示 40 件</option>
+        </select>
         <div class="vswitch" id="viewSwitch" role="group" aria-label="视图切换">
           <button data-view="grid" class="on" aria-label="网格视图">▦</button>
           <button data-view="list" aria-label="列表视图">☰</button>
@@ -553,6 +564,7 @@ const $ = id => document.getElementById(id);
 const grid = $('pgrid'), stream = $('stream');
 let busy = false, needReal = false, currentItems = [], picked = new Map(), ratings = new Map();
 let activeFilters = [], sortMode = 'match', viewMode = 'grid', userSaid = [];
+let pageSize = 8, lastQuery = null;   // null = 首页货架；字符串 = 最近一次文字需求
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
 const INTENT_ZH = {discover:'随便看看', similar:'找相似', filter:'条件筛选',
@@ -728,6 +740,7 @@ function actionSuggestions(kind){
 }
 function renderBot(resp, updateShelf){
   const st = resp.status || 'ok';
+  if (resp.event && resp.event.text) lastQuery = resp.event.text;
   let h = '<div class="rh">' + badge(st) +
           '<span class="k">意图 <b>' + esc(intentZh(resp)) + '</b></span></div>';
   if (resp.error) h += '<div class="errline">' + esc(resp.error.message) + '</div>';
@@ -811,10 +824,11 @@ function setBusy(b){
 async function ask(text, opt){
   opt = opt || {};
   if (!text || busy) return;
+  lastQuery = text;
   if (!opt.silent) addUser(text);
   setBusy(true); addSkeleton();
   try{
-    const d = await post('/api/chat', {text});
+    const d = await post('/api/chat', {text, top_k: pageSize});
     $('sk')?.remove();
     if (d.ok) renderBot(d.response, true);
     else addBot('<div class="errline">' + esc(d.error) + '</div>' +
@@ -1030,6 +1044,9 @@ async function act(kind){
                 gesture:{i:'✋', t:'手势识别', d:'正在抓取画面并识别手势…'},
                 vision:{i:'👁', t:'画面理解', d:'正在抓取画面并做视觉理解（约 20~40 秒）…'}}[kind];
   const id = addAction(meta.i, meta.t, meta.d);
+  const shot = d => d && d.preview_url ? '<a class="shotwrap" href="' + esc(d.preview_url) +
+    '" target="_blank" rel="noopener"><img class="shot" src="' + esc(d.preview_url) +
+    '" alt="手势抓拍画面"></a><div class="shotcap">抓拍画面 · 点击查看大图</div>' : '';
   if (kind === 'gesture'){
     for (let left = 3; left > 0; left--){
       updateAction(id, '请把手举到脸旁边，保持手势… ' + left);
@@ -1055,14 +1072,14 @@ async function act(kind){
           document.querySelectorAll('audio').forEach(a => a.pause());
         }
         if (d.action === 'start_listening'){
-          finishAction(id, 'ok', '已识别', label + '，开始录音…');
+          finishAction(id, 'ok', '已识别', label + '，开始录音…' + shot(d));
           setBusy(false);
           setTimeout(() => act('voice'), 250);
           return;
         }
-        finishAction(id, 'ok', '已识别', label + (d.message ? ' · ' + esc(d.message) : ''));
+        finishAction(id, 'ok', '已识别', label + (d.message ? ' · ' + esc(d.message) : '') + shot(d));
         if (d.response) renderBot(d.response, true);
-      } else finishAction(id, 'warn', '未识别', esc(d.error) + actionSuggestions('gesture'));
+      } else finishAction(id, 'warn', '未识别', esc(d.error) + shot(d) + actionSuggestions('gesture'));
     } else if (kind === 'vision'){
       if (d.description){
         finishAction(id, d.ok ? 'ok' : 'warn', d.ok ? '已完成' : '部分完成',
@@ -1164,6 +1181,19 @@ $('fchips').addEventListener('click', ev => {
   const b = ev.target.closest('[data-drop]'); if (b) dropFilter(b.dataset.drop);
 });
 $('sortSel').addEventListener('change', ev => { sortMode = ev.target.value; renderShelf(currentItems); });
+$('pageSize').addEventListener('change', async ev => {
+  pageSize = Number(ev.target.value) || 8;
+  if (lastQuery === null){ await loadHomeShelf(true); return; }
+  if (!currentItems.length){ toast('当前结果不是商品列表，无法展开'); return; }
+  if (busy) return;
+  setBusy(true);
+  try{
+    const d = await post('/api/more', {text: lastQuery, top_k: pageSize});
+    if (d.ok) renderShelf(d.items, $('shelfTitle').textContent, '', null);
+    else toast(d.error || '展开失败');
+  }catch(e){ toast('展开失败：' + e.message); }
+  setBusy(false);
+});
 $('viewSwitch').addEventListener('click', ev => {
   const b = ev.target.closest('button[data-view]'); if (!b) return;
   viewMode = b.dataset.view;
@@ -1233,8 +1263,9 @@ $('tabbar').addEventListener('click', ev => {
 
 async function loadHomeShelf(force){
   if (!force && userSaid.length) return;   // 用户已经提问，别用首页结果覆盖
+  lastQuery = null;
   try{
-    const h = await (await fetch('/api/home')).json();
+    const h = await (await fetch('/api/home?limit=' + pageSize)).json();
     if (h.ok && h.items && h.items.length){
       renderShelf(h.items, '猜你喜欢', '基于 v146 个性化精排的默认推荐');
     } else {
@@ -1385,6 +1416,35 @@ def _gesture_action(name: str) -> tuple[str, str]:
     return GESTURE_ACTIONS.get(name, ("unknown", f"已识别 {name}"))
 
 
+def _gesture_preview_url(rows: list[dict], name: str | None, burst_dir: Path, media: Path) -> str | None:
+    """选出最佳帧并生成网页可访问的预览地址。"""
+    if not rows:
+        return None
+    best = rows[0]
+    if name:
+        matched = [r for r in rows if any(g.get("name") == name for g in (r.get("gestures") or []))]
+        if matched:
+            best = max(
+                matched,
+                key=lambda r: max(
+                    (float(g.get("confidence") or 0.0) for g in (r.get("gestures") or []) if g.get("name") == name),
+                    default=0.0,
+                ),
+            )
+    image = str(best.get("image") or "")
+    if not image:
+        return None
+    p = Path(image)
+    if p.is_absolute():
+        try:
+            rel = p.resolve().relative_to(media.resolve())
+        except ValueError:
+            rel = Path(burst_dir.name) / p.name
+    else:
+        rel = Path(burst_dir.name) / p.name
+    return "/capture/" + urllib.parse.quote(rel.as_posix())
+
+
 def _pick_gesture(rows: list[dict]) -> tuple[str | None, float, dict[str, int], int]:
     """从连拍识别结果中按「票数 → 最高置信度」选最佳手势。"""
     votes: dict[str, int] = {}
@@ -1449,10 +1509,10 @@ class App:
                 _chat.reset()
         return {"ok": True, "account": target, "session_id": self.session_id}
 
-    def handle_spec(self, spec: dict) -> dict:
+    def handle_spec(self, spec: dict, top_k: int | None = None) -> dict:
         with self.lock:
             self.turn += 1
-            res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id)
+            res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id, top_k=top_k)
         if not res.ok:
             return _from_app_error(res.error)
         resp = res.data
@@ -1468,8 +1528,8 @@ class App:
             pres["audio_url"] = "/audio/" + Path(path).name
         return {"ok": True, "response": resp}
 
-    def chat(self, text: str) -> dict:
-        return self.handle_spec({"source": "text", "text": text})
+    def chat(self, text: str, top_k: int | None = None) -> dict:
+        return self.handle_spec({"source": "text", "text": text}, top_k=top_k)
 
     def voice(self, seconds: float) -> dict:
         seconds = max(1.0, min(10.0, float(seconds)))  # 防止负数/超长录音拖死服务
@@ -1502,14 +1562,14 @@ class App:
         cap = ad.capture_burst(str(burst_dir), count=count, interval_ms=interval)
         rows: list[dict] = []
         if cap.ok:
-            g = ad.recognize_gesture_batch(str(burst_dir / "*.jpg"), limit=count)
+            g = ad.recognize_gesture_batch(str(burst_dir / "*.jpg"), limit=count, lenient=True)
         else:
             # 连拍不可用时退回单帧，保证功能可用
             frame = self.media / f"gesture_{self.turn}.jpg"
             cap = ad.capture_frame(str(frame))
             if not cap.ok:
                 return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {cap.error}")
-            g = ad.recognize_gesture(str(frame))
+            g = ad.recognize_gesture(str(frame), lenient=True)
             if g.ok:
                 rows = [dict(g.data or {})]
         if not g.ok:
@@ -1519,17 +1579,26 @@ class App:
         if not rows:
             rows = list((g.data or {}).get("results") or [])
         name, confidence, votes, hands = _pick_gesture(rows)
+        preview_url = _gesture_preview_url(rows, name, burst_dir, self.media)
         if name is None:
             return _err(
                 ErrorCode.LOW_CONFIDENCE_MODALITY,
                 f"未确认出手势（已抓取 {len(rows)} 帧，检测到手 {hands} 次）。"
                 "请等倒计时结束后把手举到脸旁边（画面中央），保持手势约 1 秒。",
+                preview_url=preview_url,
+            )
+        if votes.get(name, 0) < 2:
+            return _err(
+                ErrorCode.LOW_CONFIDENCE_MODALITY,
+                f"手势结果不稳定（{name} 仅 {votes.get(name, 0)}/{len(rows)} 帧），请保持手势约 1 秒再试。",
+                preview_url=preview_url,
             )
         extra = {
             "gesture": name,
             "gesture_confidence": round(confidence, 4),
             "gesture_frames": len(rows),
             "gesture_votes": votes,
+            "preview_url": preview_url,
         }
         if name in ("thumbs_up", "thumbs_down"):
             out = self.handle_spec({"source": "gesture", "gesture": {"name": name, "confidence": confidence}})
@@ -1617,19 +1686,20 @@ class App:
             "similar": similar,
         }
 
-    def home(self) -> dict:
+    def home(self, limit: int = 8) -> dict:
         """首页商品：用**独立会话**跑一次发现型查询，不污染对话历史。
 
         这样打开页面就有货可看（电商首页观感），而对话面板保持干净。
         """
         spec = {"source": "text", "text": "推荐一些热门商品"}
+        limit = max(1, min(40, int(limit)))
         with self.lock:
             # 首页只需要文本货架；合成语音会让 /api/home 从 ~5ms 涨到 ~3.3s，
             # 直接把 LCP 拖到 4s+。这里在锁内临时 dry-run，调用完恢复。
             prev_dry_run = self.orch.dry_run_voice
             self.orch.dry_run_voice = True
             try:
-                res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id + "-home")
+                res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id + "-home", top_k=limit)
             finally:
                 self.orch.dry_run_voice = prev_dry_run
         if not res.ok:
@@ -1646,6 +1716,28 @@ class App:
             "title": "猜你喜欢",
             "subtitle": "基于 v146 个性化精排的默认推荐",
         }
+
+    def more(self, text: str, top_k: int = 16) -> dict:
+        """把当前商品列表扩到 top_k 件；用独立会话，不污染对话历史。"""
+        top_k = max(1, min(40, int(top_k)))
+        spec = {"source": "text", "text": text or "推荐一些热门商品"}
+        sid = f"{self.session_id}-more-{int(time.time() * 1000)}"
+        with self.lock:
+            prev_dry_run = self.orch.dry_run_voice
+            self.orch.dry_run_voice = True
+            try:
+                res = self.orch.handle(spec, user_id=self.user_id, session_id=sid, top_k=top_k)
+            finally:
+                self.orch.dry_run_voice = prev_dry_run
+        if not res.ok:
+            return _from_app_error(res.error)
+        resp = res.data
+        for item in resp.get("recommendations", []):
+            iid = str(item.get("item_id") or "")
+            if iid:
+                item["img_url"] = "/api/img/" + urllib.parse.quote(iid)
+                item["emoji"] = category_emoji(item.get("category", ""))
+        return {"ok": True, "items": resp.get("recommendations", []), "top_k": top_k}
 
     def view(self, item_id: str) -> dict:
         """「继续浏览」弱反馈：用户打开商品详情即上报一次。
@@ -1773,8 +1865,24 @@ def make_handler(app: App):
             if self.path == "/api/info":
                 self._json(app.info())
                 return
-            if self.path == "/api/home":
-                self._json(app.home())
+            if self.path.startswith("/api/home"):
+                parsed = urllib.parse.urlparse(self.path)
+                qs = urllib.parse.parse_qs(parsed.query)
+                try:
+                    limit = int((qs.get("limit") or ["8"])[0])
+                except ValueError:
+                    limit = 8
+                self._json(app.home(limit))
+                return
+            if self.path.startswith("/capture/"):
+                rel = urllib.parse.unquote(self.path[len("/capture/") :].split("?")[0])
+                base = (settings.PATHS["artifacts"] / "webui").resolve()
+                target = (base / rel).resolve()
+                if target.is_relative_to(base) and target.is_file():
+                    ctype = "image/png" if target.suffix.lower() == ".png" else "image/jpeg"
+                    self._send(200, target.read_bytes(), ctype)
+                else:
+                    self._json(_err(ErrorCode.ITEM_NOT_FOUND, "抓拍画面不存在", field="path"), 404)
                 return
             if self.path.startswith("/api/img/"):
                 item_id = urllib.parse.unquote(self.path[len("/api/img/") :].split("?")[0])
@@ -1804,7 +1912,11 @@ def make_handler(app: App):
             body = self._body()
             try:
                 if self.path == "/api/chat":
-                    self._json(app.chat(str(body.get("text", ""))))
+                    raw_k = body.get("top_k")
+                    self._json(app.chat(str(body.get("text", "")), int(raw_k) if raw_k else None))
+                elif self.path == "/api/more":
+                    raw_k = body.get("top_k")
+                    self._json(app.more(str(body.get("text", "")), int(raw_k) if raw_k else 16))
                 elif self.path == "/api/voice":
                     self._json(app.voice(float(body.get("seconds", 4))))
                 elif self.path == "/api/gesture":
