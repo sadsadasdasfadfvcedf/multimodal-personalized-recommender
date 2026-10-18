@@ -891,7 +891,7 @@ async function rate(itemId, polarity){
                        polarity === 'up' ? '点赞' : '倒赞', '正在写入会话偏好并重新排序…');
   setBusy(true);
   try{
-    const d = await post('/api/feedback', {item_id: itemId, polarity: polarity});
+    const d = await post('/api/feedback', {item_id: itemId, polarity: polarity, top_k: pageSize});
     const r = d.response || {};
     const okStatus = r.status === 'ok' || r.status === 'degraded';
     if (d.ok && okStatus){
@@ -998,7 +998,7 @@ async function modalGesture(itemId){
   }
   status('正在连拍并识别…');
   try{
-    const d = await post('/api/gesture', {item_id: itemId});
+    const d = await post('/api/gesture', {item_id: itemId, top_k: pageSize});
     const shot = d.preview_url ? '<a class="shotwrap" href="' + esc(d.preview_url) +
       '" target="_blank" rel="noopener"><img class="shot" src="' + esc(d.preview_url) +
       '" alt="手势抓拍画面"></a><div class="shotcap">抓拍画面 · 点击查看大图</div>' : '';
@@ -1141,7 +1141,8 @@ async function act(kind){
     updateAction(id, '倒计时结束，正在连拍并识别…');
   }
   try{
-    const d = await post('/api/' + kind, kind === 'voice' ? {seconds: 4} : {});
+    const payload = kind === 'voice' ? {seconds: 4, top_k: pageSize} : {top_k: pageSize};
+    const d = await post('/api/' + kind, payload);
     if (kind === 'voice'){
       if (d.transcript){
         finishAction(id, d.ok ? 'ok' : 'warn', d.ok ? '已识别' : '未识别',
@@ -1626,7 +1627,7 @@ class App:
     def chat(self, text: str, top_k: int | None = None) -> dict:
         return self.handle_spec({"source": "text", "text": text}, top_k=top_k)
 
-    def voice(self, seconds: float) -> dict:
+    def voice(self, seconds: float, top_k: int | None = None) -> dict:
         seconds = max(1.0, min(10.0, float(seconds)))  # 防止负数/超长录音拖死服务
         ad = self.orch.multimodal
         if ad.active_mode != "real":
@@ -1644,11 +1645,11 @@ class App:
         text = (asr.data or {}).get("text") or ""
         if not text.strip():
             return _err(ErrorCode.EMPTY_TRANSCRIPT, "未识别到有效语音", field="text", transcript="")
-        out = self.handle_spec({"source": "voice", "text": text})
+        out = self.handle_spec({"source": "voice", "text": text}, top_k=top_k)
         out["transcript"] = text
         return out
 
-    def gesture(self, item_id: str | None = None) -> dict:
+    def gesture(self, item_id: str | None = None, top_k: int | None = None) -> dict:
         ad = self.orch.multimodal
         if ad.active_mode != "real":
             return _err(ErrorCode.MODALITY_UNAVAILABLE, "手势识别需要 --real 模式")
@@ -1706,13 +1707,15 @@ class App:
             "preview_url": preview_url,
         }
         if name in ("thumbs_up", "thumbs_down"):
-            out = self.handle_spec({"source": "gesture", "gesture": {"name": name, "confidence": confidence}})
+            out = self.handle_spec(
+                {"source": "gesture", "gesture": {"name": name, "confidence": confidence}}, top_k=top_k
+            )
             out.update(extra)
             return out
         action, message = _gesture_action(name)
         return {"ok": True, **extra, "action": action, "message": message}
 
-    def vision(self, question: str) -> dict:
+    def vision(self, question: str, top_k: int | None = None) -> dict:
         ad = self.orch.multimodal
         if ad.active_mode != "real":
             return _err(ErrorCode.MODALITY_UNAVAILABLE, "视觉理解需要 --real 模式")
@@ -1729,7 +1732,8 @@ class App:
         out = self.handle_spec(
             # 没有提问时 text 必须传 None：传空串会被 parse_event 当成「空 ASR 文本」
             # 直接返回 E_EMPTY_TRANSCRIPT，视觉标签根本走不到（modality=visual 分支）。
-            {"source": "vision", "text": question or None, "visual_tags": [{"tag": desc[:24], "confidence": 0.85}]}
+            {"source": "vision", "text": question or None, "visual_tags": [{"tag": desc[:24], "confidence": 0.85}]},
+            top_k=top_k,
         )
         out["description"] = desc
         return out
@@ -1898,7 +1902,7 @@ class App:
             return _err(ErrorCode.ITEM_NOT_FOUND, "商品不在目录中")
         return self.handle_spec({"source": "browse", "item_id": str(item_id)})
 
-    def feedback(self, item_id: str, polarity: str) -> dict:
+    def feedback(self, item_id: str, polarity: str, top_k: int | None = None) -> dict:
         """商品卡上的点赞/倒赞：先把会话焦点指到该商品，再走正规反馈链路。
 
         复用 Orchestrator 的反馈闭环（正负互斥、会话隔离、反馈后重排），
@@ -1912,7 +1916,7 @@ class App:
                 sess.focus_item_id = str(item_id)
                 if str(item_id) not in sess.last_item_ids:
                     sess.last_item_ids = [str(item_id), *sess.last_item_ids]
-        return self.handle_spec({"source": "gesture", "gesture": {"name": name, "confidence": 1.0}})
+        return self.handle_spec({"source": "gesture", "gesture": {"name": name, "confidence": 1.0}}, top_k=top_k)
 
     def products(self, item_ids: list[str]) -> dict:
         """批量取商品详情 —— 供对比栏做字段对照。
@@ -2067,11 +2071,14 @@ def make_handler(app: App):
                     raw_k = body.get("top_k")
                     self._json(app.more(str(body.get("text", "")), int(raw_k) if raw_k else 16))
                 elif self.path == "/api/voice":
-                    self._json(app.voice(float(body.get("seconds", 4))))
+                    raw_k = body.get("top_k")
+                    self._json(app.voice(float(body.get("seconds", 4)), int(raw_k) if raw_k else None))
                 elif self.path == "/api/gesture":
-                    self._json(app.gesture(str(body.get("item_id") or "") or None))
+                    raw_k = body.get("top_k")
+                    self._json(app.gesture(str(body.get("item_id") or "") or None, int(raw_k) if raw_k else None))
                 elif self.path == "/api/vision":
-                    self._json(app.vision(str(body.get("question", ""))))
+                    raw_k = body.get("top_k")
+                    self._json(app.vision(str(body.get("question", "")), int(raw_k) if raw_k else None))
                 elif self.path == "/api/undo":
                     self._json(app.control("undo"))
                 elif self.path == "/api/reset":
@@ -2085,7 +2092,14 @@ def make_handler(app: App):
                 elif self.path == "/api/view":
                     self._json(app.view(str(body.get("item_id", ""))))
                 elif self.path == "/api/feedback":
-                    self._json(app.feedback(str(body.get("item_id", "")), str(body.get("polarity", "positive"))))
+                    raw_k = body.get("top_k")
+                    self._json(
+                        app.feedback(
+                            str(body.get("item_id", "")),
+                            str(body.get("polarity", "positive")),
+                            int(raw_k) if raw_k else None,
+                        )
+                    )
                 elif self.path == "/api/user":
                     self._json(app.switch_user(str(body.get("user_id", ""))))
                 elif self.path == "/api/state":
