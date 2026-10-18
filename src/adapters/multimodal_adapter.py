@@ -207,20 +207,34 @@ class MultimodalAdapter(AdapterBase):
         # 1) ASR 文本治理
         if text is not None:
             asr_cfg = CFG["asr"]
-            if not is_non_empty_str(text) or len(str(text).strip()) < asr_cfg["min_text_len"]:
-                return fail(
-                    ErrorCode.EMPTY_TRANSCRIPT,
-                    f"语音识别结果为空或过短（< {asr_cfg['min_text_len']} 字符），不做意图推测",
-                    field="text",
-                )
-            text = str(text).strip()
-            steps.append({"stage": "asr", "action": "accepted", "text_len": len(text)})
+            candidate = str(text).strip()
+            too_short = (not is_non_empty_str(candidate)) or len(candidate) < asr_cfg["min_text_len"]
+            if too_short:
+                # 空文本有两种含义，必须区分：
+                #   a) 语音输入识别为空 —— 真错误（FAULT-04 依赖这个行为）；
+                #   b) 视觉/手势按钮没带提问 —— 只是「没有文本」，不该挡住视觉标签。
+                # 早期版本把 b 也当 a，导致「👁 画面」不提问时必然 E_EMPTY_TRANSCRIPT。
+                if visual_tags or gesture_in:
+                    text = None
+                    steps.append({"stage": "asr", "action": "empty_text_ignored", "reason": "other_modality_present"})
+                else:
+                    return fail(
+                        ErrorCode.EMPTY_TRANSCRIPT,
+                        f"语音识别结果为空或过短（< {asr_cfg['min_text_len']} 字符），不做意图推测",
+                        field="text",
+                    )
+            else:
+                text = candidate
+                steps.append({"stage": "asr", "action": "accepted", "text_len": len(text)})
 
             # 1.5) 输入侧归一化：繁转简 / 全角转半角 / 定向错别字 / 折叠被空格拆开的数字。
             # 只做等价改写，不删除任何内容；原文仍保留在 event.raw.spec.text 中以便追溯。
-            text, norm_actions = normalize_input(text)
-            if norm_actions:
-                steps.append({"stage": "text_norm", "action": "normalized", "detail": norm_actions})
+            # 注意：上面的分支可能把 text 置为 None（视觉/手势没带提问），此时不能再归一化，
+            # 否则 normalize_input(None) 会返回 ""，把「无文本」又变回空串。
+            if text is not None:
+                text, norm_actions = normalize_input(text)
+                if norm_actions:
+                    steps.append({"stage": "text_norm", "action": "normalized", "detail": norm_actions})
 
         # 2) 视觉标签治理
         tags, tag_actions = self._govern_tags(visual_tags)

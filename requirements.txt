@@ -5,10 +5,30 @@ jieba>=0.42
 requests>=2.28
 edge-tts>=6.1
 zhconv>=1.4      # 繁转简（缺失时只做检测并回退模板，见 src/text_norm.py）
+packaging>=23    # 依赖版本约束检查（src/deps.py）
 
-# 真实多模态模式（--mode auto + INTEGRATED_ALLOW_REAL_MODELS=1）才需要：
-# torch>=2.0
+# ---------------------------------------------------------------------------
+# 真实多模态模式（--mode auto + INTEGRATED_ALLOW_REAL_MODELS=1）才需要。
+#
+# 这组依赖的版本是硬耦合的，装错时错误信息不会指向根因：
+#   protobuf 7 + mediapipe 0.10.14
+#       -> 'MessageFactory' object has no attribute 'GetPrototype'
+#   torchvision 0.23 + torch 2.6
+#       -> RuntimeError: operator torchvision::nms does not exist
+#   torchvision 坏了
+#       -> transformers: ModuleNotFoundError: Could not import module 'AutoProcessor'
+#
+# 正确组合（CUDA 12.4）：
+#   pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu124
+#   pip install "protobuf>=4.25.3,<5" mediapipe==0.10.14 opencv-python>=4.8 transformers>=4.57
+#
+# 自检：python scripts/15_deps_check.py   （不联网，约 10 秒）
+# ---------------------------------------------------------------------------
+# torch==2.6.0
+# torchvision==0.21.0
+# protobuf>=4.25.3,<5
 # mediapipe==0.10.14
 # opencv-python>=4.8
+# transformers>=4.57
 # PyQt5>=5.15
 # funasr>=1.0

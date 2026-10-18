@@ -11,6 +11,7 @@ scripts/00_check_env.py
     4. 知识库索引条数
     5. 关键依赖可用性（numpy / jieba / requests / edge-tts / torch）
     6. 离线语音自检（Windows SAPI / SAPI COM，演示前必看）
+    7. 依赖兼容性（mediapipe↔protobuf、torchvision↔torch 的版本约束）
 
 输出：outputs/env_check.json
 """
@@ -24,6 +25,7 @@ from _bootstrap import PROJECT_ROOT, banner  # noqa: F401
 from config import settings
 from src.adapters import MultimodalAdapter, RecommenderAdapter
 from src.catalog import Catalog
+from src.deps import check_stack
 from src.presentation import probe_offline_tts
 from src.rag import KnowledgeBase
 from src.utils import now_iso, write_json
@@ -65,6 +67,9 @@ def main() -> int:
     #    但演示前应当知道「到底有没有声音」。
     report["presentation"] = probe_offline_tts()
 
+    # 7) 依赖兼容性：只读包元数据，不 import 重型包，保证套件仍然快。
+    report["dependency_compat"] = check_stack(deep=False)
+
     print(f"项目根目录      : {settings.PROJECT_ROOT}")
     print(f"运行模式        : {settings.RUNTIME['mode']}（allow_real_models={settings.RUNTIME['allow_real_models']}）")
     print(f"推荐系统根目录  : {settings.RECOMMENDER_ROOT}")
@@ -76,6 +81,11 @@ def main() -> int:
     print(f"多模态适配器    : {multimodal.active_mode}（降级 {len(multimodal.degradations)} 次）")
     print(f"知识库          : {kb.size()} 个片段 / {len(kb.docs())} 篇文档")
     print("依赖状态        : " + ", ".join(f"{k}={v}" for k, v in report["dependencies"].items()))
+    compat = report["dependency_compat"]
+    if compat["ok"]:
+        print("依赖兼容性      : 通过（mediapipe↔protobuf、torchvision↔torch）")
+    else:
+        print("依赖兼容性      : 发现 " + str(len(compat["problems"])) + " 个问题 → " + "；".join(compat["problems"]))
     voice = report["presentation"]
     print(
         "离线语音        : "

@@ -1222,6 +1222,22 @@ def category_emoji(category: str) -> str:
     return table.get(str(category or ""), settings.IMAGE_CONFIG["default_emoji"])
 
 
+_DEP_HINTS = (
+    ("GetPrototype", "protobuf 版本过高：mediapipe 0.10.14 要求 protobuf>=4.25.3,<5"),
+    ("FieldDescriptor", "protobuf 版本过高：mediapipe 0.10.14 要求 protobuf>=4.25.3,<5"),
+    ("torchvision::nms", "torchvision 与 torch 不配套：0.21.0 对应 torch 2.6.0"),
+    ("AutoProcessor", "transformers 的 AutoProcessor 依赖可用的 torchvision，请先修 torchvision"),
+)
+
+
+def _dep_hint(message: str) -> str | None:
+    low = (message or "").lower()
+    for needle, hint in _DEP_HINTS:
+        if needle.lower() in low:
+            return hint
+    return None
+
+
 class App:
     """承载 Orchestrator 与全局会话状态（加锁串行化，避免并发调用）。"""
 
@@ -1289,7 +1305,9 @@ class App:
             return {"ok": False, "error": f"抓帧失败: {cap.error}"}
         g = ad.recognize_gesture(str(frame))
         if not g.ok:
-            return {"ok": False, "error": f"手势识别失败: {g.error}"}
+            msg = f"手势识别失败: {g.error}"
+            hint = _dep_hint(msg)
+            return {"ok": False, "error": msg + (f"（{hint}）" if hint else ""), "hint": hint}
         gestures = (g.data or {}).get("gestures") or []
         if not gestures:
             return {"ok": False, "error": (g.data or {}).get("note") or "未识别到已定义手势"}
@@ -1310,10 +1328,14 @@ class App:
             return {"ok": False, "error": f"抓帧失败: {cap.error}"}
         vl = ad.describe_image(str(frame), question or "")
         if not vl.ok:
-            return {"ok": False, "error": f"视觉理解失败: {vl.error}"}
+            msg = f"视觉理解失败: {vl.error}"
+            hint = _dep_hint(msg)
+            return {"ok": False, "error": msg + (f"（{hint}）" if hint else ""), "hint": hint}
         desc = (vl.data or {}).get("response") or ""
         out = self.handle_spec(
-            {"source": "vision", "text": question or "", "visual_tags": [{"tag": desc[:24], "confidence": 0.85}]}
+            # 没有提问时 text 必须传 None：传空串会被 parse_event 当成「空 ASR 文本」
+            # 直接返回 E_EMPTY_TRANSCRIPT，视觉标签根本走不到（modality=visual 分支）。
+            {"source": "vision", "text": question or None, "visual_tags": [{"tag": desc[:24], "confidence": 0.85}]}
         )
         out["description"] = desc
         return out
@@ -1565,7 +1587,10 @@ def make_handler(app: App):
                 else:
                     self._json({"error": "not found"}, 404)
             except Exception as exc:  # 任何异常都回结构化错误，不让页面卡死
-                self._json({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, 500)
+                msg = f"{type(exc).__name__}: {exc}"
+                hint = _dep_hint(msg)
+                payload = {"ok": False, "error": msg + (f"（{hint}）" if hint else ""), "hint": hint}
+                self._json(payload, 500)
 
     return Handler
 
