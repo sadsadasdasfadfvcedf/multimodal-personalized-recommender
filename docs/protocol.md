@@ -235,14 +235,16 @@
 | 方法 | 路径 | 请求 | 成功响应 | 失败响应 |
 |---|---|---|---|---|
 | GET | `/api/info` | — | `{ok, user_id, session_id, modes, account, accounts[], voice, llm}` | — |
-| GET | `/api/home` | — | `{ok, title, subtitle, items[]}` | — |
+| GET | `/api/home` | `?limit=8\|16\|24\|40`（可选，默认 8） | `{ok, title, subtitle, items[]}` | — |
 | GET | `/api/img/{item_id}` | — | 图片字节 | 404 `E_ITEM_NOT_FOUND` |
 | GET | `/api/product/{item_id}` | — | `{ok, product, similar[]}` | `{ok:false, code:E_ITEM_NOT_FOUND, ...}` |
 | GET | `/audio/{name}` | — | 音频字节 | 404 `E_ITEM_NOT_FOUND` |
-| POST | `/api/chat` | `{text}` | `{ok, response}`（response 见 §7） | `{ok:false, code, field, error}` |
+| POST | `/api/chat` | `{text, top_k?}` | `{ok, response}`（response 见 §7） | `{ok:false, code, field, error}` |
+| POST | `/api/more` | `{text, top_k}` | `{ok, items[], top_k}` | 同上 |
 | POST | `/api/feedback` | `{item_id, polarity}` | `{ok, response}` | 同上 |
 | POST | `/api/voice` | `{seconds}` | `{ok, transcript, response}` | 同上 |
-| POST | `/api/gesture` | `{}` | `{ok, gesture, response}` | 同上 |
+| POST | `/api/gesture` | `{}` | `{ok, gesture, response, preview_url, gesture_frames, gesture_votes}`；非反馈手势返回 `{ok, gesture, action, message, preview_url}` | 同上（失败也带 `preview_url`） |
+| GET | `/capture/{path}` | — | 抓拍画面字节 | 404 `E_ITEM_NOT_FOUND` |
 | POST | `/api/vision` | `{question}` | `{ok, description, response}` | 同上 |
 | POST | `/api/undo` / `/api/reset` | `{}` | `{ok, response}` | 同上 |
 | POST | `/api/products` | `{item_ids[]}` | `{ok, products[]}` | 400 `E_INVALID_INPUT` |
