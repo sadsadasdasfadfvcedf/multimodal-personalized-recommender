@@ -224,13 +224,34 @@ def main() -> int:
         timeout["status"] in ("ok", "degraded") and len(timeout_failed) >= 1 and len(timeout["recommendations"]) > 0
     )
 
+    # 复现性实测：同一个 spec 在两个全新会话里各跑一次，比较推荐序列。
+    # 不比较 trace_id / 时间戳 / 延迟（它们本来就每次不同）。
+    repro = SCENARIOS[0]
+    repro_a = orch.handle(repro["spec"], user_id=repro["user_id"], session_id="repro-a", top_k=8)
+    repro_b = orch.handle(repro["spec"], user_id=repro["user_id"], session_id="repro-b", top_k=8)
+
+    def _repro_sig(res) -> list[tuple[str, float]]:
+        data = res.data if res.ok else {}
+        return [
+            (str(r.get("item_id")), round(float(r.get("score") or 0), 6)) for r in (data.get("recommendations") or [])
+        ]
+
+    sig_a, sig_b = _repro_sig(repro_a), _repro_sig(repro_b)
+    reproducible = bool(sig_a) and sig_a == sig_b
+    demo["reproducibility_check"] = {
+        "spec": repro["spec"],
+        "run_a": sig_a,
+        "run_b": sig_b,
+        "identical": reproducible,
+    }
+
     demo["acceptance_checklist"] = {
         "候选来源可追溯": all(
             all(r.get("sources") for r in s["recommendations"]) for s in demo["scenarios"] if s["recommendations"]
         ),
         "硬约束不被排序分数覆盖": hard_ok,
         "空结果有清晰提示": empty["status"] == "empty" and empty["error"] is not None,
-        "同输入和配置可复现": True,
+        "同输入和配置可复现": reproducible,
         "多路召回同时命中（可追溯合并）": any(len(r["sources"]) > 1 for r in normal["recommendations"]),
         "故障降级（单路超时不影响主链路）": timeout_ok and degraded_ok,
     }

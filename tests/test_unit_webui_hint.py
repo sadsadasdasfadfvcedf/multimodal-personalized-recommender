@@ -36,3 +36,23 @@ def test_hint_for_auto_processor_error():
 
 def test_hint_is_none_for_unrelated_error():
     assert _webui()._dep_hint("Connection refused") is None
+
+
+def test_err_helper_includes_protocol_fields():
+    """docs/protocol.md §8：任何失败都要带 code + message + field。"""
+    w = _webui()
+    payload = w._err(w.ErrorCode.INVALID_INPUT, "bad input", field="text", hint="hint", extra="x")
+    assert payload["ok"] is False
+    assert payload["error"] == "bad input"
+    assert payload["code"] == "E_INVALID_INPUT"
+    assert payload["field"] == "text"
+    assert payload["hint"] == "hint"
+    assert payload["extra"] == "x"
+
+
+def test_from_app_error_maps_code_and_field():
+    w = _webui()
+    err = w.ErrorCode.ITEM_NOT_FOUND
+    payload = w._from_app_error(type("E", (), {"code": err, "message": "not found", "field": "item_id"})())
+    assert payload["code"] == "E_ITEM_NOT_FOUND"
+    assert payload["field"] == "item_id"

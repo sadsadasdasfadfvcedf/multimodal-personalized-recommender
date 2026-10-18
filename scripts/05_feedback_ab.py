@@ -184,6 +184,33 @@ def main() -> int:
         },
     }
 
+    # 对照口径实测：校验的是**输入口径**（同用户、同查询、同会话、同请求 K、有候选池指纹），
+    # 不是输出长度 —— 负反馈场景会屏蔽商品、候选池本就会变；预期失败场景不参与对照。
+    requested_k = int(settings.FEEDBACK_CONFIG["ab"]["top_k"])
+    cohort_rows = []
+    for r in records:
+        if r.get("status") != "ok" or not r.get("comparison"):
+            cohort_rows.append(
+                {"case_id": r.get("case_id"), "comparable": False, "ok": True, "reason": r.get("status")}
+            )
+            continue
+        before, after = r.get("before") or {}, r.get("after") or {}
+        row = {
+            "case_id": r.get("case_id"),
+            "comparable": True,
+            "same_session": before.get("session_id") == after.get("session_id"),
+            "same_requested_k": r.get("requested_top_k") == requested_k,
+            "has_user": bool(r.get("user_id")),
+            "has_query": bool(r.get("query")),
+            "has_pool_signature": bool(r.get("pool_signature")),
+        }
+        row["ok"] = all(
+            row[k] for k in ("same_session", "same_requested_k", "has_user", "has_query", "has_pool_signature")
+        )
+        cohort_rows.append(row)
+    comparable_rows = [r for r in cohort_rows if r["comparable"]]
+    cohort_ok = bool(comparable_rows) and all(row["ok"] for row in cohort_rows)
+
     report: dict[str, Any] = {
         "stage": "05",
         "title": "反馈闭环 / 反馈前后 A-B 对照",
@@ -200,6 +227,7 @@ def main() -> int:
             "pass_rate": round(perf["passed"] / perf["cases"], 4) if perf["cases"] else 0.0,
             "by_type": _by_type(records),
         },
+        "cohort_check": {"ok": cohort_ok, "rows": cohort_rows},
         "case_type_summary": _by_type(records),
         "degradation_records": [
             {
@@ -256,7 +284,7 @@ def main() -> int:
                 bool(r.get("ranking_change_explanations")) for r in records if r.get("comparison")
             ),
             "负反馈不会永久污染其他会话": perf["isolation_all_clean"],
-            "对照口径一致": True,
+            "对照口径一致": cohort_ok,
             "至少包含一个无变化或失败案例": bool(perf["no_change_cases"]) or bool(perf["failure_cases"]),
             "成功/无变化/反向变化三类案例齐备": _has_three_types(records),
             "继续浏览类反馈写入会话偏好": bool(browse_check["browse_record"]) and browse_check["view_weaker_than_like"],

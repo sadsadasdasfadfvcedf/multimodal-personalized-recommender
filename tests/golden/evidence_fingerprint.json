@@ -4,12 +4,12 @@
   "env_check.json": "05926de4fa132d9a9ab15d13f832bab4d7262ba5be78f573cc8645fe119e7cb1",
   "stage01_contract_report.json": "997ce7875f13b2d5db8175dd83fcd077b092272b77859c9300f5e5f86bf260db",
   "stage02_context_cases.jsonl": "95877191ff33ea236b4f5d4ebfdc826590066cbe51f7bb3638dfe1dbfa5a8ba6",
-  "stage02_context_metrics.json": "4a61c9c258b418433652fdd524a201ddaa0fcafe4d601625cd643636cc57a89b",
-  "stage03_demo.json": "cc9afa1ba460f02ebd0f02b7002798505060167067b3bdd734e18195360f3392",
+  "stage02_context_metrics.json": "c5f3777aeb2878ac2bf8fb49b332ff93eb3687bd946098e6b09581d2f70edbc7",
+  "stage03_demo.json": "721e770855c07025d43ec22c349cea23aace661c7fa909dca8de5d505e990da6",
   "stage03_traces.jsonl": "a920775b44004fe1c2598e460d24989cb1dcd6d20a0c9311ef6e616ce916a8da",
   "stage04_explanation_cases.jsonl": "8be5b144752d355de46069696eca90fbcb922fb84260b4d78aaa7976ccf7f40e",
   "stage04_explanations.json": "958561e866b0c8c689d93fb14cc85a4d0bc740fb8ea37f4763c61dc7e6790ec7",
-  "stage05_feedback_ab.json": "14da9ea5ddfbcf8e3d724dff15aaca91e190bac414f9b30001f576bd49d1bea2",
+  "stage05_feedback_ab.json": "72d6bdc7afd0ca8e11b3ade19d0537c9955775e526143669aae83186952321b3",
   "stage06_acceptance.json": "70991ad823f387a0948f9dfaa613028ea3776ebe16514edc4e35591293c2093a",
   "text_norm_check.json": "124633881819916839a040b76459c94bee777278a1b91d83337dd38543a3ff32"
 }

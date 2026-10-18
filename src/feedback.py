@@ -311,6 +311,7 @@ def run_ab(
             "status": "ok",
             "user_id": user_id,
             "query": query,
+            "requested_top_k": top_k,
             "feedback": {
                 "polarity": polarity,
                 "target": target,

@@ -241,6 +241,26 @@ def session_checks() -> list[dict]:
         {"likes": dict(fresh.likes), "slots": list(fresh.slot_state)},
         kind="边界",
     )
+    # ---- 失败类：两条都必须被明确拒绝，且给出错误码 ----
+    fail_undo = store.get_or_create("s-fail-undo", "15547").undo()
+    add(
+        "B-11",
+        "无历史时撤销被明确拒绝（不静默成功）",
+        (not fail_undo.ok) and fail_undo.error is not None and fail_undo.error.code == ErrorCode.NOTHING_TO_UNDO,
+        {"ok": fail_undo.ok, "code": _code_value(fail_undo.error)},
+        kind="失败",
+    )
+
+    fail_polarity = fresh.add_feedback("71053", "maybe", category="家居装饰")
+    add(
+        "B-12",
+        "非法反馈极性被明确拒绝",
+        (not fail_polarity.ok)
+        and fail_polarity.error is not None
+        and fail_polarity.error.code == ErrorCode.INVALID_POLARITY,
+        {"ok": fail_polarity.ok, "code": _code_value(fail_polarity.error)},
+        kind="失败",
+    )
     return checks
 
 
@@ -319,7 +339,7 @@ def main() -> int:
             "thumbs_up/down 映射为正负反馈": all(
                 (r["actual"] or {}).get("intent") == "feedback" for r in results if r["case_id"] in ("S2-19", "S2-20")
             ),
-            "会话用例含成功/边界/失败三类": {"成功", "边界"} <= set(_by_kind(session_results)),
+            "会话用例含成功/边界/失败三类": {"成功", "边界", "失败"} <= set(_by_kind(session_results)),
             "约束冲突可检测": any((r["actual"] or {}).get("status") == "conflict" for r in results),
             "20条样例通过率不低于80%": (passed / total) >= PASS_THRESHOLD if total else False,
         },

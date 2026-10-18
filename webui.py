@@ -41,6 +41,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import settings  # noqa: E402
+from src.errors import ErrorCode  # noqa: E402
 from src.orchestrator import Orchestrator  # noqa: E402
 
 PAGE = r"""<!DOCTYPE html>
@@ -1238,6 +1239,28 @@ def _dep_hint(message: str) -> str | None:
     return None
 
 
+def _err(
+    code: ErrorCode | str,
+    message: str,
+    *,
+    field: str | None = None,
+    hint: str | None = None,
+    **extra: object,
+) -> dict:
+    """统一错误响应：保留前端依赖的 error 字符串，同时补齐协议要求的 code/field。"""
+    payload: dict = {"ok": False, "error": message, "code": str(code), "field": field}
+    if hint:
+        payload["hint"] = hint
+    payload.update(extra)
+    return payload
+
+
+def _from_app_error(err) -> dict:
+    if err is None:
+        return _err(ErrorCode.INTERNAL_ERROR, "未知错误")
+    return _err(err.code, err.message, field=err.field)
+
+
 class App:
     """承载 Orchestrator 与全局会话状态（加锁串行化，避免并发调用）。"""
 
@@ -1260,7 +1283,7 @@ class App:
             self.turn += 1
             res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id)
         if not res.ok:
-            return {"ok": False, "error": str(res.error)}
+            return _from_app_error(res.error)
         resp = res.data
         # 给每条推荐注入图片地址与类目兜底图标，前端不必自己拼 URL
         for item in resp.get("recommendations", []):
@@ -1280,17 +1303,17 @@ class App:
     def voice(self, seconds: float) -> dict:
         ad = self.orch.multimodal
         if ad.active_mode != "real":
-            return {"ok": False, "error": "语音输入需要 --real 模式"}
+            return _err(ErrorCode.MODALITY_UNAVAILABLE, "语音输入需要 --real 模式")
         wav = self.media / f"voice_{self.turn}.wav"
         rec = ad.record_audio(str(wav), seconds=seconds)
         if not rec.ok:
-            return {"ok": False, "error": f"录音失败: {rec.error}"}
+            return _err(ErrorCode.MODALITY_UNAVAILABLE, f"录音失败: {rec.error}")
         asr = ad.transcribe(str(wav))
         if not asr.ok:
-            return {"ok": False, "error": f"识别失败: {asr.error}"}
+            return _err(ErrorCode.MODALITY_UNAVAILABLE, f"识别失败: {asr.error}")
         text = (asr.data or {}).get("text") or ""
         if not text.strip():
-            return {"ok": False, "transcript": "", "error": "未识别到有效语音"}
+            return _err(ErrorCode.EMPTY_TRANSCRIPT, "未识别到有效语音", field="text", transcript="")
         out = self.handle_spec({"source": "voice", "text": text})
         out["transcript"] = text
         return out
@@ -1298,19 +1321,19 @@ class App:
     def gesture(self) -> dict:
         ad = self.orch.multimodal
         if ad.active_mode != "real":
-            return {"ok": False, "error": "手势识别需要 --real 模式"}
+            return _err(ErrorCode.MODALITY_UNAVAILABLE, "手势识别需要 --real 模式")
         frame = self.media / f"gesture_{self.turn}.jpg"
         cap = ad.capture_frame(str(frame))
         if not cap.ok:
-            return {"ok": False, "error": f"抓帧失败: {cap.error}"}
+            return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {cap.error}")
         g = ad.recognize_gesture(str(frame))
         if not g.ok:
             msg = f"手势识别失败: {g.error}"
             hint = _dep_hint(msg)
-            return {"ok": False, "error": msg + (f"（{hint}）" if hint else ""), "hint": hint}
+            return _err(ErrorCode.MODALITY_UNAVAILABLE, msg + (f"（{hint}）" if hint else ""), hint=hint)
         gestures = (g.data or {}).get("gestures") or []
         if not gestures:
-            return {"ok": False, "error": (g.data or {}).get("note") or "未识别到已定义手势"}
+            return _err(ErrorCode.LOW_CONFIDENCE_MODALITY, (g.data or {}).get("note") or "未识别到已定义手势")
         name = gestures[0]["name"]
         out = self.handle_spec(
             {"source": "gesture", "gesture": {"name": name, "confidence": gestures[0]["confidence"]}}
@@ -1321,16 +1344,16 @@ class App:
     def vision(self, question: str) -> dict:
         ad = self.orch.multimodal
         if ad.active_mode != "real":
-            return {"ok": False, "error": "视觉理解需要 --real 模式"}
+            return _err(ErrorCode.MODALITY_UNAVAILABLE, "视觉理解需要 --real 模式")
         frame = self.media / f"vision_{self.turn}.jpg"
         cap = ad.capture_frame(str(frame))
         if not cap.ok:
-            return {"ok": False, "error": f"抓帧失败: {cap.error}"}
+            return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {cap.error}")
         vl = ad.describe_image(str(frame), question or "")
         if not vl.ok:
             msg = f"视觉理解失败: {vl.error}"
             hint = _dep_hint(msg)
-            return {"ok": False, "error": msg + (f"（{hint}）" if hint else ""), "hint": hint}
+            return _err(ErrorCode.MODALITY_UNAVAILABLE, msg + (f"（{hint}）" if hint else ""), hint=hint)
         desc = (vl.data or {}).get("response") or ""
         out = self.handle_spec(
             # 没有提问时 text 必须传 None：传空串会被 parse_event 当成「空 ASR 文本」
@@ -1356,14 +1379,14 @@ class App:
                     "intent_result": {"intent": "reset"},
                 },
             }
-        return {"ok": False, "error": "未知操作"}
+        return _err(ErrorCode.INVALID_INPUT, "未知操作")
 
     def product(self, item_id: str) -> dict:
         """商品详情：本地目录事实 + 相似商品（供详情弹窗使用）。"""
         cat = self.orch.catalog
         product = cat.product(item_id)
         if product is None:
-            return {"ok": False, "error": "商品不在目录中"}
+            return _err(ErrorCode.ITEM_NOT_FOUND, "商品不在目录中")
         similar = []
         for sid in cat.similar_of(item_id, k=8):
             sp = cat.product(sid) or {}
@@ -1403,7 +1426,7 @@ class App:
         with self.lock:
             res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id + "-home")
         if not res.ok:
-            return {"ok": False, "error": str(res.error)}
+            return _from_app_error(res.error)
         resp = res.data
         for item in resp.get("recommendations", []):
             iid = str(item.get("item_id") or "")
@@ -1424,7 +1447,7 @@ class App:
         不改变正负反馈状态，也不屏蔽任何商品）。
         """
         if not self.orch.catalog.exists(str(item_id)):
-            return {"ok": False, "error": "商品不在目录中"}
+            return _err(ErrorCode.ITEM_NOT_FOUND, "商品不在目录中")
         return self.handle_spec({"source": "browse", "item_id": str(item_id)})
 
     def feedback(self, item_id: str, polarity: str) -> dict:
@@ -1470,7 +1493,7 @@ class App:
                 }
             )
         if not out:
-            return {"ok": False, "error": "没有可用的商品"}
+            return _err(ErrorCode.NO_RESULT, "没有可用的商品")
         return {"ok": True, "products": out}
 
     def state(self) -> dict:
@@ -1589,7 +1612,7 @@ def make_handler(app: App):
             except Exception as exc:  # 任何异常都回结构化错误，不让页面卡死
                 msg = f"{type(exc).__name__}: {exc}"
                 hint = _dep_hint(msg)
-                payload = {"ok": False, "error": msg + (f"（{hint}）" if hint else ""), "hint": hint}
+                payload = _err(ErrorCode.INTERNAL_ERROR, msg + (f"（{hint}）" if hint else ""), hint=hint)
                 self._json(payload, 500)
 
     return Handler
