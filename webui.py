@@ -538,7 +538,7 @@ PAGE = r"""<!DOCTYPE html>
 <script>
 const $ = id => document.getElementById(id);
 const grid = $('pgrid'), stream = $('stream');
-let busy = false, needReal = false, currentItems = [], picked = new Map();
+let busy = false, needReal = false, currentItems = [], picked = new Map(), ratings = new Map();
 let activeFilters = [], sortMode = 'match', viewMode = 'grid', userSaid = [];
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
@@ -599,6 +599,7 @@ function renderFilters(){
     '<button data-drop="' + esc(f.key) + '" aria-label="移除 ' + esc(f.label) + '">✕</button></span>').join('');
 }
 function dropFilter(key){
+  if (busy){ toast('正在处理，请稍后再移除条件'); return; }
   const keep = activeFilters.filter(f => f.key !== key);
   activeFilters = keep; renderFilters();
   if (!keep.length){ toast('已移除全部条件，重新为你推荐'); ask('推荐一些热门商品', {silent:true}); return; }
@@ -646,8 +647,8 @@ function renderShelf(items, title, subtitle, resp){
       '<div class="rank' + (rank > 3 ? ' plain' : '') + '">TOP ' + rank + '</div>' +
       media(it, 'pimg').replace('class="pimg"', 'class="pimg" data-open') +
       '<div class="pacts">' +
-        '<button data-like="up" title="喜欢" aria-label="喜欢">👍</button>' +
-        '<button data-like="down" title="不喜欢" aria-label="不喜欢">👎</button>' +
+        '<button data-like="up" class="' + (ratings.get(it.item_id) === 'up' ? 'on' : '') + '" title="喜欢" aria-label="喜欢">👍</button>' +
+        '<button data-like="down" class="' + (ratings.get(it.item_id) === 'down' ? 'on' : '') + '" title="不喜欢" aria-label="不喜欢">👎</button>' +
       '</div>' +
       '<div class="pbody">' +
         '<h3 data-open>' + esc(it.title) + '</h3>' +
@@ -778,7 +779,7 @@ function setBusy(b){
   busy = b;
   document.querySelectorAll('button').forEach(x => {
     if (['voice','gesture','vision'].includes(x.dataset.act)) x.disabled = b || needReal;
-    else if (x.dataset.act || x.dataset.view || x.dataset.like || x.dataset.cmp || x.dataset.retry ||
+    else if (x.dataset.act || x.dataset.view || x.dataset.like || x.dataset.cmp || x.dataset.retry || x.dataset.drop ||
              ['sendbtn','sendbtn2','trayGo','trayClear','userBtn','gearBtn','clearChat'].includes(x.id)) x.disabled = b;
   });
   $('liveDot').classList.toggle('busy', b);
@@ -811,14 +812,20 @@ async function rate(itemId, polarity){
   setBusy(true);
   try{
     const d = await post('/api/feedback', {item_id: itemId, polarity: polarity});
-    if (d.ok){
-      const r = d.response, fb = r.feedback || {};
+    const r = d.response || {};
+    const okStatus = r.status === 'ok' || r.status === 'degraded';
+    if (d.ok && okStatus){
+      const fb = r.feedback || {};
       finishAction(id, 'ok', '已记录', esc(fb.polarity === 'positive' ? '点赞' : '倒赞') +
         '：<b>' + esc(fb.target_title || itemId) + '</b>');
+      ratings.set(itemId, polarity);
       renderBot(r, true);
       const card = document.querySelector('.pcard[data-item="' + itemId + '"]');
       if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', b.dataset.like === polarity));
-    } else finishAction(id, 'err', '失败', esc(d.error) + actionSuggestions('feedback'));
+    } else {
+      const msg = (r.error && r.error.message) || r.clarification || d.error || '反馈未生效';
+      finishAction(id, 'warn', '未生效', esc(msg) + actionSuggestions('feedback'));
+    }
   }catch(e){ finishAction(id, 'err', '失败', esc(e.message) + actionSuggestions('feedback')); }
   setBusy(false);
 }
@@ -838,22 +845,26 @@ function renderTray(){
   const top = $('toolbar').querySelector('[data-act="compare"]');
   if (top) top.classList.toggle('on', items.length > 0);
 }
-function toggleCompare(itemId){
-  const it = currentItems.find(x => String(x.item_id) === String(itemId));
-  if (!it) return;
+function syncPickUI(){
+  document.querySelectorAll('.pcard').forEach(card => {
+    const on = picked.has(card.dataset.item);
+    card.classList.toggle('picked', on);
+    const b = card.querySelector('[data-cmp]');
+    if (b) b.textContent = on ? '✓ 已加入对比' : '加入对比';
+  });
+}
+function toggleCompare(itemId, fallback){
+  const it = currentItems.find(x => String(x.item_id) === String(itemId)) || fallback;
+  if (!it) return false;
   if (picked.has(itemId)) picked.delete(itemId);
   else {
-    if (picked.size >= 4){ toast('最多同时对比 4 件商品'); return; }
+    if (picked.size >= 4){ toast('最多同时对比 4 件商品'); return false; }
     picked.set(itemId, {item_id: itemId, title: it.title, price: it.price,
                         emoji: it.emoji, img_url: it.img_url});
   }
   renderTray();
-  const card = document.querySelector('.pcard[data-item="' + itemId + '"]');
-  if (card){
-    const on = picked.has(itemId);
-    card.classList.toggle('picked', on);
-    const b = card.querySelector('[data-cmp]'); if (b) b.textContent = on ? '✓ 已加入对比' : '加入对比';
-  }
+  syncPickUI();
+  return true;
 }
 async function openCompare(){
   if (picked.size < 2){ toast('至少选择 2 件商品才能对比'); return; }
@@ -928,7 +939,8 @@ async function openDetail(itemId){
           '<dt>我的评价</dt><dd>' +
             '<button data-rate="up" style="border:none;border-radius:8px;padding:6px 12px;background:#eef0fe;color:#3730a3;margin-right:6px">👍 喜欢</button>' +
             '<button data-rate="down" style="border:none;border-radius:8px;padding:6px 12px;background:#f1f2f7;color:#5c6379">👎 不喜欢</button>' +
-            '<button data-cmp2="' + esc(p.item_id) + '" style="border:1px solid #e8eaf2;border-radius:8px;padding:6px 12px;background:#fff;color:#5c6379;margin-left:6px">▦ 加入对比</button>' +
+            '<button data-cmp2="' + esc(p.item_id) + '" style="border:1px solid #e8eaf2;border-radius:8px;padding:6px 12px;background:#fff;color:#5c6379;margin-left:6px">' +
+              (picked.has(p.item_id) ? '✓ 已加入对比' : '▦ 加入对比') + '</button>' +
           '</dd>' +
         '</dl></div></div>' + reason +
       '<div class="sec"><h3>相似商品（点开继续看）</h3><div class="mini">' + sim + '</div></div>';
@@ -939,7 +951,13 @@ async function openDetail(itemId){
       el.onclick = ev => { ev.stopPropagation(); closeAll(); rate(itemId, el.dataset.rate); };
     });
     const c2 = $('sheet').querySelector('[data-cmp2]');
-    if (c2) c2.onclick = ev => { ev.stopPropagation(); toggleCompare(itemId); toast('已更新对比栏'); };
+    if (c2) c2.onclick = ev => {
+      ev.stopPropagation();
+      if (toggleCompare(itemId, p)){
+        c2.textContent = picked.has(itemId) ? '✓ 已加入对比' : '▦ 加入对比';
+        toast('已更新对比栏');
+      }
+    };
   }catch(e){
     $('sheet').innerHTML = '<button class="x" data-close="#modal">✕</button>' +
       '<div class="sec errline">' + esc(e.message) + '</div>';
@@ -976,7 +994,12 @@ async function act(kind){
       const d = await post('/api/' + kind);
       if (d.ok) finishAction(id, 'ok', '完成', kind === 'undo' ? '已回滚到上一轮状态' : '已开启全新会话');
       else finishAction(id, 'err', '失败', esc(d.error));
-      if (kind === 'reset'){ picked.clear(); renderTray(); }
+      if (d.ok && kind === 'reset'){
+        picked.clear(); renderTray(); syncPickUI();
+        ratings.clear();
+        activeFilters = []; renderFilters();
+        await loadHomeShelf(true);
+      }
     }catch(e){ finishAction(id, 'err', '失败', esc(e.message)); }
     setBusy(false); return;
   }
@@ -1038,11 +1061,16 @@ async function openStatus(){
 function closeStatus(){ $('statusDrawer').classList.remove('show'); $('mask').classList.remove('show'); }
 
 /* ============ 事件绑定 ============ */
-$('searchForm').addEventListener('submit', ev => {
-  ev.preventDefault(); const t = $('q').value.trim(); $('q').value = ''; ask(t);
-});
-$('sendbtn2').addEventListener('click', () => { const t = $('q2').value.trim(); $('q2').value = ''; ask(t); });
-$('q2').addEventListener('keydown', e => { if (e.key === 'Enter'){ const t = $('q2').value.trim(); $('q2').value = ''; ask(t); } });
+function submitAsk(inputId){
+  const el = $(inputId); const t = el.value.trim();
+  if (!t) return;
+  if (busy){ toast('正在处理中，请稍候'); return; }
+  el.value = '';
+  ask(t);
+}
+$('searchForm').addEventListener('submit', ev => { ev.preventDefault(); submitAsk('q'); });
+$('sendbtn2').addEventListener('click', () => submitAsk('q2'));
+$('q2').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); submitAsk('q2'); } });
 $('toolbar').addEventListener('click', ev => {
   const b = ev.target.closest('button[data-act]'); if (b) act(b.dataset.act);
 });
@@ -1078,7 +1106,10 @@ stream.addEventListener('click', ev => {
   if (fold){ const f = fold.closest('.fold'); f.classList.toggle('open');
              fold.textContent = (f.classList.contains('open') ? '▾ 收起依据' : '▸ 展开依据'); return; }
   const slot = ev.target.closest('[data-slot]');
-  if (slot){ $('q').value = slot.dataset.slot; ask(slot.dataset.slot); return; }
+  if (slot){
+    if (busy){ toast('正在处理中，请稍候'); return; }
+    const t = slot.dataset.slot; $('q').value = ''; ask(t); return;
+  }
   const rt = ev.target.closest('[data-retry]');
   if (rt){ act(rt.dataset.retry); return; }
   if (ev.target.closest('[data-type]')){ $('q').focus(); toast('已切到输入框，直接打字即可'); return; }
@@ -1088,7 +1119,7 @@ stream.addEventListener('click', ev => {
 $('trayItems').addEventListener('click', ev => {
   const b = ev.target.closest('[data-unpick]'); if (b) toggleCompare(b.dataset.unpick);
 });
-$('trayClear').addEventListener('click', () => { picked.clear(); renderTray(); toast('已清空对比栏'); });
+$('trayClear').addEventListener('click', () => { picked.clear(); renderTray(); syncPickUI(); toast('已清空对比栏'); });
 $('trayGo').addEventListener('click', openCompare);
 document.addEventListener('click', ev => {
   const c = ev.target.closest('[data-close]');
@@ -1123,6 +1154,24 @@ $('tabbar').addEventListener('click', ev => {
   else { $('panel').classList.remove('show'); $('fab').textContent = '💬'; window.scrollTo({top:0,behavior:'smooth'}); }
 });
 
+async function loadHomeShelf(force){
+  if (!force && userSaid.length) return;   // 用户已经提问，别用首页结果覆盖
+  try{
+    const h = await (await fetch('/api/home')).json();
+    if (h.ok && h.items && h.items.length){
+      renderShelf(h.items, '猜你喜欢', '基于 v146 个性化精排的默认推荐');
+    } else {
+      renderShelf([], '开始逛逛');
+    }
+  }catch(e){
+    grid.innerHTML = ''; $('empty').style.display = 'block';
+    $('empty').innerHTML = '未能连接服务：' + esc(e.message) +
+      '<div class="examples"><button data-reload>重试</button></div>';
+    const rb = $('empty').querySelector('[data-reload]');
+    if (rb) rb.onclick = () => location.reload();
+  }
+}
+
 /* ============ 启动（P2：先骨架后内容） ============ */
 (function bootSkeleton(){
   grid.innerHTML = Array.from({length: 4}).map(() =>
@@ -1142,20 +1191,7 @@ $('tabbar').addEventListener('click', ev => {
   $('llmbtn').textContent = 'LLM 解释：' + (info.llm ? '开' : '关');
   setBusy(false);
   stream.innerHTML = '';
-  try{
-    const h = await (await fetch('/api/home')).json();
-    if (h.ok && h.items && h.items.length){
-      renderShelf(h.items, '猜你喜欢', '基于 v146 个性化精排的默认推荐');
-    } else {
-      renderShelf([], '开始逛逛');
-    }
-  }catch(e){
-    grid.innerHTML = ''; $('empty').style.display = 'block';
-    $('empty').innerHTML = '未能连接服务：' + esc(e.message) +
-      '<div class="examples"><button data-reload>重试</button></div>';
-    const rb = $('empty').querySelector('[data-reload]');
-    if (rb) rb.onclick = () => location.reload();
-  }
+  await loadHomeShelf();
   addBot('<div style="font-weight:620;margin-bottom:5px">你好，我是推荐助手</div>' +
     '<div style="font-size:13px;color:#8b91a6">在上方说一句需求，或点工具条用<b>语音 / 手势 / 画面</b>提要求。' +
     '推荐结果在左侧货架：<b>点商品看详情</b>、<b>卡片右上角点赞 / 倒赞</b>、<b>点「加入对比」做字段对照</b>。' +
@@ -1459,8 +1495,8 @@ class App:
         polarity = "positive" if str(polarity).lower() in ("positive", "up", "like", "1") else "negative"
         name = "thumbs_up" if polarity == "positive" else "thumbs_down"
         with self.lock:
-            sess = self.orch.store.get(self.session_id)
-            if sess is not None and self.orch.catalog.exists(str(item_id)):
+            sess = self.orch.store.get_or_create(self.session_id, self.user_id)
+            if self.orch.catalog.exists(str(item_id)):
                 sess.focus_item_id = str(item_id)
                 if str(item_id) not in sess.last_item_ids:
                     sess.last_item_ids = [str(item_id), *sess.last_item_ids]
