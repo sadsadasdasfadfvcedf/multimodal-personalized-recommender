@@ -1802,11 +1802,16 @@ class App:
             # 首页只需要文本货架；合成语音会让 /api/home 从 ~5ms 涨到 ~3.3s，
             # 直接把 LCP 拖到 4s+。这里在锁内临时 dry-run，调用完恢复。
             prev_dry_run = self.orch.dry_run_voice
+            prev_llm = self.orch.llm_explainer.enabled
             self.orch.dry_run_voice = True
+            # 首页货架必须快：即使运行时打开了「LLM 解释」，也不在这里调用
+            # 4B 模型。否则一个 /api/home 会持锁几十秒，重置/翻页全部卡住。
+            self.orch.llm_explainer.enabled = False
             try:
                 res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id + "-home", top_k=limit)
             finally:
                 self.orch.dry_run_voice = prev_dry_run
+                self.orch.llm_explainer.enabled = prev_llm
         if not res.ok:
             return _from_app_error(res.error)
         resp = res.data
@@ -1829,11 +1834,14 @@ class App:
         sid = f"{self.session_id}-more-{int(time.time() * 1000)}"
         with self.lock:
             prev_dry_run = self.orch.dry_run_voice
+            prev_llm = self.orch.llm_explainer.enabled
             self.orch.dry_run_voice = True
+            self.orch.llm_explainer.enabled = False
             try:
                 res = self.orch.handle(spec, user_id=self.user_id, session_id=sid, top_k=top_k)
             finally:
                 self.orch.dry_run_voice = prev_dry_run
+                self.orch.llm_explainer.enabled = prev_llm
         if not res.ok:
             return _from_app_error(res.error)
         resp = res.data

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import importlib.util
+import time
 
 from conftest import PROJECT_ROOT
 
@@ -57,6 +58,20 @@ def test_gesture_action_mapping_covers_six_gestures():
     assert w._gesture_action("index_up")[0] == "start_listening"
     assert w._gesture_action("index_down")[0] == "mute"
     assert w._gesture_action("unknown_pose")[0] == "unknown"
+
+
+def test_home_and_more_do_not_call_llm_explain():
+    """首页货架/翻页必须快；运行时开着 LLM 解释也不能在这里拉起 4B 模型。"""
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.llm_explainer.enabled = True
+    t0 = time.time()
+    home = app.home(8)
+    assert home["ok"] and len(home["items"]) == 8
+    more = app.more("推荐一些热门商品", 16)
+    assert more["ok"] and len(more["items"]) == 16
+    assert app.orch.llm_explainer.enabled is True
+    assert time.time() - t0 < 5
 
 
 def test_pick_gesture_uses_votes_then_confidence():
