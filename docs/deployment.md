@@ -241,10 +241,10 @@ python -c "from modelscope import snapshot_download; snapshot_download('Qwen/Qwe
 **语音输入**使用常驻 `scripts/asr_worker.py`（SenseVoiceSmall）：真实模式启动时后台预加载，
 首次加载约 25 秒（不阻塞页面），之后每轮只付推理时间（实测 0.10~0.14 秒，另加 4 秒录音）。
 网页端 `/api/voice` 实测：预加载完成后第一次 9.97 秒、第二次 4.67 秒（均含 4 秒录音）。
-商品详情弹窗内也有「📷 手势直播」：`POST /api/camera/start` 拉起常驻
-`scripts/camera_worker.py`，摄像头只打开一次；worker 持续写 `latest.jpg` / `state.json`，
-网页用 `<img src="/camera/stream">` 看 MJPEG 实时预览，每 500ms 轮询 `/api/camera/state`。
-检测到稳定 👍/👎（连续 3 帧）后自动对当前商品写入反馈；点「停止」或关闭弹窗会释放摄像头。
+打开商品详情会自动 `POST /api/camera/start` 拉起常驻 `scripts/camera_worker.py`，摄像头只打开一次；
+worker 持续写 `latest.jpg` / `state.json`，网页用 `<img src="/camera/stream">` 看 MJPEG 实时预览，
+每 300ms 轮询 `/api/camera/state`。检测到稳定 👍/👎（连续 3 帧）后自动对当前商品写入反馈；
+换手势（👍 → 👎）会立即重新武装，不需要先把手移出画面。点「停止」或关闭弹窗会释放摄像头。
 摄像头序号/帧率可用 `INTEGRATED_CAMERA_INDEX` / `INTEGRATED_CAMERA_FPS` 调整。
 
 ## 6. 目录与产物
