@@ -39,25 +39,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 
-def _replace_with_retry(tmp: Path, path: Path) -> bool:
-    """Windows 上读者短暂持有文件时，os.replace 会报 PermissionError。
-
-    状态/预览每 100ms 就会再写一次，单次替换失败直接跳过即可；
-    这里做几次短重试，尽量不漏帧。
-    """
-    for _ in range(4):
-        try:
-            tmp.replace(path)
-            return True
-        except PermissionError:
-            time.sleep(0.015)
-    return False
-
-
 def _atomic_json(path: Path, data: dict) -> None:
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    _replace_with_retry(tmp, path)
+    """直接写最终文件，避免 Windows 上 replace 被并发读者锁住导致掉帧。"""
+    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
 def _imwrite(path: Path, frame) -> None:
@@ -65,9 +49,7 @@ def _imwrite(path: Path, frame) -> None:
 
     ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
     if ok:
-        tmp = path.with_suffix(".tmp")
-        buf.tofile(str(tmp))
-        _replace_with_retry(tmp, path)
+        buf.tofile(str(path))
 
 
 def main() -> int:
@@ -146,6 +128,7 @@ def main() -> int:
     proto.flush()
 
     event_id = 0
+    events: list[dict] = []
     last_event_gesture: str | None = None
     last_event_confidence = 0.0
     last_event_at = 0.0
@@ -166,6 +149,7 @@ def main() -> int:
         "last_event_gesture": None,
         "last_event_confidence": 0.0,
         "last_event_at": None,
+        "events": [],
     }
 
     try:
@@ -208,11 +192,23 @@ def main() -> int:
                     streak_count += 1
                 else:
                     streak_name, streak_count = current, 1
+                # 换了一个手势（例如 👍 → 👎）时立即重新武装，不要求手先离开画面
+                if last_event_gesture is not None and current != last_event_gesture:
+                    armed = True
                 if armed and streak_count >= 3:
                     event_id += 1
                     last_event_gesture = current
                     last_event_confidence = conf
                     last_event_at = time.time()
+                    events.append(
+                        {
+                            "id": event_id,
+                            "gesture": current,
+                            "confidence": round(conf, 4),
+                            "at": datetime.fromtimestamp(last_event_at, UTC).isoformat(),
+                        }
+                    )
+                    events = events[-10:]
                     armed = False
             else:
                 streak_name, streak_count = None, 0
@@ -248,6 +244,7 @@ def main() -> int:
                         "last_event_at": (
                             datetime.fromtimestamp(last_event_at, UTC).isoformat() if last_event_at else None
                         ),
+                        "events": events[-10:],
                     }
                 )
                 _atomic_json(out_dir / "state.json", state)

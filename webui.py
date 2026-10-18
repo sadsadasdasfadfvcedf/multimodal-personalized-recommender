@@ -1004,6 +1004,29 @@ async function stopLiveGesture(){
   }
 }
 
+async function handleLiveEvent(g){
+  const stat = $('liveStat');
+  if (g === 'thumbs_up' || g === 'thumbs_down'){
+    const target = liveItem;
+    if (!target) return;
+    const dir = g === 'thumbs_up' ? 'up' : 'down';
+    const r = await post('/api/feedback', {item_id: target, polarity: dir, top_k: pageSize});
+    if (r.ok){
+      ratings.set(String(target), dir);
+      const up = $('sheet').querySelector('[data-rate="up"]');
+      const down = $('sheet').querySelector('[data-rate="down"]');
+      if (up && dir === 'up'){ up.style.background = '#dcfce7'; up.textContent = '👍 已喜欢'; }
+      if (down && dir === 'down'){ down.style.background = '#fee2e2'; down.textContent = '👎 已不喜欢'; }
+      const card = document.querySelector('.pcard[data-item="' + target + '"]');
+      if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', b.dataset.like === dir));
+      if (stat) stat.textContent = '已识别 ' + g + '，已更新当前商品';
+    } else if (stat) stat.textContent = '识别到 ' + g + '，但反馈失败：' + (r.error || '');
+  } else if (g){
+    const labels = {open_palm:'✋ 停止播放', index_up:'☝️ 开始录音', index_down:'👇 暂停播放', victory:'✌️ 截图'};
+    if (stat) stat.textContent = '已识别 ' + (labels[g] || g);
+  }
+}
+
 async function pollLiveGesture(force){
   if ((!force && liveTimer === null) || liveItem === null) return;
   try{
@@ -1016,39 +1039,48 @@ async function pollLiveGesture(force){
       stat.textContent = (s.running === false ? '摄像头已停止' :
         ((g ? '当前：' + g + ' ' + conf + '%' : '未检测到手') + ' · ' + Number(s.fps || 0).toFixed(1) + ' fps'));
     }
-    if (s.event_id && s.event_id !== liveEventId){
-      liveEventId = s.event_id;
-      if (liveBusy) return;
-      liveBusy = true;
-      const g = s.last_event_gesture;
-      try{
-        if (g === 'thumbs_up' || g === 'thumbs_down'){
-          const dir = g === 'thumbs_up' ? 'up' : 'down';
-          const r = await post('/api/feedback', {item_id: liveItem, polarity: dir, top_k: pageSize});
-          if (r.ok){
-            ratings.set(String(liveItem), dir);
-            const up = $('sheet').querySelector('[data-rate="up"]');
-            const down = $('sheet').querySelector('[data-rate="down"]');
-            if (up && dir === 'up'){ up.style.background = '#dcfce7'; up.textContent = '👍 已喜欢'; }
-            if (down && dir === 'down'){ down.style.background = '#fee2e2'; down.textContent = '👎 已不喜欢'; }
-            const card = document.querySelector('.pcard[data-item="' + liveItem + '"]');
-            if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', b.dataset.like === dir));
-            if (stat) stat.textContent = '已识别 ' + g + '，已更新当前商品';
-          } else if (stat) stat.textContent = '识别到 ' + g + '，但反馈失败：' + (r.error || '');
-        } else if (g){
-          const labels = {open_palm:'✋ 停止播放', index_up:'☝️ 开始录音', index_down:'👇 暂停播放', victory:'✌️ 截图'};
-          if (stat) stat.textContent = '已识别 ' + (labels[g] || g);
-        }
-      } finally { liveBusy = false; }
+    const events = Array.isArray(s.events) ? s.events : [];
+    let pending = events.filter(e => Number(e.id) > liveEventId);
+    if (!pending.length && s.event_id && s.event_id !== liveEventId){
+      pending = [{id: s.event_id, gesture: s.last_event_gesture}];
     }
+    if (!pending.length || liveBusy) return;
+    liveBusy = true;
+    try{
+      for (const e of pending){
+        liveEventId = Math.max(liveEventId, Number(e.id) || 0);
+        await handleLiveEvent(e.gesture);
+      }
+    } finally { liveBusy = false; }
   }catch(e){ /* 轮询失败时保留上一状态 */ }
+}
+
+function renderLivePanel(itemId){
+  const box = $('modalGesture'); if (!box) return;
+  box.innerHTML =
+    '<div class="livehead"><span>📷 手势直播</span><button data-stop-live="1">停止</button></div>' +
+    '<img class="livecam" id="liveCam" src="/camera/stream?t=' + Date.now() + '" alt="手势直播画面">' +
+    '<div class="livestat" id="liveStat">正在识别手势…</div>' +
+    '<div class="livehint">👍 点赞 · 👎 倒赞 · 保持约 1 秒；换手势不需要把手移出画面</div>' +
+    '<button class="cmpbtn" data-single-gesture="1" style="margin-top:6px">改用单次识别</button>';
+  const stop = box.querySelector('[data-stop-live]');
+  if (stop) stop.onclick = async () => { await stopLiveGesture(); box.innerHTML = '<div class="mstatus">已停止手势直播</div>'; };
+  const single = box.querySelector('[data-single-gesture]');
+  if (single) single.onclick = async () => { await stopLiveGesture(); modalGesture(itemId); };
 }
 
 async function startLiveGesture(itemId){
   const box = $('modalGesture'); if (!box) return;
-  if (liveTimer !== null) return;
-  await stopLiveGesture();
   liveItem = String(itemId);
+  if (liveTimer !== null){
+    // 摄像头已经在直播：只切换目标商品，不重新打开设备
+    try{
+      const d = await (await fetch('/api/camera/state')).json();
+      liveEventId = Number((d.state || {}).event_id || liveEventId);
+    }catch(e){}
+    renderLivePanel(itemId);
+    return;
+  }
   box.innerHTML = '<div class="mstatus">正在打开摄像头…</div>';
   try{
     const d = await post('/api/camera/start');
@@ -1061,17 +1093,8 @@ async function startLiveGesture(itemId){
       return;
     }
     liveEventId = Number((d.state || {}).event_id || 0);
-    box.innerHTML =
-      '<div class="livehead"><span>📷 手势直播</span><button data-stop-live="1">停止</button></div>' +
-      '<img class="livecam" id="liveCam" src="/camera/stream?t=' + Date.now() + '" alt="手势直播画面">' +
-      '<div class="livestat" id="liveStat">正在识别手势…</div>' +
-      '<div class="livehint">👍 点赞 · 👎 倒赞 · 保持约 1 秒；手离开画面后再比下一次</div>' +
-      '<button class="cmpbtn" data-single-gesture="1" style="margin-top:6px">改用单次识别</button>';
-    const stop = box.querySelector('[data-stop-live]');
-    if (stop) stop.onclick = async () => { await stopLiveGesture(); box.innerHTML = '<div class="mstatus">已停止手势直播</div>'; };
-    const single = box.querySelector('[data-single-gesture]');
-    if (single) single.onclick = async () => { await stopLiveGesture(); modalGesture(itemId); };
-    liveTimer = setInterval(pollLiveGesture, 500);
+    renderLivePanel(itemId);
+    liveTimer = setInterval(pollLiveGesture, 300);
   }catch(e){
     liveItem = null;
     box.innerHTML = '<div class="mstatus err">摄像头启动失败：' + esc(e.message) + '</div>';
@@ -1119,7 +1142,6 @@ async function modalGesture(itemId){
 }
 
 async function openDetail(itemId){
-  await stopLiveGesture();
   $('modal').classList.add('show');
   $('sheet').innerHTML = '<button class="x" data-close="#modal" aria-label="关闭">✕</button>' +
     '<div class="sec"><span class="spin"></span> 正在读取商品详情…</div>';
@@ -1174,6 +1196,7 @@ async function openDetail(itemId){
     };
     const g2 = $('sheet').querySelector('[data-gesture2]');
     if (g2) g2.onclick = ev => { ev.stopPropagation(); startLiveGesture(itemId); };
+    await startLiveGesture(itemId);   // 进入商品详情自动开启摄像头直播
   }catch(e){
     $('sheet').innerHTML = '<button class="x" data-close="#modal">✕</button>' +
       '<div class="sec errline">' + esc(e.message) + '</div>';

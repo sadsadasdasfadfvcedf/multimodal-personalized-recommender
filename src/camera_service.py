@@ -160,16 +160,22 @@ class CameraService:
 
     def state(self) -> dict:
         path = self.out_dir / "state.json"
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            data["running"] = self.running and bool(data.get("running"))
-            return data
-        except Exception:
-            return {"running": self.running, "current_gesture": None, "event_id": 0}
+        for _ in range(2):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                data["running"] = self.running and bool(data.get("running"))
+                return data
+            except Exception:
+                time.sleep(0.02)
+        return {"running": self.running, "current_gesture": None, "event_id": 0}
 
     def frame(self) -> bytes | None:
         path = self.out_dir / "latest.jpg"
         try:
-            return path.read_bytes()
+            data = path.read_bytes()
         except Exception:
             return None
+        # 只把完整 JPEG 交给 MJPEG；写入中的半帧直接丢弃
+        if len(data) < 4 or not data.startswith(b"\xff\xd8") or not data.endswith(b"\xff\xd9"):
+            return None
+        return data
