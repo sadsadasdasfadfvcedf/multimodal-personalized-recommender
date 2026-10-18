@@ -17,6 +17,7 @@ src/orchestrator.py
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from config import settings
@@ -107,6 +108,44 @@ class Orchestrator:
                     event, session, timer, status="ok", control=control, note=f"会话控制：{control['action']}"
                 )
             )
+
+        # 2.6) 寒暄 / 身份问答：直接回答，不进入推荐链路
+        answer = self._smalltalk(event.text)
+        if answer is not None:
+            response = self._envelope(
+                event,
+                session,
+                timer,
+                status="ok",
+                intent_result={
+                    "intent": "chitchat",
+                    "intent_confidence": 1.0,
+                    "slots": {},
+                    "missing_slots": [],
+                    "conflicts": [],
+                },
+                request=None,
+                recommendations=[],
+                answer=answer,
+            )
+            session.record_turn(
+                Turn(
+                    index=len(session.turns) + 1,
+                    trace_id=event.trace_id,
+                    user_id=event.user_id,
+                    timestamp=event.timestamp,
+                    source=event.source,
+                    text=event.text,
+                    intent="chitchat",
+                    slots={},
+                    constraints=[],
+                    feedback=None,
+                    item_ids=[],
+                    status="ok",
+                    note=answer,
+                )
+            )
+            return ok(response)
 
         # 2.5) 「继续浏览」弱反馈：不走意图理解，直接记入会话偏好并重排
         if event.source == "browse":
@@ -620,6 +659,21 @@ class Orchestrator:
         if request.intent == "filter":
             return f"按你的条件（{prefix or '硬约束'}）筛选结果："
         return f"{prefix}推荐：" if prefix else "为你推荐："
+
+    @staticmethod
+    def _smalltalk(text: str | None) -> str | None:
+        """寒暄 / 身份问答的精确匹配；正常需求（即使以「你好」开头）不受影响。"""
+        if not text:
+            return None
+        compact = re.sub(r"[\s\W_]+", "", str(text).lower())
+        if not compact:
+            return None
+        for kind, phrases in settings.SMALLTALK.items():
+            for phrase in phrases:
+                target = re.sub(r"[\s\W_]+", "", phrase.lower())
+                if compact == target or (compact.startswith(target) and len(compact) <= len(target) + 2):
+                    return settings.SMALLTALK_REPLIES.get(kind)
+        return None
 
     def _handle_control(self, text: str, session: SessionContext, session_id: str, user_id: str) -> dict | None:
         if not text:

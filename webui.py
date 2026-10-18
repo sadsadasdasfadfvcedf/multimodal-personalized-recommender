@@ -556,7 +556,7 @@ let activeFilters = [], sortMode = 'match', viewMode = 'grid', userSaid = [];
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
 const INTENT_ZH = {discover:'随便看看', similar:'找相似', filter:'条件筛选',
-                   compare:'商品对比', feedback:'反馈', explain:'求解释', browse:'浏览'};
+                   compare:'商品对比', feedback:'反馈', explain:'求解释', browse:'浏览', chitchat:'对话'};
 const STATUS_ZH = {ok:'完成', degraded:'降级返回', clarification:'需要补充信息',
                    conflict:'条件冲突', empty:'没有结果', no_evidence:'无可核验依据',
                    error:'出错了', warn:'未识别'};
@@ -726,6 +726,7 @@ function renderBot(resp, updateShelf){
           '<span class="k">意图 <b>' + esc(intentZh(resp)) + '</b></span></div>';
   if (resp.error) h += '<div class="errline">' + esc(resp.error.message) + '</div>';
   if (resp.clarification) h += '<div>' + esc(resp.clarification) + '</div>';
+  if (resp.answer) h += '<div style="margin-top:6px;line-height:1.65">' + esc(resp.answer) + '</div>';
 
   const slots = ((resp.intent_result || {}).slots) || {};
   const sv = Object.entries(slots).filter(([k, v]) => v && v.value !== undefined &&
@@ -747,7 +748,8 @@ function renderBot(resp, updateShelf){
   const pres = resp.presentation || {};
   if (pres.audio_url) h += '<audio controls preload="none" src="' + esc(pres.audio_url) + '"></audio>';
 
-  /* P1-7：运行细节默认折叠 */
+  /* P1-7：运行细节默认折叠（寒暄回答不需要召回/排序依据） */
+  if (!resp.answer) {
   const t = resp.trace || {}, lat = t.latency_ms || {}, modes = t.modes || {};
   const rec = t.recall || {}, rk = t.ranking || {};
   const detail = [
@@ -760,6 +762,7 @@ function renderBot(resp, updateShelf){
   ].join('<br>');
   h += '<div class="fold"><button data-fold>▸ 展开依据</button>' +
        '<div class="body">' + detail + '</div></div>';
+  }
   addBot(h);
   if (updateShelf && n) {
     renderShelf(resp.recommendations, shelfTitle(resp), shelfSub(resp), resp);

@@ -158,6 +158,9 @@
 }
 ```
 
+> `answer`（可选）：寒暄 / 身份问答的直接回答。此时 `recommendations` 为空、
+> `intent_result.intent="chitchat"`，前端应展示 `answer` 而不是「找到 N 件商品」。
+
 ## 8. 错误码表（`src/errors.py:ErrorCode`）
 
 | 分组 | 错误码 | 含义 |

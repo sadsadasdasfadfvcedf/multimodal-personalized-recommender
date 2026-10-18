@@ -239,6 +239,29 @@ def main() -> int:
         },
     )
 
+    # 16) 寒暄/身份问答：直接回答，不返回商品
+    s16, chat3 = _call(base, "/api/chat", {"text": "你是谁"}, timeout=60)
+    r16 = chat3.get("response") or {}
+    intent16 = (r16.get("intent_result") or {}).get("intent")
+    ok16 = (
+        s16 == 200
+        and r16.get("status") == "ok"
+        and bool(r16.get("answer"))
+        and not (r16.get("recommendations") or [])
+        and intent16 == "chitchat"
+    )
+    add(
+        16,
+        "寒暄/身份问答",
+        ok16,
+        {
+            "status": s16,
+            "intent": intent16,
+            "answer_len": len(r16.get("answer") or ""),
+            "recs": len(r16.get("recommendations") or []),
+        },
+    )
+
     passed = sum(1 for c in report["checks"] if c["passed"])
     report["summary"] = {
         "total": len(report["checks"]),
