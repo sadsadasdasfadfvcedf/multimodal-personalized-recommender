@@ -216,6 +216,29 @@ def main() -> int:
         {"status": sb, "code": bad.get("code"), "field": bad.get("field")},
     )
 
+    # 15) /api/user 切换账号（切换后恢复默认用户）
+    s15, sw = _call(base, "/api/user", {"user_id": "14156"}, timeout=30)
+    b15 = _call(base, "/api/user", {"user_id": "__nope__"}, timeout=15)[1]
+    restored = _call(base, "/api/user", {"user_id": "15547"}, timeout=30)[1]
+    ok15 = (
+        s15 == 200
+        and sw.get("ok") is True
+        and (sw.get("account") or {}).get("name") == "陈小姐"
+        and b15.get("code") == "E_INVALID_INPUT"
+        and restored.get("ok") is True
+    )
+    add(
+        15,
+        "/api/user 切换账号",
+        ok15,
+        {
+            "status": s15,
+            "account": (sw.get("account") or {}).get("name"),
+            "bad_code": b15.get("code"),
+            "restored": restored.get("ok"),
+        },
+    )
+
     passed = sum(1 for c in report["checks"] if c["passed"])
     report["summary"] = {
         "total": len(report["checks"]),

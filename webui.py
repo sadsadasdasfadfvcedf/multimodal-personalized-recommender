@@ -1079,9 +1079,20 @@ $('statusBtn').addEventListener('click', openStatus);
 $('gearBtn').addEventListener('click', openStatus);
 $('statusClose').addEventListener('click', closeStatus);
 $('mask').addEventListener('click', closeStatus);
+function switchUser(userId){
+  if (busy){ toast('正在处理中，请稍候'); return; }
+  setBusy(true);
+  post('/api/user', {user_id: userId}).then(d => {
+    if (d.ok){ toast('已切换到 ' + d.account.name); location.reload(); }
+    else { toast(d.error || '切换失败'); setBusy(false); }
+  }).catch(e => { toast(e.message); setBusy(false); });
+}
 $('userBtn').addEventListener('click', () => {
-  addBot('<div class="slots">演示账号：<code>15547</code> 林先生（家居复购型）· <code>14156</code> 陈小姐（厨房好物型）· ' +
-         '<code>17231</code> 王女士（装饰礼品型）。重新启动时可加 <code>--user 14156</code> 切换。</div>');
+  const accs = window.__accounts || [];
+  if (!accs.length){ toast('没有可切换的演示账号'); return; }
+  addBot('<div class="slots">切换演示账号：' + accs.map(a =>
+    '<button class="userpick" data-user="' + esc(a.user_id) + '">' + esc(a.name) +
+    '（' + esc(a.persona) + '）</button>').join('') + '</div>');
 });
 $('clearChat').addEventListener('click', () => { stream.innerHTML = ''; toast('对话已清空（会话状态不受影响）'); });
 $('fchips').addEventListener('click', ev => {
@@ -1116,6 +1127,8 @@ stream.addEventListener('click', ev => {
   if (ev.target.closest('[data-type]')){ $('q').focus(); toast('已切到输入框，直接打字即可'); return; }
   const hp = ev.target.closest('[data-help]');
   if (hp){ toast(hp.dataset.help); return; }
+  const up = ev.target.closest('[data-user]');
+  if (up){ switchUser(up.dataset.user); return; }
 });
 $('trayItems').addEventListener('click', ev => {
   const b = ev.target.closest('[data-unpick]'); if (b) toggleCompare(b.dataset.unpick);
@@ -1187,8 +1200,11 @@ async function loadHomeShelf(force){
   $('chips').innerHTML = ['推荐 ' + zh(MODE_ZH, m.recommender), '多模态 ' + zh(MODE_ZH, m.multimodal),
                           '语音 ' + (info.voice ? '开' : '关')]
     .map(t => '<span class="chip' + (needReal ? ' dim' : '') + '">' + esc(t) + '</span>').join('');
-  $('uname').textContent = info.user_id === '14156' ? '陈小姐' : (info.user_id === '17231' ? '王女士' : '林先生');
-  $('uava').textContent = $('uname').textContent.slice(0, 1);
+  window.__accounts = info.accounts || [];
+  const acc = info.account || {name: info.user_id, color: '#6d5dfc'};
+  $('uname').textContent = acc.name;
+  $('uava').textContent = String(acc.name || '?').slice(0, 1);
+  if (acc.color) $('uava').style.background = acc.color;
   $('llmbtn').textContent = 'LLM 解释：' + (info.llm ? '开' : '关');
   setBusy(false);
   stream.innerHTML = '';
@@ -1314,6 +1330,25 @@ class App:
         self.media = settings.PATHS["artifacts"] / "webui"
         self.media.mkdir(parents=True, exist_ok=True)
         self.turn = 0
+
+    def account(self) -> dict:
+        for item in settings.DEMO_ACCOUNTS:
+            if item["user_id"] == self.user_id:
+                return item
+        return {"user_id": self.user_id, "name": self.user_id, "persona": "", "color": "#6d5dfc"}
+
+    def switch_user(self, user_id: str) -> dict:
+        """切换演示账号：结束旧会话，换新 user_id 的默认会话。"""
+        user_id = str(user_id).strip()
+        target = next((a for a in settings.DEMO_ACCOUNTS if a["user_id"] == user_id), None)
+        if target is None:
+            return _err(ErrorCode.INVALID_INPUT, f"未知演示账号：{user_id}", field="user_id")
+        with self.lock:
+            self.orch.store.end(self.session_id)
+            self.user_id = user_id
+            self.session_id = self.orch.store.default_session_id(user_id)
+            self.turn = 0
+        return {"ok": True, "account": target, "session_id": self.session_id}
 
     def handle_spec(self, spec: dict) -> dict:
         with self.lock:
@@ -1551,6 +1586,8 @@ class App:
             "session_id": self.session_id,
             "modes": self.orch.modes(),
             "ok": True,
+            "account": self.account(),
+            "accounts": settings.DEMO_ACCOUNTS,
             "voice": self.with_voice,
             "llm": bool(self.orch.llm_explainer.enabled),
         }
@@ -1661,6 +1698,8 @@ def make_handler(app: App):
                     self._json(app.view(str(body.get("item_id", ""))))
                 elif self.path == "/api/feedback":
                     self._json(app.feedback(str(body.get("item_id", "")), str(body.get("polarity", "positive"))))
+                elif self.path == "/api/user":
+                    self._json(app.switch_user(str(body.get("user_id", ""))))
                 elif self.path == "/api/state":
                     self._json({"ok": True, "state": app.state()})
                 elif self.path == "/api/llm":

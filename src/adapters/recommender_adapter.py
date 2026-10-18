@@ -40,6 +40,9 @@ class RecommenderAdapter(AdapterBase):
             self.strategy_order = ["offline_snapshot"]
         self.catalog: Catalog | None = None
         self._http_session: Any = None
+        self._http_user: str | None = None
+        self._http_password: str | None = None
+        self._http_sessions: dict[str, Any] = {}
         self.http_base = CFG["http"]["base_url"].rstrip("/")
         self._resolve()
 
@@ -85,6 +88,7 @@ class RecommenderAdapter(AdapterBase):
         except ImportError:
             self.record_degradation(level="L1", reason="未安装 requests", from_mode="http", to_mode="next")
             return False
+        self._http_password = password
         if not self._http_login(user, password):
             return False
         # HTTP 模式下仍需一份本地目录用于类目/价格/相似补全
@@ -109,6 +113,8 @@ class RecommenderAdapter(AdapterBase):
                     detail = (resp.text or "").strip()[:120]
                 raise RuntimeError(f"login HTTP {resp.status_code} {detail}".strip())
             self._http_session = session
+            self._http_user = user
+            self._http_sessions[user] = session
             return True
         except Exception as exc:
             self.record_degradation(
@@ -191,7 +197,7 @@ class RecommenderAdapter(AdapterBase):
         """个性化精排候选（推荐系统 v146 分数）。"""
 
         def run() -> Result:
-            if self.active_mode == "http":
+            if self.active_mode == "http" and self._session_for(user_id) is not None:
                 http_result = self._http_recommendations(k)
                 if http_result.ok and http_result.data:
                     return http_result
@@ -220,6 +226,26 @@ class RecommenderAdapter(AdapterBase):
             )
 
         return self.guard("personalized_candidates", run)
+
+    def _session_for(self, user_id: str) -> Any:
+        """取该 user 的 HTTP 会话；切换账号时按需重新登录。
+
+        推荐系统按**登录会话**返回用户个性化结果，query 里的 user_id 并不生效；
+        早期实现只在启动时登录一次，导致网页切换账号后拿到的仍是同一个人的推荐。
+        """
+        user_id = str(user_id)
+        if self._http_session is not None and self._http_user == user_id:
+            return self._http_session
+        cached = self._http_sessions.get(user_id)
+        if cached is not None:
+            self._http_session = cached
+            self._http_user = user_id
+            return cached
+        if not self._http_password:
+            return None
+        if not self._http_login(user_id, self._http_password):
+            return None
+        return self._http_session
 
     def _http_recommendations(self, k: int) -> Result:
 
