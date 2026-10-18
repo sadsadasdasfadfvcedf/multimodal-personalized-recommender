@@ -27,7 +27,7 @@ python scripts/00_check_env.py
 | 阶段 | 命令 | 该看什么 | 期望 |
 |---|---|---|---|
 | 1 | `python scripts/01_contract_test.py` | 末尾「合计 N/N 通过」 | `25/25 通过（100%）` |
-| 2 | `python scripts/02_context_test.py` | Part A 与 Part B 的通过率 | `26/26`、`10/10` |
+| 2 | `python scripts/02_context_test.py` | Part A 与 Part B 的通过率 | `26/26`、`12/12` |
 | 3 | `python scripts/03_orchestrator_demo.py` | 四条链路与验收清单 | NORMAL/EMPTY/DEGRADED/TIMEOUT 全部 PASS |
 | 4 | `python scripts/04_explanation_test.py` | 7 个用例 + 文本/语音呈现 | 全 PASS；语音为文本摘录 |
 | 5 | `python scripts/05_feedback_ab.py` | 案例类型分布 | 成功/无变化/反向变化**三类齐备** |

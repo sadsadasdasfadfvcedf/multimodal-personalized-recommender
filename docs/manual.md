@@ -123,7 +123,7 @@
 | 2 | 多模态适配 | ASR 文本、VL 视觉标签、手势事件 → InteractionEvent；真实模型与离线桩输出同一套契约 | src/adapters/ multimodal_adapter.py scripts/mm_worker.py | 1 · 2 | real_multimodal_check.json 契约一致 contracts_all_ok |
 | 3 | 推荐适配 | HTTP /api/recommendations → 发布制品 → 内置快照 三级降级；候选统一字段、去重与 TopK 截断 | src/adapters/ recommender_adapter.py | 1 · 3 | live_integration.json HTTP 候选 8 条，三轮主链路 ok |
 | 4 | 意图理解 | 六类意图 + 五类槽位抽取，记录证据来源与置信度；必选槽位缺失不臆测；约束冲突可检测 | src/intent.py | 2 | stage02_context_metrics.json 26/26（阈值 ≥80%） |
-| 5 | 会话上下文 | 多轮约束合并、撤销、冲突提示、点赞/倒赞正负互斥、会话偏好隔离与结束清理 | src/session.py src/privacy.py | 2 · 5 | 会话检查 10/10； 跨会话隔离复核全部一致 |
+| 5 | 会话上下文 | 多轮约束合并、撤销、冲突提示、点赞/倒赞正负互斥、会话偏好隔离与结束清理 | src/session.py src/privacy.py | 2 · 5 | 会话检查 12/12； 跨会话隔离复核全部一致 |
 | 6 | 多路召回 | 六路：个性化精排 / 相似商品 / 品类热门 / 会话关注 / 全局热门 / 历史购买相似；合并去重保留全部 sources 与分数明细 | src/recall.py | 3 | stage03_demo.json 候选来源可追溯 |
 | 7 | 可控精排 | 硬约束先过滤（预算/类目/颜色/排除项）；0.55 基础分 + 0.20 约束命中 + 0.10 来源可信 + 0.15 会话偏好重排；空结果放宽与热门兜底 | src/ranking.py | 3 | 硬约束核验 0 违规； 三类 trace：ok / empty / degraded |
 | 8 | 证据包 | 商品事实、候选来源、命中约束、视觉标签、KB 片段、价格一致性核验 | src/evidence.py src/catalog.py | 4 | 解释↔证据对照表 证据条数 9 / 6 / 6 / 7 / 8 |
@@ -294,7 +294,7 @@
 | 阶段 | 名称 | 任务目标 | 关键验收项 | 主要交付物 | 结果 |
 |---|---|---|---|---|---|
 | 1 | 需求分析、系统架构与接口契约 | 把两套系统整合为通过稳定接口协作的工程系统，形成统一事件、会话上下文和推荐结果协议 | 不读对方内部变量 · 信封四字段 · 非法输入明确错误 · 离线可跑 | docs/architecture.md docs/protocol.md outputs/stage01_contract_report.json | 25/25 |
-| 2 | 多模态意图理解与用户上下文 | 把 ASR 文本、视觉标签与手势事件转换为结构化推荐意图、约束和短期偏好，支持追问、撤销与冲突处理 | 槽位缺失不臆测 · 👍👎 映射正负反馈 · 冲突可检测 · 20 条样例 ≥80% | outputs/stage02_context_cases.jsonl outputs/stage02_context_metrics.json docs/error_case_analysis.md | **26/26** 会话 10/10 |
+| 2 | 多模态意图理解与用户上下文 | 把 ASR 文本、视觉标签与手势事件转换为结构化推荐意图、约束和短期偏好，支持追问、撤销与冲突处理 | 槽位缺失不臆测 · 👍👎 映射正负反馈 · 冲突可检测 · 20 条样例 ≥80% | outputs/stage02_context_cases.jsonl outputs/stage02_context_metrics.json docs/error_case_analysis.md | **26/26** 会话 12/12 |
 | 3 | 对话编排、多路召回与可控精排 | 通过编排器调用推荐链路，完成候选召回、硬约束过滤、上下文重排和无结果降级 | 候选来源可追溯 · 硬约束不被分数覆盖 · 空结果有提示 · 同输入可复现 | outputs/stage03_demo.json outputs/stage03_traces.jsonl docs/timeout_and_degradation.md | **6/6** 三类 trace |
 | 4 | 商品多模态理解、RAG 解释与交互呈现 | 用商品文本、属性与视觉标签形成证据包，以可核验事实生成解释，并通过文本或语音呈现 | 每条解释有证据 · 无证据不编造 · 价格属性一致 · 低置信视觉标签降权或忽略 | outputs/stage04_explanation_cases.jsonl outputs/stage04_explanations.json docs/explanation_anomalies.md | 7/7 |
 | 5 | 反馈闭环、效果评估与工程优化 | 把点赞、倒赞和继续浏览等反馈写入会话偏好，比较反馈前后结果，并从效果、交互、性能和可靠性维度评估 | 排序变化可解释 · 负反馈不污染其他会话 · 对照口径一致 · 含无变化案例 | outputs/stage05_feedback_ab.json docs/performance_and_failures.md | **8/8** 四类案例齐备 |
@@ -698,7 +698,7 @@ python scripts/07_live_integration_check.py
 | 阶段 | 关键验收项 | 结论 | 证据文件 |
 |---|---|---|---|
 | 1 | 接口边界 / 信封字段 / 明确错误码 / 离线可跑 | 25/25 通过（成功 9 · 失败 11 · 边界 5） | outputs/stage01_contract_report.json |
-| 2 | 不臆测缺失槽位 / 👍👎 映射 / 冲突检测 / 样例 ≥80% | 意图 26/26（阈值 80%）+ 会话 10/10 | outputs/stage02_context_metrics.json |
+| 2 | 不臆测缺失槽位 / 👍👎 映射 / 冲突检测 / 样例 ≥80% | 意图 26/26（阈值 80%）+ 会话 12/12 | outputs/stage02_context_metrics.json |
 | 3 | 来源可追溯 / 硬约束不被覆盖 / 空结果提示 / 可复现 | 6/6 通过；硬约束核验 0 违规 | outputs/stage03_demo.json |
 | 4 | 每条解释有证据 / 无证据不编造 / 价格一致 / 低置信降权 | 7/7 通过；证据不足案例正确返回 no_evidence | outputs/stage04_explanation_cases.jsonl |
 | 5 | 变化可解释 / 不跨会话污染 / 口径一致 / 含无变化案例 | 8/8 通过（成功 3 · 无变化 3 · 反向 1 · 失败 1） | outputs/stage05_feedback_ab.json |

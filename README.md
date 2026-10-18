@@ -365,7 +365,7 @@ python scripts/05_feedback_ab.py   # 任选一个阶段重跑
 | 阶段 | 关键验收项 | 结论 | 证据 |
 |---|---|---|---|
 | 1 | 接口边界 / 信封字段 / 明确错误码 / 离线可跑 | 25/25 通过 | `outputs/stage01_contract_report.json` |
-| 2 | 不臆测缺失槽位 / 👍👎 映射 / 冲突检测 / 样例 ≥80% | 26/26 + 会话 10/10 | `outputs/stage02_context_metrics.json` |
+| 2 | 不臆测缺失槽位 / 👍👎 映射 / 冲突检测 / 样例 ≥80% | 26/26 + 会话 12/12 | `outputs/stage02_context_metrics.json` |
 | 3 | 来源可追溯 / 硬约束不被覆盖 / 空结果提示 / 可复现 | 6/6 通过 | `outputs/stage03_demo.json` |
 | 4 | 每条解释有证据 / 无证据不编造 / 价格一致 / 低置信降权 | 7/7 通过 | `outputs/stage04_explanation_cases.jsonl` |
 | 5 | 变化可解释 / 不跨会话污染 / 口径一致 / 含无变化案例 | 6/6 通过 | `outputs/stage05_feedback_ab.json` |
