@@ -240,10 +240,10 @@
 | GET | `/api/product/{item_id}` | — | `{ok, product, similar[]}` | `{ok:false, code:E_ITEM_NOT_FOUND, ...}` |
 | GET | `/audio/{name}` | — | 音频字节 | 404 `E_ITEM_NOT_FOUND` |
 | POST | `/api/chat` | `{text, top_k?}` | `{ok, response}`（response 见 §7） | `{ok:false, code, field, error}` |
-| POST | `/api/more` | `{text, top_k}` | `{ok, items[], top_k}` | 同上 |
+| POST | `/api/more` | `{text, top_k}`（`top_k` 上限 120） | `{ok, items[], top_k}` | 同上 |
 | POST | `/api/feedback` | `{item_id, polarity}` | `{ok, response}` | 同上 |
 | POST | `/api/voice` | `{seconds}` | `{ok, transcript, response}` | 同上 |
-| POST | `/api/gesture` | `{}` | `{ok, gesture, response, preview_url, gesture_frames, gesture_votes}`；非反馈手势返回 `{ok, gesture, action, message, preview_url}` | 同上（失败也带 `preview_url`） |
+| POST | `/api/gesture` | `{item_id?}` | `{ok, gesture, response, preview_url, gesture_frames, gesture_votes}`；非反馈手势返回 `{ok, gesture, action, message, preview_url}` | 同上（失败也带 `preview_url`） |
 | GET | `/capture/{path}` | — | 抓拍画面字节 | 404 `E_ITEM_NOT_FOUND` |
 | POST | `/api/vision` | `{question}` | `{ok, description, response}` | 同上 |
 | POST | `/api/undo` / `/api/reset` | `{}` | `{ok, response}` | 同上 |

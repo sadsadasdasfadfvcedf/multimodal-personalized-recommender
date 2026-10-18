@@ -85,6 +85,7 @@ python scripts/clean_workspace.py
 | `INTEGRATED_DEMO_PASSWORD` | 口令 | 未设置 | HTTP 模式演示口令（不在代码中出现） |
 | `INTEGRATED_TIMEOUT_S` | 秒 | `5.0` | 适配器默认超时 |
 | `INTEGRATED_CHAT_TIMEOUT_S` | 秒 | `180` | 单轮开放问答生成超时 |
+| `INTEGRATED_ASR_TIMEOUT_S` | 秒 | `180` | 单轮语音识别超时 |
 | `INTEGRATED_GESTURE_FRAMES` | 帧 | `5` | 网页手势连拍帧数 |
 | `INTEGRATED_GESTURE_INTERVAL_MS` | 毫秒 | `250` | 网页手势连拍间隔 |
 
@@ -234,6 +235,11 @@ python -c "from modelscope import snapshot_download; snapshot_download('Qwen/Qwe
 网页端使用**宽松识别档**（`lenient=true`：检测阈值 0.05、绕过「手挡脸」误检过滤），
 因为用户主动把手举到脸前时严格档会把手势判成人脸误检；同时要求同一手势在 5 帧中至少 2 帧一致。
 操作卡会显示最佳抓拍帧（`/capture/...`，点击看大图）。
+
+**语音输入**使用常驻 `scripts/asr_worker.py`（SenseVoiceSmall）：真实模式启动时后台预加载，
+首次加载约 25 秒（不阻塞页面），之后每轮只付推理时间（实测 0.10~0.14 秒，另加 4 秒录音）。
+网页端 `/api/voice` 实测：预加载完成后第一次 9.97 秒、第二次 4.67 秒（均含 4 秒录音）。
+商品详情弹窗内也有「✋ 手势评价」，`/api/gesture` 支持 `{item_id}`，会先把该商品设为会话焦点。
 
 ## 6. 目录与产物
 
