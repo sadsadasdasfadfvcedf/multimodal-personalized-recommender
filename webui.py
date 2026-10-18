@@ -1176,7 +1176,6 @@ async function openDetail(itemId){
             '<button data-rate="down" style="border:none;border-radius:8px;padding:6px 12px;background:#f1f2f7;color:#5c6379">👎 不喜欢</button>' +
             '<button data-cmp2="' + esc(p.item_id) + '" style="border:1px solid #e8eaf2;border-radius:8px;padding:6px 12px;background:#fff;color:#5c6379;margin-left:6px">' +
               (picked.has(p.item_id) ? '✓ 已加入对比' : '▦ 加入对比') + '</button>' +
-            '<button data-gesture2="' + esc(p.item_id) + '" style="border:1px solid #d9d1ff;border-radius:8px;padding:6px 12px;background:#f5f2ff;color:#5b3fd6;margin-left:6px">📷 手势直播</button>' +
           '</dd>' +
         '</dl><div id="modalGesture" class="mgesture"></div></div></div>' + reason +
       '<div class="sec"><h3>相似商品（点开继续看）</h3><div class="mini">' + sim + '</div></div>';
@@ -1194,8 +1193,6 @@ async function openDetail(itemId){
         toast('已更新对比栏');
       }
     };
-    const g2 = $('sheet').querySelector('[data-gesture2]');
-    if (g2) g2.onclick = ev => { ev.stopPropagation(); startLiveGesture(itemId); };
     await startLiveGesture(itemId);   // 进入商品详情自动开启摄像头直播
   }catch(e){
     $('sheet').innerHTML = '<button class="x" data-close="#modal">✕</button>' +
