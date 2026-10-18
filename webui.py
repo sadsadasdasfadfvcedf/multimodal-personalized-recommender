@@ -99,7 +99,19 @@ PAGE = r"""<!DOCTYPE html>
   .chip{background:var(--brand-soft);color:var(--brand-ink);border-radius:999px;
         padding:2px 10px;font-size:12px;white-space:nowrap}
   .chip.dim{background:#f1f2f7;color:var(--muted)}
-  .appbar .right{display:flex;align-items:center;gap:8px;flex:none}
+  .appbar .right{display:flex;align-items:center;gap:8px;flex:none;position:relative}
+  .usermenu{position:absolute;top:calc(100% + 8px);right:0;min-width:236px;background:#fff;
+        border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 36px rgba(20,24,45,.16);
+        padding:6px;display:none;z-index:70}
+  .usermenu.show{display:block}
+  .usermenu button{display:flex;width:100%;align-items:center;gap:9px;padding:9px 10px;border:0;
+        border-radius:9px;background:transparent;text-align:left;cursor:pointer}
+  .usermenu button:hover{background:#f3f4fa}
+  .usermenu .uava2{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
+        color:#fff;font-size:12px;flex:none}
+  .usermenu .nm{font-weight:600;color:var(--ink);font-size:13.5px}
+  .usermenu .ps{font-size:11.5px;color:var(--muted)}
+  .usermenu .cur{margin-left:auto;font-size:11.5px;color:var(--brand)}
   .userbtn{display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;
         border:1px solid var(--line);background:#fff;white-space:nowrap}
   .userbtn:hover{background:#f3f4fa}
@@ -438,10 +450,11 @@ PAGE = r"""<!DOCTYPE html>
   </form>
   <div class="chips" id="chips"></div>
   <div class="right">
-    <button class="userbtn" id="userBtn" aria-label="当前用户">
+    <button class="userbtn" id="userBtn" aria-label="当前用户" aria-haspopup="menu" aria-expanded="false">
       <span class="avatar" id="uava">林</span><span id="uname">林先生</span><span style="color:#9aa0bd">▾</span>
     </button>
     <button class="iconbtn" id="gearBtn" aria-label="运行状态与设置" title="运行状态与设置">⚙</button>
+    <div class="usermenu" id="userMenu" role="menu" aria-label="切换演示账号"></div>
   </div>
 </header>
 
@@ -1087,12 +1100,36 @@ function switchUser(userId){
     else { toast(d.error || '切换失败'); setBusy(false); }
   }).catch(e => { toast(e.message); setBusy(false); });
 }
-$('userBtn').addEventListener('click', () => {
+function renderUserMenu(){
   const accs = window.__accounts || [];
-  if (!accs.length){ toast('没有可切换的演示账号'); return; }
-  addBot('<div class="slots">切换演示账号：' + accs.map(a =>
-    '<button class="userpick" data-user="' + esc(a.user_id) + '">' + esc(a.name) +
-    '（' + esc(a.persona) + '）</button>').join('') + '</div>');
+  const cur = (window.__account || {}).user_id;
+  $('userMenu').innerHTML = accs.map(a => {
+    const active = a.user_id === cur;
+    return '<button role="menuitem" data-user="' + esc(a.user_id) + '"' + (active ? ' aria-current="true"' : '') + '>' +
+      '<span class="uava2" style="background:' + esc(a.color || '#6d5dfc') + '">' +
+        esc(String(a.name || '?').slice(0, 1)) + '</span>' +
+      '<span><span class="nm">' + esc(a.name) + '</span><br><span class="ps">' + esc(a.persona) + '</span></span>' +
+      (active ? '<span class="cur">当前</span>' : '') +
+      '</button>';
+  }).join('');
+}
+function toggleUserMenu(open){
+  const m = $('userMenu');
+  if (!m) return;
+  const show = open === undefined ? !m.classList.contains('show') : !!open;
+  if (show) renderUserMenu();
+  m.classList.toggle('show', show);
+  $('userBtn').setAttribute('aria-expanded', String(show));
+}
+$('userBtn').addEventListener('click', () => toggleUserMenu());
+$('userMenu').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-user]');
+  if (!b) return;
+  toggleUserMenu(false);
+  switchUser(b.dataset.user);
+});
+document.addEventListener('click', ev => {
+  if (!ev.target.closest('#userMenu') && !ev.target.closest('#userBtn')) toggleUserMenu(false);
 });
 $('clearChat').addEventListener('click', () => { stream.innerHTML = ''; toast('对话已清空（会话状态不受影响）'); });
 $('fchips').addEventListener('click', ev => {
@@ -1127,8 +1164,6 @@ stream.addEventListener('click', ev => {
   if (ev.target.closest('[data-type]')){ $('q').focus(); toast('已切到输入框，直接打字即可'); return; }
   const hp = ev.target.closest('[data-help]');
   if (hp){ toast(hp.dataset.help); return; }
-  const up = ev.target.closest('[data-user]');
-  if (up){ switchUser(up.dataset.user); return; }
 });
 $('trayItems').addEventListener('click', ev => {
   const b = ev.target.closest('[data-unpick]'); if (b) toggleCompare(b.dataset.unpick);
@@ -1141,7 +1176,7 @@ document.addEventListener('click', ev => {
 });
 $('modal').addEventListener('click', ev => { if (ev.target === $('modal')) closeAll(); });
 $('cmpModal').addEventListener('click', ev => { if (ev.target === $('cmpModal')) closeAll(); });
-document.addEventListener('keydown', ev => { if (ev.key === 'Escape'){ closeAll(); closeStatus(); } });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape'){ closeAll(); closeStatus(); toggleUserMenu(false); } });
 $('toBottom').addEventListener('click', bottom);
 stream.addEventListener('scroll', () => {
   const far = stream.scrollHeight - stream.scrollTop - stream.clientHeight > 160;
@@ -1201,6 +1236,7 @@ async function loadHomeShelf(force){
                           '语音 ' + (info.voice ? '开' : '关')]
     .map(t => '<span class="chip' + (needReal ? ' dim' : '') + '">' + esc(t) + '</span>').join('');
   window.__accounts = info.accounts || [];
+  window.__account = info.account || {};
   const acc = info.account || {name: info.user_id, color: '#6d5dfc'};
   $('uname').textContent = acc.name;
   $('uava').textContent = String(acc.name || '?').slice(0, 1);
