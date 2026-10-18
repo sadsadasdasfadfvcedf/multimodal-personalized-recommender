@@ -233,6 +233,9 @@ python scripts/15_deps_check.py
 | `python scripts/14_asr_quality_check.py` | ASR 识别质量评测（需权重，可选） | `outputs/asr_quality_check.json`、`artifacts/asr_eval/` |
 | `python scripts/15_deps_check.py` | 真实多模态依赖深检（可选，不联网） | `outputs/deps_check.json` |
 | `python scripts/16_webui_click_path_check.py` | 网页点击路径回归（需 webui 在跑 + Edge） | `outputs/webui_click_path.json` |
+| `python scripts/17_browser_qa.py` | 浏览器运行时 QA：console / 网络 / CWV / 无障碍（需 Edge） | `outputs/browser_qa.json`、三档截图 |
+| `python scripts/18_contract_check.py` | 网页 API 契约核验（protocol §10） | `outputs/contract_check.json` |
+| `python scripts/19_security_check.py` | 网页服务安全基线与输入边界 | `outputs/security_check.json` |
 | `python scripts/13_webui_acceptance.py` | 网页改版验收（需 webui 在跑 + Edge） | `outputs/webui_acceptance.json` |
 | `python scripts/clean_workspace.py` | 打包前清理 | 删除 `__pycache__` / `*.pyc` |
 

@@ -208,3 +208,48 @@
 - HTTP 模式的演示账号/口令**只从环境变量读取**（`INTEGRATED_DEMO_USER` / `INTEGRATED_DEMO_PASSWORD`），代码与数据文件中不含任何密钥；
 - `local_artifacts` 模式只读取推荐系统**对外发布的制品文件**（`webapp/data/*.json`、`products.csv`、`submission_*.csv`），
   不 import 其 Python 模块、不访问其内部变量。
+
+## 10. 网页 API（webui.py，本地演示边界）
+
+`webui.py` 是浏览器与 Orchestrator 之间的本地边界。它**不是**对外服务：默认只监听
+`127.0.0.1`，无鉴权、无限流，仅用于课程演示。
+
+### 10.1 通用约定
+
+- 所有响应都是 JSON（`Content-Type: application/json; charset=utf-8`）。
+- 业务成功：`{"ok": true, ...}`。
+- 业务失败：`{"ok": false, "error": "<人类可读>", "code": "E_...", "field": "<字段或 null>"}`。
+- 未知路径 / 未知接口：HTTP 404，但**仍返回上述结构**（`code=E_INVALID_INPUT`）。
+- `code` 取值来自 `src/errors.py:ErrorCode`（见 §8）。
+
+### 10.2 端点
+
+| 方法 | 路径 | 请求 | 成功响应 | 失败响应 |
+|---|---|---|---|---|
+| GET | `/api/info` | — | `{ok, user_id, session_id, modes, voice, llm}` | — |
+| GET | `/api/home` | — | `{ok, title, subtitle, items[]}` | — |
+| GET | `/api/img/{item_id}` | — | 图片字节 | 404 `E_ITEM_NOT_FOUND` |
+| GET | `/api/product/{item_id}` | — | `{ok, product, similar[]}` | `{ok:false, code:E_ITEM_NOT_FOUND, ...}` |
+| GET | `/audio/{name}` | — | 音频字节 | 404 `E_ITEM_NOT_FOUND` |
+| POST | `/api/chat` | `{text}` | `{ok, response}`（response 见 §7） | `{ok:false, code, field, error}` |
+| POST | `/api/feedback` | `{item_id, polarity}` | `{ok, response}` | 同上 |
+| POST | `/api/voice` | `{seconds}` | `{ok, transcript, response}` | 同上 |
+| POST | `/api/gesture` | `{}` | `{ok, gesture, response}` | 同上 |
+| POST | `/api/vision` | `{question}` | `{ok, description, response}` | 同上 |
+| POST | `/api/undo` / `/api/reset` | `{}` | `{ok, response}` | 同上 |
+| POST | `/api/products` | `{item_ids[]}` | `{ok, products[]}` | 400 `E_INVALID_INPUT` |
+| POST | `/api/state` | `{}` | `{ok, state}` | — |
+| POST | `/api/llm` | `{}` | `{ok, enabled}` | — |
+
+### 10.3 与 §7 的关系
+
+`/api/chat` 等返回的 `response` 就是 §7 的统一响应信封；`ok` 只表示**本次 HTTP 调用完成**，
+不代表业务成功 —— 业务状态看 `response.status`（`ok/degraded/.../error`）。
+前端必须同时检查 `ok` 与 `response.status`（本仓库的 `rate()` 曾因只看 `ok` 而误报「已记录」）。
+
+### 10.4 已知边界
+
+- 单进程、无鉴权、无限流；只监听 `127.0.0.1`，禁止直接暴露到公网。
+- 同一时刻只处理一个会修改会话的请求（`App.lock`）；长耗时请求（真实 LLM）会阻塞其他会话写操作。
+- 错误响应对本地演示保留异常文本；生产部署应改为通用文案 + 服务端日志。
+

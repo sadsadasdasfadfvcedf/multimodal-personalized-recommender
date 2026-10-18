@@ -400,6 +400,9 @@ integrated_ai_project/
 │  ├─ 14_asr_quality_check.py                  ASR 识别质量评测（可选）
 │  ├─ 15_deps_check.py                         真实多模态依赖深检（可选）
 │  ├─ 16_webui_click_path_check.py             网页点击路径回归（4 项，需 Edge）
+│  ├─ 17_browser_qa.py                         浏览器运行时 QA（console/CWV/无障碍）
+│  ├─ 18_contract_check.py                     网页 API 契约核验（14 项）
+│  ├─ 19_security_check.py                     网页服务安全基线（8 项）
 │  ├─ 13_webui_acceptance.py                   网页改版验收（10 项，需 Edge）
 │  ├─ run_all_offline.py                       一键跑完整离线套件（汇总表）
 ```
@@ -534,6 +537,9 @@ python chat.py --user 14156         # 换用户（15547 林先生 / 14156 陈小
 | python scripts/14_asr_quality_check.py | ASR 识别质量评测（需权重，可选） | outputs/asr_quality_check.json |
 | python scripts/15_deps_check.py | 真实多模态依赖深检（不联网） | outputs/deps_check.json |
 | python scripts/16_webui_click_path_check.py | 网页点击路径回归（需 webui 在跑 + Edge） | outputs/webui_click_path.json |
+| python scripts/17_browser_qa.py | 浏览器运行时 QA（console/网络/CWV/无障碍） | outputs/browser_qa.json |
+| python scripts/18_contract_check.py | 网页 API 契约核验（protocol §10） | outputs/contract_check.json |
+| python scripts/19_security_check.py | 网页服务安全基线（8 项） | outputs/security_check.json |
 | python scripts/13_webui_acceptance.py | 网页改版验收（需 webui 在跑 + Edge） | outputs/webui_acceptance.json |
 | python scripts/run_all_offline.py | 一键跑完整离线套件（9 个脚本，约 24 秒） | 刷新全部 outputs/ 证据 |
 | python scripts/clean_workspace.py | 打包前清理 | 删除 __pycache__ / *.pyc |
