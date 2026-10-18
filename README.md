@@ -232,6 +232,7 @@ python scripts/15_deps_check.py
 | `python scripts/12_text_norm_check.py` | 文本规范化与流畅度门控 | `outputs/text_norm_check.json` |
 | `python scripts/14_asr_quality_check.py` | ASR 识别质量评测（需权重，可选） | `outputs/asr_quality_check.json`、`artifacts/asr_eval/` |
 | `python scripts/15_deps_check.py` | 真实多模态依赖深检（可选，不联网） | `outputs/deps_check.json` |
+| `python scripts/16_webui_click_path_check.py` | 网页点击路径回归（需 webui 在跑 + Edge） | `outputs/webui_click_path.json` |
 | `python scripts/13_webui_acceptance.py` | 网页改版验收（需 webui 在跑 + Edge） | `outputs/webui_acceptance.json` |
 | `python scripts/clean_workspace.py` | 打包前清理 | 删除 `__pycache__` / `*.pyc` |
 

@@ -392,6 +392,16 @@ Qwen3-4B 实测输出（全部通过三道门控；括号内为原始事实）�
 
 ---
 
+补充：网页点击路径审计（`scripts/16_webui_click_path_check.py`）另发现并修复 5 处「单个函数正常、组合后状态互相抵消」的问题：
+
+| 问题 | 根因 | 修复 |
+|---|---|---|
+| 清空对比栏后卡片仍显示「✓ 已加入对比」 | 只清了 `picked`，没有同步卡片 DOM | 抽出 `syncPickUI()` 统一刷新 |
+| 相似商品详情里「加入对比」无反应但提示成功 | `toggleCompare` 只从货架 `currentItems` 找商品 | 支持传入详情页的商品对象作为 fallback |
+| 新会话直接点赞显示已记录但实际未生效 | `app.feedback` 用 `store.get()`，页面刚打开时会话为 `None`，焦点没设上 | 改用 `get_or_create`；前端同时校验 `response.status` |
+| busy 时提交会清空输入框、丢掉用户刚打的字 | 表单处理器先清空再调用带 `busy` 守卫的 `ask` | 新增 `submitAsk()`，先判 `busy` 再清空 |
+| 「重来」后筛选 chip 仍在、失败时也清对比栏 | reset 分支只清 `picked` 且不判成功 | 成功时清 `picked/ratings/activeFilters` 并重载首页货架 |
+
 ## 6. 结论
 
 1. **整合目标达成。** 两套系统通过 `InteractionEvent` / `RecommendationRequest` / `RecommendationItem`
