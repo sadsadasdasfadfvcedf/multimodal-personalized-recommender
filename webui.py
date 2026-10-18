@@ -308,6 +308,11 @@ PAGE = r"""<!DOCTYPE html>
   .mgesture .mstatus.ok{background:#eafaf0;color:#0a7b43}
   .mgesture .mstatus.err{background:#fff1f1;color:#b42318}
   .mgesture .shot{display:block;width:100%;max-width:420px;margin-top:6px;border-radius:8px;border:1px solid var(--line)}
+  .mgesture .livehead{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin-bottom:6px}
+  .mgesture .livecam{display:block;width:100%;max-width:560px;border-radius:10px;border:1px solid var(--line);background:#000}
+  .mgesture .livestat{font-size:12px;color:var(--muted);margin-top:5px}
+  .mgesture .livehint{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .mgesture button[data-stop-live]{border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--muted);padding:4px 10px;font-size:12px;cursor:pointer}
   .badge{margin-left:auto;flex:none;font-size:11px;border-radius:999px;padding:1.5px 8px;
          background:#f1f2f7;color:var(--muted);white-space:nowrap}
   .badge.pending{background:var(--brand-soft);color:var(--brand-ink)}
@@ -576,6 +581,7 @@ const grid = $('pgrid'), stream = $('stream');
 let busy = false, needReal = false, currentItems = [], picked = new Map(), ratings = new Map();
 let activeFilters = [], sortMode = 'match', viewMode = 'grid', userSaid = [];
 let pageSize = 8, lastQuery = null;   // null = 首页货架；字符串 = 最近一次文字需求
+let liveTimer = null, liveItem = null, liveEventId = 0, liveBusy = false;
 let currentLimit = 8, loadingMore = false, hasMore = true;
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
@@ -986,6 +992,92 @@ async function openCompare(){
 }
 
 /* ============ 商品详情 ============ */
+async function stopLiveGesture(){
+  // 停止前先处理一次最后的状态，避免「刚比完手势就点停止」丢掉最后一次事件
+  if (liveItem !== null){
+    try { await pollLiveGesture(true); } catch(e){}
+  }
+  if (liveTimer !== null){ clearInterval(liveTimer); liveTimer = null; }
+  if (liveItem !== null){
+    liveItem = null;
+    try { await post('/api/camera/stop'); } catch(e){}
+  }
+}
+
+async function pollLiveGesture(force){
+  if ((!force && liveTimer === null) || liveItem === null) return;
+  try{
+    const d = await (await fetch('/api/camera/state')).json();
+    const s = d.state || {};
+    const stat = $('liveStat');
+    if (stat){
+      const g = s.current_gesture;
+      const conf = Math.round((s.current_confidence || 0) * 100);
+      stat.textContent = (s.running === false ? '摄像头已停止' :
+        ((g ? '当前：' + g + ' ' + conf + '%' : '未检测到手') + ' · ' + Number(s.fps || 0).toFixed(1) + ' fps'));
+    }
+    if (s.event_id && s.event_id !== liveEventId){
+      liveEventId = s.event_id;
+      if (liveBusy) return;
+      liveBusy = true;
+      const g = s.last_event_gesture;
+      try{
+        if (g === 'thumbs_up' || g === 'thumbs_down'){
+          const dir = g === 'thumbs_up' ? 'up' : 'down';
+          const r = await post('/api/feedback', {item_id: liveItem, polarity: dir, top_k: pageSize});
+          if (r.ok){
+            ratings.set(String(liveItem), dir);
+            const up = $('sheet').querySelector('[data-rate="up"]');
+            const down = $('sheet').querySelector('[data-rate="down"]');
+            if (up && dir === 'up'){ up.style.background = '#dcfce7'; up.textContent = '👍 已喜欢'; }
+            if (down && dir === 'down'){ down.style.background = '#fee2e2'; down.textContent = '👎 已不喜欢'; }
+            const card = document.querySelector('.pcard[data-item="' + liveItem + '"]');
+            if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', b.dataset.like === dir));
+            if (stat) stat.textContent = '已识别 ' + g + '，已更新当前商品';
+          } else if (stat) stat.textContent = '识别到 ' + g + '，但反馈失败：' + (r.error || '');
+        } else if (g){
+          const labels = {open_palm:'✋ 停止播放', index_up:'☝️ 开始录音', index_down:'👇 暂停播放', victory:'✌️ 截图'};
+          if (stat) stat.textContent = '已识别 ' + (labels[g] || g);
+        }
+      } finally { liveBusy = false; }
+    }
+  }catch(e){ /* 轮询失败时保留上一状态 */ }
+}
+
+async function startLiveGesture(itemId){
+  const box = $('modalGesture'); if (!box) return;
+  if (liveTimer !== null) return;
+  await stopLiveGesture();
+  liveItem = String(itemId);
+  box.innerHTML = '<div class="mstatus">正在打开摄像头…</div>';
+  try{
+    const d = await post('/api/camera/start');
+    if (!d.ok){
+      liveItem = null;
+      box.innerHTML = '<div class="mstatus err">' + esc(d.error || '摄像头打开失败') +
+        '</div><button class="cmpbtn" data-single-gesture="1">改用单次识别</button>';
+      const b = box.querySelector('[data-single-gesture]');
+      if (b) b.onclick = () => modalGesture(itemId);
+      return;
+    }
+    liveEventId = Number((d.state || {}).event_id || 0);
+    box.innerHTML =
+      '<div class="livehead"><span>📷 手势直播</span><button data-stop-live="1">停止</button></div>' +
+      '<img class="livecam" id="liveCam" src="/camera/stream?t=' + Date.now() + '" alt="手势直播画面">' +
+      '<div class="livestat" id="liveStat">正在识别手势…</div>' +
+      '<div class="livehint">👍 点赞 · 👎 倒赞 · 保持约 1 秒；手离开画面后再比下一次</div>' +
+      '<button class="cmpbtn" data-single-gesture="1" style="margin-top:6px">改用单次识别</button>';
+    const stop = box.querySelector('[data-stop-live]');
+    if (stop) stop.onclick = async () => { await stopLiveGesture(); box.innerHTML = '<div class="mstatus">已停止手势直播</div>'; };
+    const single = box.querySelector('[data-single-gesture]');
+    if (single) single.onclick = async () => { await stopLiveGesture(); modalGesture(itemId); };
+    liveTimer = setInterval(pollLiveGesture, 500);
+  }catch(e){
+    liveItem = null;
+    box.innerHTML = '<div class="mstatus err">摄像头启动失败：' + esc(e.message) + '</div>';
+  }
+}
+
 async function modalGesture(itemId){
   const box = $('modalGesture'); if (!box || box.dataset.busy === '1') return;
   box.dataset.busy = '1';
@@ -1027,6 +1119,7 @@ async function modalGesture(itemId){
 }
 
 async function openDetail(itemId){
+  await stopLiveGesture();
   $('modal').classList.add('show');
   $('sheet').innerHTML = '<button class="x" data-close="#modal" aria-label="关闭">✕</button>' +
     '<div class="sec"><span class="spin"></span> 正在读取商品详情…</div>';
@@ -1061,7 +1154,7 @@ async function openDetail(itemId){
             '<button data-rate="down" style="border:none;border-radius:8px;padding:6px 12px;background:#f1f2f7;color:#5c6379">👎 不喜欢</button>' +
             '<button data-cmp2="' + esc(p.item_id) + '" style="border:1px solid #e8eaf2;border-radius:8px;padding:6px 12px;background:#fff;color:#5c6379;margin-left:6px">' +
               (picked.has(p.item_id) ? '✓ 已加入对比' : '▦ 加入对比') + '</button>' +
-            '<button data-gesture2="' + esc(p.item_id) + '" style="border:1px solid #d9d1ff;border-radius:8px;padding:6px 12px;background:#f5f2ff;color:#5b3fd6;margin-left:6px">✋ 手势评价</button>' +
+            '<button data-gesture2="' + esc(p.item_id) + '" style="border:1px solid #d9d1ff;border-radius:8px;padding:6px 12px;background:#f5f2ff;color:#5b3fd6;margin-left:6px">📷 手势直播</button>' +
           '</dd>' +
         '</dl><div id="modalGesture" class="mgesture"></div></div></div>' + reason +
       '<div class="sec"><h3>相似商品（点开继续看）</h3><div class="mini">' + sim + '</div></div>';
@@ -1080,13 +1173,14 @@ async function openDetail(itemId){
       }
     };
     const g2 = $('sheet').querySelector('[data-gesture2]');
-    if (g2) g2.onclick = ev => { ev.stopPropagation(); modalGesture(itemId); };
+    if (g2) g2.onclick = ev => { ev.stopPropagation(); startLiveGesture(itemId); };
   }catch(e){
     $('sheet').innerHTML = '<button class="x" data-close="#modal">✕</button>' +
       '<div class="sec errline">' + esc(e.message) + '</div>';
   }
 }
 function closeAll(){
+  stopLiveGesture();
   $('modal').classList.remove('show');
   $('cmpModal').classList.remove('show');
 }
@@ -1323,7 +1417,11 @@ $('trayClear').addEventListener('click', () => { picked.clear(); renderTray(); s
 $('trayGo').addEventListener('click', openCompare);
 document.addEventListener('click', ev => {
   const c = ev.target.closest('[data-close]');
-  if (c){ ev.stopPropagation(); document.querySelector(c.dataset.close).classList.remove('show'); }
+  if (c){
+    ev.stopPropagation();
+    document.querySelector(c.dataset.close).classList.remove('show');
+    if (c.dataset.close === '#modal') stopLiveGesture();
+  }
 });
 $('modal').addEventListener('click', ev => { if (ev.target === $('modal')) closeAll(); });
 $('cmpModal').addEventListener('click', ev => { if (ev.target === $('cmpModal')) closeAll(); });
@@ -1589,12 +1687,36 @@ class App:
                 return item
         return {"user_id": self.user_id, "name": self.user_id, "persona": "", "color": "#6d5dfc"}
 
+    def camera_start(self) -> dict:
+        camera = getattr(self.orch, "camera", None)
+        if camera is None:
+            return _err(ErrorCode.MODALITY_UNAVAILABLE, "手势直播需要 --real 模式")
+        result = camera.start()
+        if not result.ok:
+            return _from_app_error(result.error)
+        return {"ok": True, "state": result.data}
+
+    def camera_stop(self) -> dict:
+        camera = getattr(self.orch, "camera", None)
+        if camera is not None:
+            camera.stop()
+        return {"ok": True, "state": {"running": False}}
+
+    def camera_state(self) -> dict:
+        camera = getattr(self.orch, "camera", None)
+        if camera is None:
+            return {"ok": True, "state": {"running": False}}
+        return {"ok": True, "state": camera.state()}
+
     def switch_user(self, user_id: str) -> dict:
         """切换演示账号：结束旧会话，换新 user_id 的默认会话。"""
         user_id = str(user_id).strip()
         target = next((a for a in settings.DEMO_ACCOUNTS if a["user_id"] == user_id), None)
         if target is None:
             return _err(ErrorCode.INVALID_INPUT, f"未知演示账号：{user_id}", field="user_id")
+        _camera = getattr(self.orch, "camera", None)
+        if _camera is not None:
+            _camera.stop()
         with self.lock:
             self.orch.store.end(self.session_id)
             self.user_id = user_id
@@ -1742,6 +1864,9 @@ class App:
         if action == "undo":
             return self.handle_spec({"source": "text", "text": "撤销"})
         if action == "reset":
+            _camera = getattr(self.orch, "camera", None)
+            if _camera is not None:
+                _camera.stop()
             with self.lock:
                 self.orch.store.end(self.session_id)
                 self.session_id = f"{self.session_id}-{self.turn}"
@@ -1916,7 +2041,12 @@ class App:
                 sess.focus_item_id = str(item_id)
                 if str(item_id) not in sess.last_item_ids:
                     sess.last_item_ids = [str(item_id), *sess.last_item_ids]
-        return self.handle_spec({"source": "gesture", "gesture": {"name": name, "confidence": 1.0}}, top_k=top_k)
+        prev_llm = self.orch.llm_explainer.enabled
+        self.orch.llm_explainer.enabled = False
+        try:
+            return self.handle_spec({"source": "gesture", "gesture": {"name": name, "confidence": 1.0}}, top_k=top_k)
+        finally:
+            self.orch.llm_explainer.enabled = prev_llm
 
     def products(self, item_ids: list[str]) -> dict:
         """批量取商品详情 —— 供对比栏做字段对照。
@@ -2008,6 +2138,29 @@ def make_handler(app: App):
             except Exception:
                 return {}
 
+        def _stream_camera(self) -> None:
+            camera = getattr(app.orch, "camera", None)
+            if camera is None or not camera.running:
+                self._json(_err(ErrorCode.MODALITY_UNAVAILABLE, "手势直播未开启"), 503)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            try:
+                while True:
+                    data = camera.frame()
+                    if data:
+                        self.wfile.write(b"--frame\r\n")
+                        self.wfile.write(b"Content-Type: image/jpeg\r\n")
+                        self.wfile.write(f"Content-Length: {len(data)}\r\n\r\n".encode())
+                        self.wfile.write(data)
+                        self.wfile.write(b"\r\n")
+                        self.wfile.flush()
+                    time.sleep(0.06)
+            except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                pass
+
         def do_GET(self):
             if self.path == "/favicon.ico":
                 self._send(204, b"", "image/x-icon")
@@ -2017,6 +2170,12 @@ def make_handler(app: App):
                 return
             if self.path == "/api/info":
                 self._json(app.info())
+                return
+            if self.path.startswith("/camera/stream"):
+                self._stream_camera()
+                return
+            if self.path == "/api/camera/state":
+                self._json(app.camera_state())
                 return
             if self.path.startswith("/api/home"):
                 parsed = urllib.parse.urlparse(self.path)
@@ -2070,6 +2229,10 @@ def make_handler(app: App):
                 elif self.path == "/api/more":
                     raw_k = body.get("top_k")
                     self._json(app.more(str(body.get("text", "")), int(raw_k) if raw_k else 16))
+                elif self.path == "/api/camera/start":
+                    self._json(app.camera_start())
+                elif self.path == "/api/camera/stop":
+                    self._json(app.camera_stop())
                 elif self.path == "/api/voice":
                     raw_k = body.get("top_k")
                     self._json(app.voice(float(body.get("seconds", 4)), int(raw_k) if raw_k else None))
@@ -2165,6 +2328,9 @@ def main() -> int:
         _asr = getattr(app.orch, "asr", None)
         if _asr is not None:
             _asr.stop()
+        _camera = getattr(app.orch, "camera", None)
+        if _camera is not None:
+            _camera.stop()
     return 0
 
 

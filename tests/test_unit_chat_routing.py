@@ -130,6 +130,12 @@ def test_chat_output_is_normalized_to_simplified():
     assert "这个推荐系统" in out
 
 
+def test_offline_mode_does_not_create_camera_service():
+    """默认离线启动不能创建摄像头直播服务。"""
+    orch = Orchestrator(mode="offline", with_voice=False)
+    assert orch.camera is None
+
+
 def test_offline_mode_does_not_create_chat_service():
     """默认离线启动不加载任何重型模型。"""
     orch = Orchestrator(mode="offline", with_voice=False)

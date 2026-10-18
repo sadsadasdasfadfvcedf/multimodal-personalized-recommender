@@ -325,6 +325,16 @@ DEMO_ACCOUNTS: list[dict] = [
 # 用「归一化后精确匹配（允许 1-2 个语气词）」而不是 contains，
 # 避免「你好，推荐一些礼物」这类正常需求被误判成寒暄。
 # 常驻对话（开放问答）：只在「非推荐类问句」时启用，寒暄仍走 SMALLTALK。
+CAMERA_CONFIG: dict = {
+    "enabled": True,
+    "worker": "scripts/camera_worker.py",
+    "camera_index": int(os.getenv("INTEGRATED_CAMERA_INDEX", "0")),
+    "width": 640,
+    "height": 480,
+    "fps": float(os.getenv("INTEGRATED_CAMERA_FPS", "12")),
+    "startup_timeout_s": 30.0,
+}
+
 ASR_CONFIG: dict = {
     "enabled": True,
     "worker": "scripts/asr_worker.py",
