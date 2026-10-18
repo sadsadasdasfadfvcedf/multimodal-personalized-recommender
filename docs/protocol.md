@@ -245,6 +245,10 @@
 | POST | `/api/voice` | `{seconds}` | `{ok, transcript, response}` | 同上 |
 | POST | `/api/gesture` | `{item_id?}` | `{ok, gesture, response, preview_url, gesture_frames, gesture_votes}`；非反馈手势返回 `{ok, gesture, action, message, preview_url}` | 同上（失败也带 `preview_url`） |
 | GET | `/capture/{path}` | — | 抓拍画面字节 | 404 `E_ITEM_NOT_FOUND` |
+| GET | `/camera/stream` | — | MJPEG 实时预览（multipart/x-mixed-replace） | 503 `E_MODALITY_UNAVAILABLE` |
+| GET | `/api/camera/state` | — | `{ok, state}`（running/current_gesture/event_id/fps） | — |
+| POST | `/api/camera/start` | `{}` | `{ok, state}` | `{ok:false, code, error}` |
+| POST | `/api/camera/stop` | `{}` | `{ok, state}` | — |
 | POST | `/api/vision` | `{question}` | `{ok, description, response}` | 同上 |
 | POST | `/api/undo` / `/api/reset` | `{}` | `{ok, response}` | 同上 |
 | POST | `/api/products` | `{item_ids[]}` | `{ok, products[]}` | 400 `E_INVALID_INPUT` |
