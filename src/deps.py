@@ -26,8 +26,15 @@ from __future__ import annotations
 import importlib.metadata as md
 from typing import Any
 
-from packaging.requirements import Requirement
-from packaging.version import Version
+# packaging 是**可选**依赖：有则用精确 PEP 440 比较；缺失时走下面的标准库回退。
+# 这一点很重要 —— README 承诺「离线演示零第三方依赖」，顶层硬导入会让
+# 00_check_env 在干净环境直接 ModuleNotFoundError（实测 python -S 复现）。
+try:  # pragma: no cover - 取决于环境
+    from packaging.requirements import Requirement
+    from packaging.version import Version
+except Exception:  # pragma: no cover
+    Requirement = None  # type: ignore[assignment,misc]
+    Version = None  # type: ignore[assignment,misc]
 
 # 需要互相校验版本的两组依赖（前者声明约束，后者是被约束方）
 PAIRS: tuple[tuple[str, str], ...] = (
@@ -57,11 +64,50 @@ def _requires(pkg: str, dep: str) -> str | None:
     return None
 
 
+def _version_tuple(value: str) -> tuple[int, ...]:
+    """把 '2.6.0+cu124' / '4.25.3' 转成可比较的数字元组（回退用）。"""
+    base = value.split("+", 1)[0]
+    parts: list[int] = []
+    for piece in base.split("."):
+        digits = "".join(ch for ch in piece if ch.isdigit())
+        parts.append(int(digits) if digits else 0)
+    return tuple(parts)
+
+
+def _fallback_satisfies(version: str, spec: str) -> bool:
+    """无 packaging 时的简化约束判断，覆盖 >= <= == != > < 的逗号组合。"""
+    current = _version_tuple(version)
+    for clause in spec.split(","):
+        clause = clause.strip()
+        for op in (">=", "<=", "==", "!=", ">", "<"):
+            if not clause.startswith(op):
+                continue
+            target = _version_tuple(clause[len(op) :])
+            cmp = (current > target) - (current < target)
+            ok = {
+                ">=": cmp >= 0,
+                "<=": cmp <= 0,
+                "==": cmp == 0,
+                "!=": cmp != 0,
+                ">": cmp > 0,
+                "<": cmp < 0,
+            }[op]
+            if not ok:
+                return False
+            break
+    return True
+
+
 def _satisfies(version: str | None, spec: str | None) -> bool | None:
     if not version or not spec:
         return None
+    if Requirement is not None and Version is not None:
+        try:
+            return Version(version) in Requirement(f"x{spec}").specifier
+        except Exception:
+            pass
     try:
-        return Version(version) in Requirement(f"x{spec}").specifier
+        return _fallback_satisfies(version, spec)
     except Exception:
         return None
 

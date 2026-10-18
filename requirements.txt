@@ -5,7 +5,8 @@ jieba>=0.42
 requests>=2.28
 edge-tts>=6.1
 zhconv>=1.4      # 繁转简（缺失时只做检测并回退模板，见 src/text_norm.py）
-packaging>=23    # 依赖版本约束检查（src/deps.py）
+# packaging（可选）：有则用精确 PEP 440 比较；缺失时 src/deps.py 用内置简化比较
+# packaging>=23
 
 # ---------------------------------------------------------------------------
 # 真实多模态模式（--mode auto + INTEGRATED_ALLOW_REAL_MODELS=1）才需要。

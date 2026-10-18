@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from src.deps import _satisfies, check_stack
+from src.deps import _fallback_satisfies, _satisfies, check_stack
 
 
 def test_fast_check_shape():
@@ -33,3 +33,11 @@ def test_satisfies_handles_local_version_suffix():
     assert _satisfies("4.25.3", ">=4.25.3,<5") is True
     assert _satisfies("7.36.2", ">=4.25.3,<5") is False
     assert _satisfies(None, ">=1") is None
+
+
+def test_fallback_satisfies_without_packaging():
+    """零依赖环境下 packaging 可能不存在；回退实现必须覆盖常见约束。"""
+    assert _fallback_satisfies("2.6.0+cu124", "==2.6.0") is True
+    assert _fallback_satisfies("0.23.0", "==2.6.0") is False
+    assert _fallback_satisfies("4.25.3", ">=4.25.3,<5") is True
+    assert _fallback_satisfies("7.36.2", ">=4.25.3,<5") is False
