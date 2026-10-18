@@ -85,6 +85,8 @@ python scripts/clean_workspace.py
 | `INTEGRATED_DEMO_PASSWORD` | 口令 | 未设置 | HTTP 模式演示口令（不在代码中出现） |
 | `INTEGRATED_TIMEOUT_S` | 秒 | `5.0` | 适配器默认超时 |
 | `INTEGRATED_CHAT_TIMEOUT_S` | 秒 | `180` | 单轮开放问答生成超时 |
+| `INTEGRATED_GESTURE_FRAMES` | 帧 | `5` | 网页手势连拍帧数 |
+| `INTEGRATED_GESTURE_INTERVAL_MS` | 毫秒 | `250` | 网页手势连拍间隔 |
 
 示例（启用推荐系统 HTTP 模式）：
 
@@ -224,6 +226,11 @@ python -c "from modelscope import snapshot_download; snapshot_download('Qwen/Qwe
 
 真实 ASR/VL/手势需要摄像头、麦克风与重型依赖。离线演示使用 `data/cases` 中的模态输入替代，
 两者的 `InteractionEvent` 契约完全一致。
+
+网页手势流程：前端 3 秒倒计时 → `capture_burst` 一次抓 5 帧（同一摄像头进程）→
+`gesture_batch` 一次加载 MediaPipe 并逐帧识别 → 按票数/置信度选最佳手势。
+这解决了「点按钮时手还没举起来」导致抓到空画面的问题。六种手势的页面动作：
+👍/👎 商品反馈、✌️ 截图、✋ 停止播放、☝️ 开始录音、👇 暂停播放。
 
 ## 6. 目录与产物
 
