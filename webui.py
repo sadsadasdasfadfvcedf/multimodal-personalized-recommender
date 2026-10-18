@@ -556,7 +556,8 @@ let activeFilters = [], sortMode = 'match', viewMode = 'grid', userSaid = [];
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
 const INTENT_ZH = {discover:'随便看看', similar:'找相似', filter:'条件筛选',
-                   compare:'商品对比', feedback:'反馈', explain:'求解释', browse:'浏览', chitchat:'对话'};
+                   compare:'商品对比', feedback:'反馈', explain:'求解释', browse:'浏览', chitchat:'对话',
+                   chat:'问答'};
 const STATUS_ZH = {ok:'完成', degraded:'降级返回', clarification:'需要补充信息',
                    conflict:'条件冲突', empty:'没有结果', no_evidence:'无可核验依据',
                    error:'出错了', warn:'未识别'};
@@ -1387,6 +1388,9 @@ class App:
             self.user_id = user_id
             self.session_id = self.orch.store.default_session_id(user_id)
             self.turn = 0
+            _chat = getattr(self.orch, "chat", None)
+            if _chat is not None:
+                _chat.reset()
         return {"ok": True, "account": target, "session_id": self.session_id}
 
     def handle_spec(self, spec: dict) -> dict:
@@ -1482,6 +1486,9 @@ class App:
             with self.lock:
                 self.orch.store.end(self.session_id)
                 self.session_id = f"{self.session_id}-{self.turn}"
+            _chat = getattr(self.orch, "chat", None)
+            if _chat is not None:
+                _chat.reset()
             return {
                 "ok": True,
                 "response": {
@@ -1796,6 +1803,9 @@ def main() -> int:
         print("\n服务已停止")
     finally:
         server.server_close()
+        _chat = getattr(app.orch, "chat", None)
+        if _chat is not None:
+            _chat.stop()
     return 0
 
 

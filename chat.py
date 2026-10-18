@@ -246,6 +246,9 @@ class Chat:
                 if cmd == "reset":
                     self._send({"source": "text", "text": "重新开始"})
                     self.session_id = f"{self.session_id}-{now_iso()[:19]}"
+                    _chat = getattr(self.orch, "chat", None)
+                    if _chat is not None:
+                        _chat.reset()
                     print(f"已开启新会话: {self.session_id}")
                     continue
                 if cmd == "llm":
@@ -286,6 +289,12 @@ class Chat:
 
             self._send({"source": "text", "text": line})
 
+    def close(self) -> None:
+        """退出时结束常驻 LLM worker，避免留下孤儿进程。"""
+        _chat = getattr(self.orch, "chat", None)
+        if _chat is not None:
+            _chat.stop()
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="交互式对话终端")
@@ -301,7 +310,11 @@ def main() -> int:
     allow_real = True if args.real else None
     if args.real:
         os.environ.setdefault("INTEGRATED_DEMO_USER", "15547")
-    return Chat(args.user, mode, args.voice, args.llm, allow_real).run()
+    chat = Chat(args.user, mode, args.voice, args.llm, allow_real)
+    try:
+        return chat.run()
+    finally:
+        chat.close()
 
 
 if __name__ == "__main__":

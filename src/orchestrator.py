@@ -29,6 +29,7 @@ from .errors import ErrorCode, Result, ok
 from .evidence import build_pack
 from .explain import explain
 from .intent import understand
+from .llm_chat import ChatService
 from .llm_explain import LlmExplainer
 from .presentation import present as present_items
 from .rag import KnowledgeBase
@@ -57,6 +58,7 @@ class Orchestrator:
         dry_run_voice: bool = False,
         kb: KnowledgeBase | None = None,
         use_llm: bool | None = None,
+        chat_service: Any | None = None,
     ) -> None:
         self.mode = (mode or settings.RUNTIME["mode"]).lower()
         self.multimodal = MultimodalAdapter(mode=self.mode, allow_real=allow_real)
@@ -69,6 +71,15 @@ class Orchestrator:
         # 真实 LLM 解释（可选）：仅在适配器进入 real 模式且显式启用时生效；
         # 无论是否启用，解释都必须通过证据校验，不可溯源则回退模板。
         self.llm_explainer = LlmExplainer(self.multimodal, self.catalog, enabled=use_llm)
+        # 开放问答（常驻 LLM）：懒启动，不阻塞 Orchestrator 构造。
+        # 只在真实模型链路可用时启用，保持 `python webui.py` 默认离线、
+        # 不加载重型模型的承诺；测试可注入 chat_service 绕过此门控。
+        if chat_service is not None:
+            self.chat: Any | None = chat_service
+        elif settings.CHAT_CONFIG["enabled"] and self.multimodal.active_mode == "real":
+            self.chat = ChatService()
+        else:
+            self.chat = None
 
     # ============================================================
     # 主入口
@@ -142,6 +153,54 @@ class Orchestrator:
                     feedback=None,
                     item_ids=[],
                     status="ok",
+                    note=answer,
+                )
+            )
+            return ok(response)
+
+        # 2.7) 开放问答：非推荐类问句交给常驻 LLM（加载一次、多轮复用）。
+        # 只处理文字/语音；视觉与手势事件必须走各自的多模态链路。
+        if self.chat is not None and event.source in ("text", "voice") and self._should_chat(event.text):
+            chat_result = self.chat.chat(event.text or "")
+            if chat_result.ok:
+                answer = str(chat_result.data or "").strip()
+                status = "ok"
+                extra: dict[str, Any] = {}
+            else:
+                answer = "抱歉，对话模型暂时不可用；推荐功能仍然可用，你可以直接说需求。"
+                status = "degraded"
+                extra = {"chat_error": str(chat_result.error)}
+            response = self._envelope(
+                event,
+                session,
+                timer,
+                status=status,
+                intent_result={
+                    "intent": "chat",
+                    "intent_confidence": 1.0,
+                    "slots": {},
+                    "missing_slots": [],
+                    "conflicts": [],
+                },
+                request=None,
+                recommendations=[],
+                answer=answer,
+                **extra,
+            )
+            session.record_turn(
+                Turn(
+                    index=len(session.turns) + 1,
+                    trace_id=event.trace_id,
+                    user_id=event.user_id,
+                    timestamp=event.timestamp,
+                    source=event.source,
+                    text=event.text,
+                    intent="chat",
+                    slots={},
+                    constraints=[],
+                    feedback=None,
+                    item_ids=[],
+                    status=status,
                     note=answer,
                 )
             )
@@ -659,6 +718,26 @@ class Orchestrator:
         if request.intent == "filter":
             return f"按你的条件（{prefix or '硬约束'}）筛选结果："
         return f"{prefix}推荐：" if prefix else "为你推荐："
+
+    @staticmethod
+    def _should_chat(text: str | None) -> bool:
+        """开放问句 → 对话；购物/推荐需求 → 推荐链路。"""
+        cfg = settings.CHAT_CONFIG
+        if not text:
+            return False
+        lowered = str(text).lower()
+        if not any(marker in lowered for marker in cfg["question_markers"]):
+            return False
+        # 技术追问优先：「基于内容的推荐有什么区别？」「推荐系统为什么需要召回？」
+        # 里的「推荐」是名词，不是购物指令。
+        if any(marker in lowered for marker in cfg.get("tech_markers", [])):
+            return True
+        if any(marker in lowered for marker in cfg["block_markers"]):
+            return False
+        signals = set(LEX["category_synonyms"]) | set(LEX["scenes"]) | set(LEX["colors"])
+        if any(signal and str(signal).lower() in lowered for signal in signals):
+            return False
+        return re.search(r"\d", lowered) is None
 
     @staticmethod
     def _smalltalk(text: str | None) -> str | None:
