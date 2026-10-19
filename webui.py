@@ -27,11 +27,13 @@ import argparse
 import contextlib
 import json
 import os
+import shutil
 import sys
 import threading
 import time
 import urllib.parse
 import urllib.request
+import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -43,6 +45,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from config import settings  # noqa: E402
 from src.errors import ErrorCode  # noqa: E402
 from src.orchestrator import Orchestrator  # noqa: E402
+from src.presentation import synthesize  # noqa: E402
 
 PAGE = r"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -303,6 +306,9 @@ PAGE = r"""<!DOCTYPE html>
   .act .shot{display:block;width:100%;max-width:520px;border-radius:10px;border:1px solid var(--line);
              background:#0f1117}
   .act .shotcap{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .ttsbtn{border:1px solid #d9d1ff;border-radius:8px;padding:5px 10px;background:#f5f2ff;color:#5b3fd6;
+          font-size:12px;cursor:pointer;margin-top:6px}
+  .ttsbtn:disabled{opacity:.6;cursor:wait}
   .mgesture{margin-top:10px;font-size:12.5px}
   .mgesture .mstatus{padding:6px 9px;border-radius:8px;background:#f7f8fc;color:var(--muted)}
   .mgesture .mstatus.ok{background:#eafaf0;color:#0a7b43}
@@ -815,6 +821,7 @@ function renderBot(resp, updateShelf){
 
   const pres = resp.presentation || {};
   if (pres.audio_url) h += '<audio controls preload="none" src="' + esc(pres.audio_url) + '"></audio>';
+  else if (pres.spoken_text) h += '<button class="ttsbtn" data-tts="' + encodeURIComponent(pres.spoken_text) + '">🔊 语音播报</button>';
 
   /* P1-7：运行细节默认折叠（寒暄回答不需要召回/排序依据） */
   if (!resp.answer) {
@@ -1445,7 +1452,19 @@ $('trayItems').addEventListener('click', ev => {
 });
 $('trayClear').addEventListener('click', () => { picked.clear(); renderTray(); syncPickUI(); toast('已清空对比栏'); });
 $('trayGo').addEventListener('click', openCompare);
-document.addEventListener('click', ev => {
+document.addEventListener('click', async ev => {
+  const tts = ev.target.closest('[data-tts]');
+  if (tts && !tts.disabled){
+    const text = decodeURIComponent(tts.dataset.tts || '');
+    tts.disabled = true; tts.textContent = '合成中…';
+    try{
+      const d = await post('/api/tts', {text});
+      if (d.ok){ new Audio(d.audio_url).play(); tts.textContent = '🔊 重新播放'; }
+      else { tts.textContent = '语音不可用'; }
+    }catch(e){ tts.textContent = '语音失败'; }
+    tts.disabled = false;
+    return;
+  }
   const c = ev.target.closest('[data-close]');
   if (c){
     ev.stopPropagation();
@@ -1705,6 +1724,9 @@ class App:
         _asr = getattr(self.orch, "asr", None)
         if _asr is not None:
             _asr.prewarm()
+        _chat = getattr(self.orch, "chat", None)
+        if _chat is not None:
+            _chat.prewarm()
         self.session_id = self.orch.store.default_session_id(user_id)
         self.with_voice = with_voice
         self.media = settings.PATHS["artifacts"] / "webui"
@@ -1760,7 +1782,13 @@ class App:
     def handle_spec(self, spec: dict, top_k: int | None = None) -> dict:
         with self.lock:
             self.turn += 1
-            res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id, top_k=top_k)
+            # 网页默认按需合成语音：每次推荐都等 TTS 会让 0.2s 的推荐变成 2~3s。
+            prev_dry = self.orch.dry_run_voice
+            self.orch.dry_run_voice = True
+            try:
+                res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id, top_k=top_k)
+            finally:
+                self.orch.dry_run_voice = prev_dry
         if not res.ok:
             return _from_app_error(res.error)
         resp = res.data
@@ -1775,6 +1803,26 @@ class App:
         if pres.get("voice_available") and path:
             pres["audio_url"] = "/audio/" + Path(path).name
         return {"ok": True, "response": resp}
+
+    def tts(self, text: str) -> dict:
+        """按需合成语音；网页点「语音播报」时才调用，避免阻塞推荐响应。"""
+        text = str(text or "").strip()
+        if not text:
+            return _err(ErrorCode.INVALID_INPUT, "待合成文本为空", field="text")
+        tmp_dir = settings.PATHS["artifacts"] / "tts" / uuid.uuid4().hex
+        try:
+            result = synthesize(text, out_dir=tmp_dir)
+            if not result.get("available"):
+                return _err(ErrorCode.MODALITY_UNAVAILABLE, str(result.get("error") or "语音合成不可用"))
+            src = Path(str(result["path"]))
+            name = f"tts_{uuid.uuid4().hex}{src.suffix or '.wav'}"
+            target = settings.PATHS["artifacts"] / name
+            shutil.copyfile(src, target)
+            return {"ok": True, "audio_url": "/audio/" + name, "engine": result.get("engine")}
+        except Exception as exc:
+            return _err(ErrorCode.INTERNAL_ERROR, f"语音合成失败: {type(exc).__name__}: {exc}")
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
     def chat(self, text: str, top_k: int | None = None) -> dict:
         return self.handle_spec({"source": "text", "text": text}, top_k=top_k)
@@ -2259,6 +2307,8 @@ def make_handler(app: App):
                 elif self.path == "/api/more":
                     raw_k = body.get("top_k")
                     self._json(app.more(str(body.get("text", "")), int(raw_k) if raw_k else 16))
+                elif self.path == "/api/tts":
+                    self._json(app.tts(str(body.get("text", ""))))
                 elif self.path == "/api/camera/start":
                     self._json(app.camera_start())
                 elif self.path == "/api/camera/stop":

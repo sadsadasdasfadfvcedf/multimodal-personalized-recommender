@@ -63,6 +63,9 @@ class Chat:
         _asr = getattr(self.orch, "asr", None)
         if _asr is not None:
             _asr.prewarm()
+        _chat = getattr(self.orch, "chat", None)
+        if _chat is not None:
+            _chat.prewarm()
         self.session_id = self.orch.store.default_session_id(user_id)
         self.with_voice = with_voice
         self.media_dir = settings.PATHS["artifacts"] / "chat"

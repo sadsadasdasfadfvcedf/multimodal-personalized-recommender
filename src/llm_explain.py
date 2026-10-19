@@ -285,9 +285,11 @@ def evaluate_output(raw_text: str, item: dict, pack: EvidencePack, catalog=None)
 class LlmExplainer:
     """真实 LLM 解释器：强约束提示 + 后验校验 + 失败回退。"""
 
-    def __init__(self, adapter, catalog=None, enabled: bool | None = None) -> None:
+    def __init__(self, adapter, catalog=None, enabled: bool | None = None, chat: Any | None = None) -> None:
         self.adapter = adapter
         self.catalog = catalog
+        # 常驻聊天 worker（同一个 Qwen3-4B）。有它就不再为解释另起进程、重复加载权重。
+        self.chat = chat
         self.enabled = CFG["enabled"] if enabled is None else enabled
         # 值类型不齐（计数是 int，reject_details 是 list），显式标注为 Any，
         # 否则 mypy 推断成 dict[str, object]，后续 += 1 / .append() 全部报错。
@@ -302,44 +304,19 @@ class LlmExplainer:
     def available(self) -> bool:
         return bool(self.enabled and self.adapter is not None and self.adapter.active_mode == "real")
 
-    def explain(self, item: dict, pack: EvidencePack, *, template_text: str) -> Result:
-        """返回 {text, source, grounded, ...}；LLM 不可用或校验失败时回退模板解释。"""
-        if not self.available():
-            return ok(
-                {
-                    "text": template_text,
-                    "source": "template",
-                    "grounded": True,
-                    "fallback_reason": "LLM 未启用或适配器不在 real 模式",
-                }
-            )
-
-        self.stats["attempted"] += 1
-        prompt = build_grounded_prompt(item, pack)
-        result = self.adapter.guard(
-            "llm_explain",
-            lambda: self.adapter._run_worker(
-                "llm", {"prompt": prompt, "max_new_tokens": CFG["max_new_tokens"], "temperature": CFG["temperature"]}
-            ),
-        )
-        if not result.ok:
-            self.stats["errors"] += 1
-            reason = result.error.message if result.error else "LLM 调用失败"
-            return ok(
-                {
-                    "text": template_text,
-                    "source": "template",
-                    "grounded": True,
-                    "fallback_reason": "LLM 调用失败: " + reason,
-                }
-            )
-
-        raw_output = str((result.data or {}).get("text") or "").strip()
+    def _finalize(
+        self,
+        item: dict,
+        pack: EvidencePack,
+        template_text: str,
+        raw_output: str,
+        model: Any,
+        latency: Any,
+    ) -> Result:
+        """对单条模型输出做规范化 + 三道门控；失败回退模板。"""
         raw = normalize_output(raw_output)
         # 流畅度规范化：繁转简 + 常见英文词替换（可选依赖，缺失时只做检测）
         raw, fluency_actions = normalize_fluency(raw)
-        model = (result.data or {}).get("model")
-        latency = (result.meta or {}).get("latency_ms")
         if not raw:
             self.stats["rejected"] += 1
             return ok(
@@ -367,7 +344,8 @@ class LlmExplainer:
                 self.stats["format_rejected"] = self.stats.get("format_rejected", 0) + 1
                 kind, message = "format", "LLM 输出不符合格式要求，已回退模板解释"
             else:
-                kind, message = "fact", "LLM 输出含不可溯源内容，已回退模板解释"
+                kind = "fact"
+                message = "LLM 输出含不可溯源内容，已回退模板解释"
             self.stats["reject_details"].append(
                 {"item_id": pack.item_id, "type": kind, "violations": evaluated["rejection"]["violations"][:3]}
             )
@@ -400,6 +378,136 @@ class LlmExplainer:
                 "latency_ms": latency,
             }
         )
+
+    def explain(self, item: dict, pack: EvidencePack, *, template_text: str) -> Result:
+        """单条解释：返回 {text, source, grounded, ...}；不可用时回退模板。"""
+        if not self.available():
+            return ok(
+                {
+                    "text": template_text,
+                    "source": "template",
+                    "grounded": True,
+                    "fallback_reason": "LLM 未启用或适配器不在 real 模式",
+                }
+            )
+
+        self.stats["attempted"] += 1
+        prompt = build_grounded_prompt(item, pack)
+        if self.chat is not None:
+            chat_result = self.chat.complete_many(
+                [prompt],
+                max_new_tokens=CFG["max_new_tokens"],
+                temperature=CFG["temperature"],
+            )
+            if chat_result.ok:
+                outputs = list((chat_result.data or {}).get("outputs") or [])
+                raw_output = str((outputs[0] or {}).get("text") or "").strip() if outputs else ""
+                return self._finalize(
+                    item,
+                    pack,
+                    template_text,
+                    raw_output,
+                    (chat_result.data or {}).get("model"),
+                    None,
+                )
+        result = self.adapter.guard(
+            "llm_explain",
+            lambda: self.adapter._run_worker(
+                "llm", {"prompt": prompt, "max_new_tokens": CFG["max_new_tokens"], "temperature": CFG["temperature"]}
+            ),
+        )
+        if not result.ok:
+            self.stats["errors"] += 1
+            reason = result.error.message if result.error else "LLM 调用失败"
+            return ok(
+                {
+                    "text": template_text,
+                    "source": "template",
+                    "grounded": True,
+                    "fallback_reason": "LLM 调用失败: " + reason,
+                }
+            )
+        return self._finalize(
+            item,
+            pack,
+            template_text,
+            str((result.data or {}).get("text") or "").strip(),
+            (result.data or {}).get("model"),
+            (result.meta or {}).get("latency_ms"),
+        )
+
+    def explain_many(self, pending: list[tuple[dict, EvidencePack, str]]) -> list[Result]:
+        """批量解释：模型只加载一次，避免 N 件商品触发 N 次权重加载。
+
+        pending: [(item, evidence_pack, template_text), ...]
+        返回与 pending 等长的 Result 列表；单条失败只回退该条的模板。
+        """
+        if not pending:
+            return []
+        if not self.available():
+            return [
+                ok(
+                    {
+                        "text": template_text,
+                        "source": "template",
+                        "grounded": True,
+                        "fallback_reason": "LLM 未启用或适配器不在 real 模式",
+                    }
+                )
+                for _, _, template_text in pending
+            ]
+
+        self.stats["attempted"] += len(pending)
+        prompts = [build_grounded_prompt(item, pack) for item, pack, _ in pending]
+        if self.chat is not None:
+            chat_result = self.chat.complete_many(
+                prompts,
+                max_new_tokens=CFG["max_new_tokens"],
+                temperature=CFG["temperature"],
+            )
+            if chat_result.ok:
+                outputs = list((chat_result.data or {}).get("outputs") or [])
+                model = (chat_result.data or {}).get("model")
+                chat_finalized: list[Result] = []
+                for idx, (item, pack, template_text) in enumerate(pending):
+                    raw_output = ""
+                    if idx < len(outputs):
+                        raw_output = str((outputs[idx] or {}).get("text") or "").strip()
+                    chat_finalized.append(self._finalize(item, pack, template_text, raw_output, model, None))
+                return chat_finalized
+        result = self.adapter.guard(
+            "llm_explain_batch",
+            lambda: self.adapter.generate_batch(
+                prompts,
+                max_new_tokens=CFG["max_new_tokens"],
+                temperature=CFG["temperature"],
+            ),
+        )
+        if not result.ok:
+            self.stats["errors"] += len(pending)
+            reason = result.error.message if result.error else "LLM 批量调用失败"
+            return [
+                ok(
+                    {
+                        "text": template_text,
+                        "source": "template",
+                        "grounded": True,
+                        "fallback_reason": "LLM 批量调用失败: " + reason,
+                    }
+                )
+                for _, _, template_text in pending
+            ]
+
+        outputs = list((result.data or {}).get("outputs") or [])
+        model = (result.data or {}).get("model")
+        latency = (result.meta or {}).get("latency_ms")
+        finalized: list[Result] = []
+        for idx, (item, pack, template_text) in enumerate(pending):
+            raw_output = ""
+            if idx < len(outputs):
+                raw_output = str((outputs[idx] or {}).get("text") or "").strip()
+            finalized.append(self._finalize(item, pack, template_text, raw_output, model, latency))
+        return finalized
 
     def report(self) -> dict:
         attempted = self.stats["attempted"]

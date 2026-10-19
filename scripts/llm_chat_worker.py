@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from pathlib import Path
 
 # multimodal_ai 的 TextLLM 默认系统提示词是给「国脉大学养老」知识库用的：
 # 只要传入 context 就会要求模型在结尾注明「（信息来源：国脉大学养老资料库）」。
@@ -35,6 +36,18 @@ INTEGRATED_SYSTEM_PROMPT = """你是「多模态个性化推荐助手」的对�
 3. 与商品推荐无关的问题就事论事回答，不要强行推荐商品。
 4. 用户要求写文案、解释概念、翻译或计算时，按需求给出结果。
 """
+
+
+def _chat_wrap(llm, prompt: str) -> str:
+    """把解释提示词套上模型 chat template；没有模板时原样返回。"""
+    tokenizer = getattr(llm, "tokenizer", None)
+    if tokenizer is None or not getattr(tokenizer, "chat_template", None):
+        return prompt
+    messages = [{"role": "user", "content": prompt}]
+    try:
+        return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    except Exception:
+        return prompt
 
 
 def main() -> int:
@@ -76,6 +89,23 @@ def main() -> int:
         if req.get("op") == "reset":
             llm.clear_history()
             out = {"id": req.get("id"), "ok": True, "text": ""}
+        elif req.get("op") == "prompts":
+            prompts = req.get("prompts") or []
+            outputs = []
+            for prompt in prompts:
+                wrapped = _chat_wrap(llm, str(prompt))
+                text = llm.generate(
+                    wrapped,
+                    max_new_tokens=int(req.get("max_new_tokens", 120)),
+                    temperature=float(req.get("temperature", 0.2)),
+                )
+                outputs.append({"text": (text or "").strip()})
+            out = {
+                "id": req.get("id"),
+                "ok": True,
+                "outputs": outputs,
+                "model": Path(llm.model_path).name,
+            }
         else:
             try:
                 # 不把 context 传给 TextLLM：它会把 context 当成外部知识库并

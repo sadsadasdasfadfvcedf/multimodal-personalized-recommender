@@ -82,6 +82,8 @@ class Orchestrator:
             self.chat = ChatService()
         else:
             self.chat = None
+        # LLM 解释复用同一个常驻聊天 worker，避免每件商品重复加载 4B 权重。
+        self.llm_explainer.chat = self.chat
         # 常驻 ASR：同样只在 real 模式启用，避免默认离线加载重型模型
         self.asr: Any | None = (
             AsrService() if settings.ASR_CONFIG["enabled"] and self.multimodal.active_mode == "real" else None
@@ -605,6 +607,9 @@ class Orchestrator:
     def _materialize(self, ranked, request: RecommendationRequest, session: SessionContext, event):
         recommendations: list[dict] = []
         explanations: list[dict] = []
+        # 先收集需要 LLM 改写的条目，最后一次性批量调用：
+        # 旧实现是每件商品起一个 worker，8 件商品会重复加载 8 次 4B 权重。
+        pending: list[tuple[dict, Any, dict]] = []
         for scored in ranked:
             product = self.catalog.product(scored.item_id) or {}
             item = RecommendationItem(
@@ -641,34 +646,36 @@ class Orchestrator:
                 if pack_result.ok:
                     explanation = explain(item, pack_result.data)
                     if explanation.ok:
-                        polished = self.llm_explainer.explain(
-                            item, pack_result.data, template_text=explanation.data["text"]
-                        )
-                        final = (
-                            polished.data
-                            if polished.ok
-                            else {
-                                "text": explanation.data["text"],
-                                "source": "template",
-                                "grounded": True,
-                                "fallback_reason": "LLM 解释器异常",
-                            }
-                        )
-                        item["explanation"] = final["text"]
-                        item["explanation_source"] = final.get("source")
-                        item["explanation_grounded"] = final.get("grounded")
-                        if final.get("llm_rejected"):
-                            item["llm_rejected"] = True
-                        item["explanation_confidence"] = explanation.data["confidence"]
-                        item["evidence_count"] = explanation.data["evidence_count"]
-                        explanations.append(
-                            {**explanation.data, "llm": final, "evidence_pack": pack_result.data.to_dict()}
-                        )
+                        pending.append((item, pack_result.data, explanation.data))
                     else:
                         item["reason"] = explanation.error.message if explanation.error else ""
                 else:
                     item["reason"] = pack_result.error.message if pack_result.error else ""
             recommendations.append(item)
+
+        if pending:
+            polished_results = self.llm_explainer.explain_many(
+                [(item, pack, explanation_data["text"]) for item, pack, explanation_data in pending]
+            )
+            for (item, pack, explanation_data), polished in zip(pending, polished_results, strict=False):
+                final = (
+                    polished.data
+                    if polished.ok
+                    else {
+                        "text": explanation_data["text"],
+                        "source": "template",
+                        "grounded": True,
+                        "fallback_reason": "LLM 解释器异常",
+                    }
+                )
+                item["explanation"] = final["text"]
+                item["explanation_source"] = final.get("source")
+                item["explanation_grounded"] = final.get("grounded")
+                if final.get("llm_rejected"):
+                    item["llm_rejected"] = True
+                item["explanation_confidence"] = explanation_data["confidence"]
+                item["evidence_count"] = explanation_data["evidence_count"]
+                explanations.append({**explanation_data, "llm": final, "evidence_pack": pack.to_dict()})
         return recommendations, explanations
 
     def _effective_request(self, request: RecommendationRequest, session: SessionContext) -> RecommendationRequest:

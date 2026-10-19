@@ -184,10 +184,42 @@ class ChatService:
             if msg.get("id") != self._seq:
                 continue
             if msg.get("ok"):
+                if "outputs" in msg:
+                    return ok({"outputs": msg.get("outputs") or [], "model": msg.get("model")})
                 return ok(_to_simplified(str(msg.get("text") or "")))
             return fail(ErrorCode.INTERNAL_ERROR, str(msg.get("error") or "对话生成失败"))
         self.close()
         return fail(ErrorCode.TIMEOUT, "对话生成超时")
+
+    def prewarm(self) -> None:
+        """后台预加载模型，让首次聊天/LLM 解释不再等 ~25 秒。"""
+        if self._proc is not None:
+            return
+        threading.Thread(target=self._prewarm_locked, daemon=True).start()
+
+    def _prewarm_locked(self) -> None:
+        with self._lock:
+            self._ensure()
+
+    def complete_many(
+        self,
+        prompts: list[str],
+        *,
+        max_new_tokens: int = 120,
+        temperature: float = 0.2,
+    ) -> Result:
+        """用同一个已加载模型批量生成（用于推荐解释，不写入聊天历史）。"""
+        with self._lock:
+            if not self._ensure():
+                return fail(ErrorCode.MODALITY_UNAVAILABLE, "对话模型不可用（未找到权重或启动失败）")
+            return self._send(
+                {
+                    "op": "prompts",
+                    "prompts": list(prompts),
+                    "max_new_tokens": int(max_new_tokens),
+                    "temperature": float(temperature),
+                }
+            )
 
     def chat(self, text: str) -> Result:
         with self._lock:
