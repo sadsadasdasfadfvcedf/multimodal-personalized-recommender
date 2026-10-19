@@ -247,6 +247,11 @@ worker 持续写 `latest.jpg` / `state.json`，网页用 `<img src="/camera/stre
 换手势（👍 → 👎）会立即重新武装，不需要先把手移出画面。点「停止」或关闭弹窗会释放摄像头。
 摄像头序号/帧率可用 `INTEGRATED_CAMERA_INDEX` / `INTEGRATED_CAMERA_FPS` 调整。
 
+**视觉相似**：`GET /api/visual-similar/{item_id}` 使用 HSV 颜色直方图 + dHash，
+只比较本地 `artifacts/images_cache/` 已缓存的商品图，不会为了一次请求串行下载几十张图。
+签名缓存在 `artifacts/visual_signatures.json`（可再生，不进提交包）。该通道明确不参与个性化精排。
+参考项目见 `docs/github_references.md`。
+
 ## 6. 目录与产物
 
 ```
