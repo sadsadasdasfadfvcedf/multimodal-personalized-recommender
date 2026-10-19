@@ -43,6 +43,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from config import settings  # noqa: E402
 from src.errors import ErrorCode  # noqa: E402
 from src.orchestrator import Orchestrator  # noqa: E402
+from src.visual_similarity import VisualSimilarityIndex  # noqa: E402
 
 PAGE = r"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1141,6 +1142,28 @@ async function modalGesture(itemId){
   box.dataset.busy = '0';
 }
 
+async function openVisualSimilar(itemId){
+  const sec = $('visualSec'), box = $('visualSimilar'), note = $('visualNote');
+  if (!sec || !box) return;
+  sec.style.display = 'block';
+  box.innerHTML = '<div class="sec"><span class="spin"></span> 正在比较图片外观…</div>';
+  if (note) note.textContent = '';
+  try{
+    const d = await (await fetch('/api/visual-similar/' + encodeURIComponent(itemId) + '?k=8')).json();
+    if (!d.ok){ box.innerHTML = '<div class="errline">' + esc(d.error || '计算失败') + '</div>'; return; }
+    if (!d.items || !d.items.length){ box.innerHTML = '<div class="sec">没有可比较的商品图片。</div>'; return; }
+    box.innerHTML = d.items.map(s =>
+      '<div class="m" data-visual-item="' + esc(s.item_id) + '">' + media(s, 'mi') +
+      '<p>' + esc(s.title) + '</p><span>' + money(s.price) + '</span>' +
+      '<em style="display:block;font-style:normal;font-size:11px;color:#5b3fd6">' +
+      Math.round((s.similarity || 0) * 100) + '% 外观相似</em></div>').join('');
+    box.querySelectorAll('[data-visual-item]').forEach(el => {
+      el.onclick = ev => { ev.stopPropagation(); openDetail(el.dataset.visualItem); };
+    });
+    if (note) note.textContent = d.note || '';
+  }catch(e){ box.innerHTML = '<div class="errline">网络失败：' + esc(e.message) + '</div>'; }
+}
+
 async function openDetail(itemId){
   $('modal').classList.add('show');
   $('sheet').innerHTML = '<button class="x" data-close="#modal" aria-label="关闭">✕</button>' +
@@ -1176,9 +1199,12 @@ async function openDetail(itemId){
             '<button data-rate="down" style="border:none;border-radius:8px;padding:6px 12px;background:#f1f2f7;color:#5c6379">👎 不喜欢</button>' +
             '<button data-cmp2="' + esc(p.item_id) + '" style="border:1px solid #e8eaf2;border-radius:8px;padding:6px 12px;background:#fff;color:#5c6379;margin-left:6px">' +
               (picked.has(p.item_id) ? '✓ 已加入对比' : '▦ 加入对比') + '</button>' +
+            '<button data-visual2="' + esc(p.item_id) + '" style="border:1px solid #d9d1ff;border-radius:8px;padding:6px 12px;background:#f5f2ff;color:#5b3fd6;margin-left:6px">🖼 找相似外观</button>' +
           '</dd>' +
         '</dl><div id="modalGesture" class="mgesture"></div></div></div>' + reason +
-      '<div class="sec"><h3>相似商品（点开继续看）</h3><div class="mini">' + sim + '</div></div>';
+      '<div class="sec"><h3>相似商品（点开继续看）</h3><div class="mini">' + sim + '</div></div>' +
+      '<div class="sec" id="visualSec" style="display:none"><h3>视觉相似（按图片外观）</h3>' +
+      '<div id="visualSimilar" class="mini"></div><div id="visualNote" style="font-size:12px;color:#8b91a6;margin-top:6px"></div></div>';
     $('sheet').querySelectorAll('[data-item]').forEach(el => {
       el.onclick = ev => { ev.stopPropagation(); openDetail(el.dataset.item); };
     });
@@ -1193,6 +1219,8 @@ async function openDetail(itemId){
         toast('已更新对比栏');
       }
     };
+    const v2 = $('sheet').querySelector('[data-visual2]');
+    if (v2) v2.onclick = ev => { ev.stopPropagation(); openVisualSimilar(itemId); };
     await startLiveGesture(itemId);   // 进入商品详情自动开启摄像头直播
   }catch(e){
     $('sheet').innerHTML = '<button class="x" data-close="#modal">✕</button>' +
@@ -1539,7 +1567,7 @@ def _recsys_image_base() -> str:
     return str(settings.RECOMMENDER_ADAPTER["http"]["base_url"]).rstrip("/")
 
 
-def fetch_product_image(item_id: str) -> tuple[bytes, str] | None:
+def fetch_product_image(item_id: str, timeout_s: float | None = None) -> tuple[bytes, str] | None:
     """取商品图：先查本地缓存，再代理推荐系统接口；都拿不到返回 None。
 
     参考推荐系统的 /api/image/{item_id} 是**公开接口**（无鉴权），
@@ -1564,7 +1592,7 @@ def fetch_product_image(item_id: str) -> tuple[bytes, str] | None:
     url = _recsys_image_base() + "/api/image/" + urllib.parse.quote(item_id)
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "integrated-ai-project"})
-        with urllib.request.urlopen(req, timeout=settings.IMAGE_CONFIG["timeout_s"]) as resp:
+        with urllib.request.urlopen(req, timeout=timeout_s or settings.IMAGE_CONFIG["timeout_s"]) as resp:
             data = resp.read(settings.IMAGE_CONFIG["max_bytes"] + 1)
             ctype = (resp.headers.get("Content-Type") or "image/jpeg").split(";")[0].strip()
     except Exception:
@@ -1575,6 +1603,15 @@ def fetch_product_image(item_id: str) -> tuple[bytes, str] | None:
     with contextlib.suppress(OSError):
         (cache_dir / (item_id + ext)).write_bytes(data)
     return data, ctype
+
+
+def _cached_image_bytes(item_id: str) -> bytes | None:
+    cache_dir = settings.PATHS["images"]
+    for ext in _EXT_MIME:
+        path = cache_dir / (str(item_id) + ext)
+        if path.exists() and path.stat().st_size > 0:
+            return path.read_bytes()
+    return None
 
 
 def category_emoji(category: str) -> str:
@@ -1700,6 +1737,7 @@ class App:
         self.media = settings.PATHS["artifacts"] / "webui"
         self.media.mkdir(parents=True, exist_ok=True)
         self.turn = 0
+        self.visual_index = VisualSimilarityIndex(settings.PATHS["artifacts"] / "visual_signatures.json")
 
     def account(self) -> dict:
         for item in settings.DEMO_ACCOUNTS:
@@ -1903,6 +1941,69 @@ class App:
                 },
             }
         return _err(ErrorCode.INVALID_INPUT, "未知操作")
+
+    def visual_similar(self, item_id: str, k: int = 8) -> dict:
+        """按图片外观找相似：同品类热门候选 + 颜色直方图/dHash。"""
+        catalog = self.orch.catalog
+        target = catalog.product(item_id)
+        if target is None:
+            return _err(ErrorCode.ITEM_NOT_FOUND, "商品不在目录中", field="item_id")
+        target_image = fetch_product_image(item_id)
+        if target_image is None:
+            return _err(ErrorCode.MODALITY_UNAVAILABLE, "商品图片不可用", field="item_id")
+        target_bytes = target_image[0]
+        category = catalog.category_of(item_id)
+        ids: list[str] = []
+        for cid in list(catalog.category_top(category, 50)) + list(catalog.global_top(30)):
+            cid = str(cid)
+            if cid != str(item_id) and cid not in ids:
+                ids.append(cid)
+        ids = ids[:60]
+        candidates: list[tuple[str, bytes]] = []
+        for cid in ids:
+            data = _cached_image_bytes(cid)
+            if data:
+                candidates.append((cid, data))
+        # 只比较本地已缓存的商品图：避免为了 8 件相似商品再串行下载几十张图。
+        # 首页/货架浏览会自然把图片缓存到 artifacts/images_cache。
+        if len(candidates) < 2:
+            return _err(
+                ErrorCode.MODALITY_UNAVAILABLE,
+                "本地商品图片缓存不足，请先浏览几件商品再试",
+                field="item_id",
+            )
+        ranked = self.visual_index.rank(str(item_id), target_bytes, candidates, max(1, min(12, int(k))))
+        if not ranked:
+            return _err(
+                ErrorCode.MODALITY_UNAVAILABLE,
+                "无法计算图片相似度（图片不可解码或缺少 OpenCV）",
+                field="item_id",
+            )
+        items = []
+        for row in ranked:
+            product = catalog.product(row["item_id"])
+            if not product:
+                continue
+            items.append(
+                {
+                    "item_id": row["item_id"],
+                    "title": product.get("title") or product.get("english_title") or row["item_id"],
+                    "category": product.get("category", "其他"),
+                    "price": product.get("price"),
+                    "currency": product.get("currency", catalog.currency),
+                    "score": row["similarity"],
+                    "similarity": row["similarity"],
+                    "img_url": "/api/img/" + urllib.parse.quote(row["item_id"]),
+                    "emoji": category_emoji(product.get("category", "")),
+                }
+            )
+        return {
+            "ok": True,
+            "item_id": str(item_id),
+            "items": items,
+            "scanned": len(candidates),
+            "note": "按图片颜色/纹理相似度排序，不参与个性化精排",
+        }
 
     def product(self, item_id: str) -> dict:
         """商品详情：本地目录事实 + 相似商品（供详情弹窗使用）。"""
@@ -2224,6 +2325,15 @@ def make_handler(app: App):
                 else:
                     data, ctype = got
                     self._send(200, data, ctype)
+                return
+            if self.path.startswith("/api/visual-similar/"):
+                item_id = urllib.parse.unquote(self.path[len("/api/visual-similar/") :].split("?")[0])
+                qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                try:
+                    k = int((qs.get("k") or ["8"])[0])
+                except ValueError:
+                    k = 8
+                self._json(app.visual_similar(item_id, k))
                 return
             if self.path.startswith("/api/product/"):
                 item_id = urllib.parse.unquote(self.path[len("/api/product/") :].split("?")[0])
