@@ -16,6 +16,7 @@ import contextlib
 import json
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
@@ -87,6 +88,8 @@ class ChatService:
             "last_provider": self._last_provider,
             "last_error": self._last_error,
             "online": online,
+            "web_search": bool(self._online is not None and self._online.search_available),
+            "web_search_count": self._online.cfg.search_count if self._online is not None else 0,
             "local_worker": bool(self._proc is not None and self._proc.poll() is None),
         }
 
@@ -277,15 +280,118 @@ class ChatService:
             self._last_provider = "local"
             return result
 
+    def _should_search(self, text: str) -> bool:
+        """只对时效性/检索型问题触发搜索，购物推荐不消耗搜索额度。"""
+        lowered = str(text or "").lower()
+        if not lowered:
+            return False
+        blocked = self.cfg.get("web_search_block_markers", [])
+        if any(str(marker).lower() in lowered for marker in blocked):
+            return False
+        markers = self.cfg.get("web_search_markers", [])
+        return any(str(marker).lower() in lowered for marker in markers)
+
+    @staticmethod
+    def _format_search_results(results: list[dict]) -> str:
+        blocks: list[str] = []
+        for index, row in enumerate(results, 1):
+            title = str(row.get("title") or "")
+            url = str(row.get("url") or "")
+            site = str(row.get("site_name") or "")
+            date = str(row.get("date") or "")
+            summary = str(row.get("summary") or row.get("snippet") or "")
+            content = str(row.get("content") or "")
+            body = content[:3000] if content else summary[:1500]
+            blocks.append(f"[{index}] {title}\n站点：{site}\n日期：{date}\nURL：{url}\n{body}")
+        return "\n\n".join(blocks)
+
+    def _search_context(self, text: str) -> tuple[str | None, dict | None]:
+        """返回 (注入模型的上下文, 给前端的来源摘要)。"""
+        if not self.online_available or self._online is None or not self._online.search_available:
+            return None, None
+        if not self._should_search(text):
+            return None, None
+
+        started = time.perf_counter()
+        lowered = text.lower()
+        url_match = re.search(r"https?://[^\s]+", text)
+        if url_match and any(marker in lowered for marker in ("抓取", "抓一下", "fetch", "总结", "看看", "正文")):
+            fetched = self._online.fetch_url(url_match.group(0))
+            elapsed = round((time.perf_counter() - started) * 1000, 2)
+            if fetched.ok:
+                data = fetched.data or {}
+                title = str(data.get("title") or "")
+                url = str(data.get("url") or url_match.group(0))
+                content = str(data.get("content") or "")
+                context = f"[1] {title}\nURL：{url}\n{content[:6000]}"
+                return context, {
+                    "mode": "fetch",
+                    "query": text,
+                    "count": 1,
+                    "latency_ms": elapsed,
+                    "sources": [{"index": 1, "title": title, "url": url, "site_name": "", "date": ""}],
+                }
+            reason = fetched.error.message if fetched.error else "Fetch 失败"
+            return None, {
+                "mode": "fetch",
+                "query": text,
+                "count": 0,
+                "latency_ms": elapsed,
+                "sources": [],
+                "error": reason,
+            }
+
+        need_content = any(marker in lowered for marker in ("详细", "全文", "原文", "正文", "文档", "内容"))
+        result = self._online.search_web(text, need_content=need_content, ori_question=text)
+        elapsed = round((time.perf_counter() - started) * 1000, 2)
+        if not result.ok:
+            reason = result.error.message if result.error else "Search 失败"
+            return None, {
+                "mode": "search",
+                "query": text,
+                "count": 0,
+                "latency_ms": elapsed,
+                "sources": [],
+                "error": reason,
+            }
+
+        data = result.data or {}
+        results = list(data.get("results") or [])
+        sources = [
+            {
+                "index": index,
+                "title": str(row.get("title") or ""),
+                "url": str(row.get("url") or ""),
+                "site_name": str(row.get("site_name") or ""),
+                "date": str(row.get("date") or ""),
+                "authority": row.get("authority"),
+            }
+            for index, row in enumerate(results, 1)
+        ]
+        meta = {
+            "mode": "search",
+            "query": text,
+            "count": len(results),
+            "latency_ms": elapsed,
+            "sources": sources,
+        }
+        if not results:
+            return None, meta
+        return self._format_search_results(results), meta
+
     def chat(self, text: str) -> Result:
         with self._lock:
+            search_context, search_meta = self._search_context(text)
             if self.online_available:
                 assert self._online is not None
-                online_result = self._online.chat(text)
+                online_result = self._online.chat(text, context=search_context)
                 if online_result.ok:
                     self._last_provider = "online"
                     self._last_error = None
-                    return ok(_to_simplified(str(online_result.data or "")))
+                    answer = _to_simplified(str(online_result.data or ""))
+                    if search_meta is not None:
+                        return ok({"text": answer, "web_search": search_meta})
+                    return ok(answer)
                 self._last_error = online_result.error.message if online_result.error else "在线 LLM 调用失败"
                 if self._online.cfg.strict:
                     return online_result
@@ -295,9 +401,19 @@ class ChatService:
                     ErrorCode.MODALITY_UNAVAILABLE,
                     "对话模型不可用（未找到权重或启动失败）" + detail,
                 )
-            result = self._send({"text": text})
+            local_text = text
+            if search_context:
+                local_text = "【实时网页资料】\n" + search_context + "\n\n【用户问题】\n" + text
+            result = self._send({"text": local_text})
             if result.ok:
                 self._last_provider = "local"
+                if search_meta is not None:
+                    return ok(
+                        {
+                            "text": _to_simplified(str(result.data or "")),
+                            "web_search": search_meta,
+                        }
+                    )
             return result
 
     def reset(self) -> None:

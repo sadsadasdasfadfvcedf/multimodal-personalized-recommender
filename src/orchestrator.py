@@ -177,9 +177,15 @@ class Orchestrator:
         if self.chat is not None and event.source in ("text", "voice") and self._should_chat(event.text):
             chat_result = self.chat.chat(event.text or "")
             if chat_result.ok:
-                answer = str(chat_result.data or "").strip()
+                chat_data = chat_result.data
+                if isinstance(chat_data, dict):
+                    answer = str(chat_data.get("text") or "").strip()
+                else:
+                    answer = str(chat_data or "").strip()
                 status = "ok"
                 extra: dict[str, Any] = {}
+                if isinstance(chat_data, dict) and chat_data.get("web_search") is not None:
+                    extra["web_search"] = chat_data["web_search"]
             else:
                 answer = "抱歉，对话模型暂时不可用；推荐功能仍然可用，你可以直接说需求。"
                 status = "degraded"

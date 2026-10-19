@@ -555,6 +555,7 @@ python chat.py --user 14156         # 换用户（15547 林先生 / 14156 陈小
 | python scripts/18_contract_check.py | 网页 API 契约核验（protocol §10） | outputs/contract_check.json |
 | python scripts/19_online_llm_check.py | 在线 LLM 联通性与延迟（需 Key，可选） | outputs/online_llm_check.json |
 | python scripts/19_security_check.py | 网页服务安全基线（8 项） | outputs/security_check.json |
+| python scripts/21_deepseek_search_check.py | DeepSeek Search/Fetch 实测（需 Key，可选） | outputs/deepseek_search_check.json |
 | python scripts/20_fingerprint_stability.py | 连续两轮离线套件，验证证据指纹可重复 | 控制台结果 |
 | python scripts/13_webui_acceptance.py | 网页改版验收（需 webui 在跑 + Edge） | outputs/webui_acceptance.json |
 | python scripts/run_all_offline.py | 一键跑完整离线套件（9 个脚本，约 24 秒） | 刷新全部 outputs/ 证据 |
@@ -639,6 +640,10 @@ python scripts/07_live_integration_check.py
 - INTEGRATED_ONLINE_LLM_STRICT —— 1 表示在线失败禁止回退本地；默认 0
 
 - 项目根目录 `local.env` —— 启动时自动读取（不覆盖已有环境变量），适合本机填写 DeepSeek Key；该文件不进入 Git 或提交包
+
+- INTEGRATED_WEB_SEARCH / INTEGRATED_WEB_SEARCH_COUNT —— DeepSeek Search 自动搜索开关与返回条数
+
+- INTEGRATED_WEB_SEARCH_CONTENT / INTEGRATED_WEB_SEARCH_TIMEOUT_S —— 是否抓取正文、搜索超时（秒）
 
 ## 七、输入与输出
 

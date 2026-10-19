@@ -45,6 +45,16 @@ class FakeResponse:
         return {"choices": [{"message": {"content": self._text}}]}
 
 
+class FakeJSONResponse:
+    def __init__(self, payload: dict[str, Any], status_code: int = 200) -> None:
+        self._payload = payload
+        self.status_code = status_code
+        self.text = json.dumps(payload, ensure_ascii=False)
+
+    def json(self) -> dict[str, Any]:
+        return self._payload
+
+
 def _config(**overrides: Any) -> OnlineLLMConfig:
     values: dict[str, Any] = {
         "provider": "custom",
@@ -100,8 +110,84 @@ def test_deepseek_provider_mode_wins_over_other_keys(monkeypatch):
 
     assert cfg is not None
     assert cfg.provider == "deepseek"
-    assert cfg.model == "deepseek-chat"
+    assert cfg.model == "deepseek-flash"
     assert cfg.base_url == "https://api.deepseek.com/v1"
+
+
+def test_deepseek_search_web(monkeypatch):
+    calls: list[dict[str, Any]] = []
+
+    def fake_post(url: str, **kwargs: Any) -> FakeJSONResponse:
+        calls.append({"url": url, **kwargs})
+        return FakeJSONResponse(
+            {
+                "results": [
+                    {
+                        "title": "DeepSeek 最新消息",
+                        "url": "https://example.com/news",
+                        "summary": "V4.1 Flash 发布。",
+                        "site_name": "Example",
+                        "date": "2026-10-17T00:00:00+08:00",
+                        "authority": 3,
+                    }
+                ]
+            }
+        )
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    client = OnlineChatClient(
+        _config(
+            provider="deepseek",
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-flash",
+            web_search=True,
+        )
+    )
+
+    result = client.search_web("DeepSeek 最新消息", count=3, need_content=False)
+
+    assert result.ok
+    assert result.data["count"] == 1
+    assert calls[0]["url"] == "https://api.deepseek.com/v1/tools/search"
+    assert calls[0]["json"]["query"] == "DeepSeek 最新消息"
+    assert calls[0]["json"]["count"] == 3
+    assert calls[0]["json"]["need_content"] is False
+
+
+def test_deepseek_fetch_url(monkeypatch):
+    calls: list[dict[str, Any]] = []
+
+    def fake_post(url: str, **kwargs: Any) -> FakeJSONResponse:
+        calls.append({"url": url, **kwargs})
+        return FakeJSONResponse({"title": "Example", "content": "# Example\n\n正文"})
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    client = OnlineChatClient(
+        _config(
+            provider="deepseek",
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-flash",
+            web_search=True,
+        )
+    )
+
+    result = client.fetch_url("https://example.com/article")
+
+    assert result.ok
+    assert result.data["title"] == "Example"
+    assert "正文" in result.data["content"]
+    assert calls[0]["url"] == "https://api.deepseek.com/v1/tools/fetch"
+    assert calls[0]["json"] == {"url": "https://example.com/article"}
+
+
+def test_search_is_unavailable_for_non_deepseek_provider():
+    client = OnlineChatClient(_config(provider="custom", web_search=True))
+
+    result = client.search_web("最新消息")
+
+    assert not result.ok
+    assert result.error is not None
+    assert "DeepSeek Search/Fetch" in result.error.message
 
 
 def test_online_chat_keeps_multi_turn_history_and_reset(monkeypatch):
@@ -192,7 +278,7 @@ def test_online_error_redacts_api_key(monkeypatch):
 
 def test_chat_service_falls_back_to_local_when_online_fails(monkeypatch):
     online = OnlineChatClient(_config())
-    monkeypatch.setattr(online, "chat", lambda text: fail(ErrorCode.MODALITY_UNAVAILABLE, "online down"))
+    monkeypatch.setattr(online, "chat", lambda text, **kwargs: fail(ErrorCode.MODALITY_UNAVAILABLE, "online down"))
     service = ChatService(
         cfg={
             "provider": "auto",
@@ -213,6 +299,142 @@ def test_chat_service_falls_back_to_local_when_online_fails(monkeypatch):
     assert result.data == "本地回答:你好"
     assert service.report()["last_provider"] == "local"
     assert "online down" in str(service.report()["last_error"])
+
+
+def test_chat_service_searches_time_sensitive_questions(monkeypatch):
+    online = OnlineChatClient(
+        _config(
+            provider="deepseek",
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-flash",
+            web_search=True,
+            search_count=3,
+        )
+    )
+    seen_context: list[str | None] = []
+
+    def fake_search(query: str, **kwargs: Any):
+        return ok(
+            {
+                "query": query,
+                "count": 1,
+                "results": [
+                    {
+                        "title": "DeepSeek 更新",
+                        "url": "https://example.com/update",
+                        "summary": "V4.1 Flash 更新。",
+                        "site_name": "Example",
+                        "date": "2026-10-17",
+                    }
+                ],
+            }
+        )
+
+    def fake_chat(text: str, *, context: str | None = None):
+        seen_context.append(context)
+        return ok("根据资料，V4.1 Flash 已更新。[1]")
+
+    monkeypatch.setattr(online, "search_web", fake_search)
+    monkeypatch.setattr(online, "chat", fake_chat)
+    service = ChatService(
+        cfg={
+            "provider": "deepseek",
+            "online": {"enabled": True},
+            "timeout_s": 1,
+            "startup_timeout_s": 1,
+            "worker": "unused",
+            "model_candidates": [],
+            "web_search_markers": ["最新", "搜索"],
+            "web_search_block_markers": ["推荐一些", "商品"],
+        },
+        online_client=online,
+    )
+
+    result = service.chat("DeepSeek 最新版本是什么")
+
+    assert result.ok
+    assert result.data["text"].endswith("[1]")
+    assert result.data["web_search"]["count"] == 1
+    assert result.data["web_search"]["sources"][0]["url"] == "https://example.com/update"
+    assert seen_context and "https://example.com/update" in str(seen_context[0])
+    assert service.report()["web_search"] is True
+
+
+def test_chat_service_does_not_search_shopping_queries(monkeypatch):
+    online = OnlineChatClient(
+        _config(
+            provider="deepseek",
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-flash",
+            web_search=True,
+        )
+    )
+    searched: list[str] = []
+
+    def fake_search(query: str, **kwargs: Any):
+        searched.append(query)
+        return ok({"query": query, "count": 0, "results": []})
+
+    monkeypatch.setattr(online, "search_web", fake_search)
+    monkeypatch.setattr(online, "chat", lambda text, **kwargs: ok("推荐结果"))
+    service = ChatService(
+        cfg={
+            "provider": "deepseek",
+            "online": {"enabled": True},
+            "timeout_s": 1,
+            "startup_timeout_s": 1,
+            "worker": "unused",
+            "model_candidates": [],
+            "web_search_markers": ["最新", "搜索"],
+            "web_search_block_markers": ["推荐一些", "商品"],
+        },
+        online_client=online,
+    )
+
+    result = service.chat("推荐一些最新商品")
+
+    assert result.ok
+    assert result.data == "推荐结果"
+    assert searched == []
+
+
+def test_chat_service_fetches_url_for_summary_requests(monkeypatch):
+    online = OnlineChatClient(
+        _config(
+            provider="deepseek",
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-flash",
+            web_search=True,
+        )
+    )
+    fetched: list[str] = []
+
+    def fake_fetch(url: str):
+        fetched.append(url)
+        return ok({"url": url, "title": "Example", "content": "# Example\n\n正文"})
+
+    monkeypatch.setattr(online, "fetch_url", fake_fetch)
+    monkeypatch.setattr(online, "chat", lambda text, **kwargs: ok("这是页面总结。[1]"))
+    service = ChatService(
+        cfg={
+            "provider": "deepseek",
+            "online": {"enabled": True},
+            "timeout_s": 1,
+            "startup_timeout_s": 1,
+            "worker": "unused",
+            "model_candidates": [],
+            "web_search_markers": ["抓取", "正文"],
+            "web_search_block_markers": [],
+        },
+        online_client=online,
+    )
+
+    result = service.chat("请抓取 https://example.com/article 的正文并总结")
+
+    assert result.ok
+    assert result.data["web_search"]["mode"] == "fetch"
+    assert result.data["web_search"]["sources"][0]["url"] == "https://example.com/article"
+    assert fetched == ["https://example.com/article"]
 
 
 def test_llm_explainer_available_with_online_chat_only():

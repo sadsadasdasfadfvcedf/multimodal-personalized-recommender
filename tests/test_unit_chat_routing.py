@@ -31,6 +31,22 @@ class FakeChat:
         self.resets += 1
 
 
+class FakeWebChat(FakeChat):
+    def chat(self, text: str):
+        self.calls.append(text)
+        return ok(
+            {
+                "text": "这是带来源的回答。[1]",
+                "web_search": {
+                    "mode": "search",
+                    "query": text,
+                    "count": 1,
+                    "sources": [{"index": 1, "title": "来源", "url": "https://example.com"}],
+                },
+            }
+        )
+
+
 def _ask(text: str, chat: FakeChat, session_id: str = "chat-probe") -> dict:
     orch = Orchestrator(with_voice=False, chat_service=chat)
     return orch.handle({"source": "text", "text": text}, user_id="15547", session_id=session_id).data
@@ -44,6 +60,15 @@ def test_open_question_routes_to_chat():
     assert d["answer"] == chat.reply
     assert d["recommendations"] == []
     assert chat.calls == ["什么是协同过滤？"]
+
+
+def test_chat_web_search_metadata_is_passed_through():
+    chat = FakeWebChat()
+    d = _ask("DeepSeek 最新版本是什么？", chat)
+    assert d["intent_result"]["intent"] == "chat"
+    assert d["answer"] == "这是带来源的回答。[1]"
+    assert d["web_search"]["count"] == 1
+    assert d["web_search"]["sources"][0]["url"] == "https://example.com"
 
 
 def test_identity_question_stays_chitchat_without_loading_llm():
@@ -147,6 +172,7 @@ def test_should_chat_is_pure_heuristic():
     assert Orchestrator._should_chat("帮我写一段品牌故事")
     assert Orchestrator._should_chat("它和基于内容的推荐有什么区别？")
     assert Orchestrator._should_chat("推荐系统为什么需要召回？")
+    assert Orchestrator._should_chat("DeepSeek V4.1 Flash 最新版本是什么？")
     assert not Orchestrator._should_chat("推荐一些500以内的礼物")
     assert not Orchestrator._should_chat("300以内的水杯多少钱")
     assert not Orchestrator._should_chat("有什么好推荐")

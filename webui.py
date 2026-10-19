@@ -801,6 +801,18 @@ function renderBot(resp, updateShelf){
   if (resp.error) h += '<div class="errline">' + esc(resp.error.message) + '</div>';
   if (resp.clarification) h += '<div>' + esc(resp.clarification) + '</div>';
   if (resp.answer) h += '<div style="margin-top:6px;line-height:1.65">' + esc(resp.answer) + '</div>';
+  const ws = resp.web_search || null;
+  if (ws && ws.sources && ws.sources.length){
+    h += '<div style="margin-top:8px;padding:8px 10px;border:1px solid #e5e8f0;border-radius:8px;background:#fafbff;font-size:12.5px">' +
+         '🌐 已联网检索 <b>' + ws.count + '</b> 条来源' +
+         (ws.latency_ms != null ? ' · ' + ws.latency_ms + 'ms' : '') +
+         '<div style="margin-top:5px;display:grid;gap:3px">' +
+         ws.sources.map(s => '<div>[' + s.index + '] <a href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">' +
+           esc(s.title || s.url) + '</a>' + (s.site_name ? ' · ' + esc(s.site_name) : '') + '</div>').join('') +
+         '</div></div>';
+  } else if (ws && ws.error){
+    h += '<div class="errline" style="margin-top:6px">联网搜索失败：' + esc(ws.error) + '</div>';
+  }
 
   const slots = ((resp.intent_result || {}).slots) || {};
   const sv = Object.entries(slots).filter(([k, v]) => v && v.value !== undefined &&
@@ -1327,6 +1339,7 @@ async function openStatus(){
       row('推荐适配器', zh(MODE_ZH, m.recommender)) + row('多模态适配器', zh(MODE_ZH, m.multimodal)) +
       row('LLM 解释', info.llm ? '已开启' : '模板') +
       row('对话后端', (m.llm_provider === 'online' ? '在线模型' : m.llm_provider === 'local' ? '本地 Qwen' : '未启用')) +
+      row('联网搜索', (info.llm_chat || {}).web_search ? '开 · 最多 ' + ((info.llm_chat || {}).web_search_count || 5) + ' 条' : '关') +
       row('语音播报', info.voice ? '开' : '关') +
       '<h3 style="margin:14px 0 6px;font-size:13px;color:#8b91a6">本次会话</h3>' +
       row('轮次', String(s.turns ?? 0)) +
@@ -1535,6 +1548,7 @@ async function loadHomeShelf(force){
   needReal = m.multimodal !== 'real';
   $('chips').innerHTML = ['推荐 ' + zh(MODE_ZH, m.recommender), '多模态 ' + zh(MODE_ZH, m.multimodal),
                           '对话 ' + (m.llm_provider === 'online' ? '在线' : m.llm_provider === 'local' ? '本地' : '关'),
+                          '搜索 ' + ((info.llm_chat || {}).web_search ? '开' : '关'),
                           '语音 ' + (info.voice ? '开' : '关')]
     .map(t => '<span class="chip' + (needReal ? ' dim' : '') + '">' + esc(t) + '</span>').join('');
   window.__accounts = info.accounts || [];

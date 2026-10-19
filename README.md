@@ -147,11 +147,24 @@ python webui.py --port 8030        # 换端口
   ```
 
   项目启动时会自动读取 `local.env`；`local.env.example` 是可提交的模板。DeepSeek 默认使用
-  `https://api.deepseek.com/v1` 与 `deepseek-chat`。
+  `https://api.deepseek.com/v1` 与 `deepseek-flash`（DeepSeek-V4.1-Flash）。
+  官方 2026-10-17 的 `V4.1-Flash-1017` 是新版本名，但 API 可选择 ID 仍是
+  `deepseek-flash`，不要把 `V4.1-Flash-1017` 直接填进 `INTEGRATED_ONLINE_LLM_MODEL`。
+
+  **DeepSeek Search / Fetch 已接入**：带「最新 / 今天 / 搜索 / 版本 / 文档 / URL」等时效性
+  问题会自动先调用官方搜索接口，把标题、URL、日期和摘要注入模型，回答中会附来源。
+  搜索按成功请求计费（每 1000 次 5 元），购物推荐不会触发搜索；不需要时可关闭：
+
+  ```dotenv
+  INTEGRATED_WEB_SEARCH=1          # 0 = 关闭自动搜索
+  INTEGRATED_WEB_SEARCH_COUNT=5    # 每次返回 1~50 条
+  INTEGRATED_WEB_SEARCH_CONTENT=0  # 1 = 同时抓取网页正文
+  INTEGRATED_WEB_SEARCH_TIMEOUT_S=30
+  ```
 
   模型选择、接口地址和超时集中在 `config/settings.py` 的 `CHAT_CONFIG["online"]`；
   Key 只从环境变量读取，不写入仓库、日志或证据文件。页面 ⚙ 状态面板会显示
-  「对话后端：在线模型 / 本地 Qwen / 未启用」。
+  「对话后端：在线模型 / 本地 Qwen / 未启用」与「联网搜索：开 / 关」。
 - 模型只在第一次对话时加载（约 25~40 秒），之后同一进程复用，多轮上下文保留
   （实测第二轮 4.2 秒）；
 - 点击「⟳ 重来」或切换右上角用户会清空对话历史；
@@ -302,6 +315,7 @@ python scripts/15_deps_check.py
 | `python scripts/18_contract_check.py` | 网页 API 契约核验（protocol §10） | `outputs/contract_check.json` |
 | `python scripts/19_online_llm_check.py` | 在线 LLM 联通性与延迟（需 Key，可选） | `outputs/online_llm_check.json` |
 | `python scripts/19_security_check.py` | 网页服务安全基线与输入边界 | `outputs/security_check.json` |
+| `python scripts/21_deepseek_search_check.py` | DeepSeek Search/Fetch 实测（需 Key，可选） | `outputs/deepseek_search_check.json` |
 | `python scripts/20_fingerprint_stability.py` | 连续两轮离线套件，验证证据指纹可重复 | 控制台结果 |
 | `python scripts/13_webui_acceptance.py` | 网页改版验收（需 webui 在跑 + Edge） | `outputs/webui_acceptance.json` |
 | `python scripts/clean_workspace.py` | 打包前清理 | 删除 `__pycache__` / `*.pyc` |

@@ -348,7 +348,42 @@ Qwen3-4B 实测输出（全部通过三道门控；括号内为原始事实）�
 `outputs/real_llm_check.json`（`scripts/10_real_llm_check.py`）、
 `outputs/text_norm_check.json`（`scripts/12_text_norm_check.py`）
 
-### 4.11 端到端主链路实测（`python main.py`）
+### 4.11 DeepSeek V4.1-Flash 与 Search / Fetch 实测
+
+DeepSeek 官方 `/v1/models/deepseek-flash` 返回：
+
+| 字段 | 值 |
+|---|---|
+| 模型 ID | `deepseek-flash` |
+| 展示名 | `DeepSeek-V4.1-Flash` |
+| 上下文窗口 | 1,048,576 tokens |
+| 最大输出 | 393,216 tokens |
+| system fingerprint | `e72d3c7f663d3e1383b00b3884cb4501` |
+
+> 官方新闻页 `api-docs.deepseek.com/zh-cn/news/news261017/` 确认：
+> 2026-10-17 发布的新版本名为 **V4.1-Flash-1017**。公开 API 当前仍只暴露
+> `deepseek-flash` / `deepseek-v4-pro` 两个模型 ID；`V4.1-Flash-1017`
+> 不是可单独选择的 ID，因此项目显式使用 `deepseek-flash`，不再依赖
+> `deepseek-chat` 别名。
+
+Search / Fetch 实测（真实 API）：
+
+| 项目 | 结果 |
+|---|---|
+| 检测问题 | 「DeepSeek V4.1 Flash 最新版本是什么？请搜索并给出来源。」 |
+| 自动路由 | `chat`（不再被版本号误判为购物） |
+| Search 结果 | 5 条，含 DeepSeek 官方更新日志、证券时报、网易等 |
+| Search 耗时 | **1.28 s** |
+| 搜索 + 回答总耗时 | **3.26 s** |
+| 回答来源 | `[1]`~`[5]`，前端展示标题与链接 |
+
+安全与费用控制：网页内容作为**不可信资料**注入，明确禁止执行网页中的指令；
+只有「最新/今天/搜索/版本/文档/URL」等时效性问题触发搜索，购物推荐不触发；
+Search/Fetch 每 1000 次成功请求 5 元，可用 `INTEGRATED_WEB_SEARCH=0` 关闭。
+
+可复跑：`python scripts/21_deepseek_search_check.py --answer --json`。
+
+### 4.12 端到端主链路实测（`python main.py`）
 
 | 轮次 | 输入 | 意图 | 结果 |
 |---|---|---|---|
@@ -387,7 +422,7 @@ Qwen3-4B 实测输出（全部通过三道门控；括号内为原始事实）�
 | P-23 | 任务书阶段5 要求把「点赞、倒赞和**继续浏览**等反馈」写入会话偏好，但只实现了点赞/倒赞 | 把「反馈」窄化成了显式的正负评价，漏掉了浏览这类**弱隐式反馈** | 新增 `browse` 事件来源（contracts）→ `SessionContext.add_view()`（弱正反馈，权重 view_item_boost=0.04 / view_category_boost=0.03 且带累计上限，不改动 likes/dislikes）→ `Orchestrator._handle_browse()` → 网页打开详情自动上报 / `chat.py /view` | 实测浏览 Δ+0.0175 < 点赞 Δ+0.055，且 likes 未被污染 |
 | P-22 | **点赞首位商品后它反而掉到第 2** | 反馈意图把 `target` 转成了 `item_id similar_to` **软约束**；于是「与被点赞商品相似」的商品命中该约束拿到 +0.10，把被点赞商品挤下去。语义上说不通：点赞是「我喜欢这个」，不是「给我更多相似的」 | `intent.build_constraints()` 增加 intent 参数，**反馈意图下不生成 similar_to 约束** | 10 个查询的探测中，反向变化从 5 个降到 1 个（余下 1 个是合理机制，见 §4.6） |
 | P-21 | `chat.py --real` / `webui.py --real` 不起作用，仍是离线模式 | 环境变量在 `from config import settings` **之后**才设置，而 `settings.RUNTIME` 在 import 时已求值 | 改为把 `allow_real` 显式传给 `Orchestrator`，不依赖环境变量时序 | `/api/info` 显示 `多模态=real` |
-| P-24 | 已购商品重新出现在推荐 TopK（14156 的 22699 分数 0.97 曾排进前 5；15547 的 22508 曾出现在快照对照里），违背「已购商品不会重复出现在推荐流」的承诺 | 离线快照的个性化分数本身包含已购商品；召回合并时**豁免了 personalized 来源**的排除检查，排序入口也未做已购兜底 | 排除项（已购/本会话负反馈/显式排除）对所有召回来源一视同仁；`rank()` 入口再按 `catalog.purchased(user_id)` 兜底过滤，淘汰原因与事实一致 | 新增 `tests/test_unit_purchased_exclusion.py`：三个演示用户 TopK 已购零泄漏、recall/rank 双层各自核验；207/207 测试通过 |
+| P-24 | 已购商品重新出现在推荐 TopK（14156 的 22699 分数 0.97 曾排进前 5；15547 的 22508 曾出现在快照对照里），违背「已购商品不会重复出现在推荐流」的承诺 | 离线快照的个性化分数本身包含已购商品；召回合并时**豁免了 personalized 来源**的排除检查，排序入口也未做已购兜底 | 排除项（已购/本会话负反馈/显式排除）对所有召回来源一视同仁；`rank()` 入口再按 `catalog.purchased(user_id)` 兜底过滤，淘汰原因与事实一致 | 新增 `tests/test_unit_purchased_exclusion.py`：三个演示用户 TopK 已购零泄漏、recall/rank 双层各自核验；214/214 测试通过 |
 | P-25 | 「第十个」被解析成第 20 个；`recall()` 不传 session 时仍可能保留已购候选；会话结束汇总的浏览数在清空后才读取，恒为 0 | 中文序号只处理「十X」且把单独的「十」重复计算；已购排除被错误地放在 `if session` 内；`end()` 先清空再赋值 | 序号统一复用 `_cn_to_int()`；已购排除移到 session 判断之外；`end()` 在清空前采集 `viewed_items` / `viewed_categories` 并新增回归测试 | `tests/test_unit_intent.py`、`tests/test_unit_purchased_exclusion.py`、`tests/test_unit_session_end.py` |
 
 > **P-13/P-14 的方法论教训**：最初把「LLM 输出不可用」归因为「小模型能力不足」，
