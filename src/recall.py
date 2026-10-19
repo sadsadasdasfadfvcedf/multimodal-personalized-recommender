@@ -86,8 +86,9 @@ def recall(
     """执行多路召回，返回合并去重后的候选列表与召回 trace。"""
     enabled = set(CFG["sources_enabled"])
     exclude: set[str] = set(request.exclude_item_ids or [])
+    # 已购商品与是否有会话无关：即使调用方没传 session，也必须从所有来源剔除。
+    exclude |= catalog.purchased(request.user_id)
     if session:
-        exclude |= catalog.purchased(request.user_id)  # 已购商品不再推荐
         exclude |= session.blocked_item_ids()  # 本会话负反馈排除
 
     per_source: dict[str, list[dict]] = {}
@@ -192,7 +193,11 @@ def recall(
             if not catalog.exists(item_id):
                 dropped_unknown += 1
                 continue
-            if item_id in exclude and key != "personalized":
+            # 排除项（已购/本会话负反馈/请求显式排除）对所有来源一视同仁。
+            # 曾豁免 personalized：离线快照的个性化分数里包含已购商品，
+            # 导致「已购商品不再推荐」的承诺被打破（如用户 14156 的已购
+            # 22699 分数 0.97，曾出现在 TopK 里）。
+            if item_id in exclude:
                 dropped_excluded += 1
                 continue
             nkey = _norm(item_id)

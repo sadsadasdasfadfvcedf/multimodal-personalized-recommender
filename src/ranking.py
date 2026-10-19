@@ -206,6 +206,10 @@ def rank(
     weights = RANK["weights"]
     trust_table = RANK["source_trust"]
     exclude = set(request.exclude_item_ids or [])
+    # 已购商品双重防线：recall 合并时已按排除项过滤，这里在排序入口
+    # 再兜底一次 —— rank() 也可能被测试/脚本直接调用，硬约束过滤的
+    # 淘汰原因「已排除（已购/…）」必须与事实一致。
+    exclude |= catalog.purchased(request.user_id)
     if session:
         exclude |= session.blocked_item_ids()
 

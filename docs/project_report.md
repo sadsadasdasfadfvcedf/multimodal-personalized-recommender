@@ -248,7 +248,10 @@ graph LR
 | HTTP 个性化候选 | 8 条，带 `reason="v146 精排"` |
 | 三轮主链路（语音/手势/追问） | 全部 `status=ok` |
 | HTTP 召回耗时 | 约 19 ms（含网络往返） |
-| 同一查询 TopK 对照 | HTTP `[22675, 22798, 22632, 20893, 22217]` vs 快照 `[21181, 22508, 82494L, 85152, 85174]` |
+| 同一查询 TopK 对照 | HTTP `[22675, 22798, 22632, 20893, 22217]` vs 快照 `[21181, 82494L, 85152, 85174, 82482]` |
+
+> 快照一侧在修复「已购商品排除」缺陷后离线重测（原列表含已购商品 22508，
+> 现已被召回合并层的排除规则剔除）；HTTP 一侧为修复前在线联调的历史记录。
 
 两种模式的候选来源与分数口径不同（在线实时接口 vs 离线快照），TopK 不完全一致属预期；
 二者共用同一套意图、召回合并、硬约束过滤、排序与解释逻辑。
@@ -384,6 +387,8 @@ Qwen3-4B 实测输出（全部通过三道门控；括号内为原始事实）�
 | P-23 | 任务书阶段5 要求把「点赞、倒赞和**继续浏览**等反馈」写入会话偏好，但只实现了点赞/倒赞 | 把「反馈」窄化成了显式的正负评价，漏掉了浏览这类**弱隐式反馈** | 新增 `browse` 事件来源（contracts）→ `SessionContext.add_view()`（弱正反馈，权重 view_item_boost=0.04 / view_category_boost=0.03 且带累计上限，不改动 likes/dislikes）→ `Orchestrator._handle_browse()` → 网页打开详情自动上报 / `chat.py /view` | 实测浏览 Δ+0.0175 < 点赞 Δ+0.055，且 likes 未被污染 |
 | P-22 | **点赞首位商品后它反而掉到第 2** | 反馈意图把 `target` 转成了 `item_id similar_to` **软约束**；于是「与被点赞商品相似」的商品命中该约束拿到 +0.10，把被点赞商品挤下去。语义上说不通：点赞是「我喜欢这个」，不是「给我更多相似的」 | `intent.build_constraints()` 增加 intent 参数，**反馈意图下不生成 similar_to 约束** | 10 个查询的探测中，反向变化从 5 个降到 1 个（余下 1 个是合理机制，见 §4.6） |
 | P-21 | `chat.py --real` / `webui.py --real` 不起作用，仍是离线模式 | 环境变量在 `from config import settings` **之后**才设置，而 `settings.RUNTIME` 在 import 时已求值 | 改为把 `allow_real` 显式传给 `Orchestrator`，不依赖环境变量时序 | `/api/info` 显示 `多模态=real` |
+| P-24 | 已购商品重新出现在推荐 TopK（14156 的 22699 分数 0.97 曾排进前 5；15547 的 22508 曾出现在快照对照里），违背「已购商品不会重复出现在推荐流」的承诺 | 离线快照的个性化分数本身包含已购商品；召回合并时**豁免了 personalized 来源**的排除检查，排序入口也未做已购兜底 | 排除项（已购/本会话负反馈/显式排除）对所有召回来源一视同仁；`rank()` 入口再按 `catalog.purchased(user_id)` 兜底过滤，淘汰原因与事实一致 | 新增 `tests/test_unit_purchased_exclusion.py`：三个演示用户 TopK 已购零泄漏、recall/rank 双层各自核验；207/207 测试通过 |
+| P-25 | 「第十个」被解析成第 20 个；`recall()` 不传 session 时仍可能保留已购候选；会话结束汇总的浏览数在清空后才读取，恒为 0 | 中文序号只处理「十X」且把单独的「十」重复计算；已购排除被错误地放在 `if session` 内；`end()` 先清空再赋值 | 序号统一复用 `_cn_to_int()`；已购排除移到 session 判断之外；`end()` 在清空前采集 `viewed_items` / `viewed_categories` 并新增回归测试 | `tests/test_unit_intent.py`、`tests/test_unit_purchased_exclusion.py`、`tests/test_unit_session_end.py` |
 
 > **P-13/P-14 的方法论教训**：最初把「LLM 输出不可用」归因为「小模型能力不足」，
 > 但真正原因是**自身实现缺陷**（未套 chat template + 门控误判）。

@@ -75,6 +75,22 @@ def test_extract_color_and_category(categories):
     assert slots["category"].value
 
 
+@pytest.mark.parametrize(
+    "text,expected_index",
+    [
+        ("第一个", 1),
+        ("第二个", 2),
+        ("第十个", 10),
+        ("第十五个", 15),
+        ("第二十个", 20),
+        ("第二十一个", 21),
+    ],
+)
+def test_resolve_ordinal_target_chinese_numerals(text, expected_index):
+    session_items = [f"item-{i}" for i in range(1, 31)]
+    assert intent._resolve_ordinal_target(text, session_items) == session_items[expected_index - 1]
+
+
 def test_empty_text_yields_no_slots(categories):
     _, slots = _intent_of(_event("嗯"), categories)
     assert slots == {}

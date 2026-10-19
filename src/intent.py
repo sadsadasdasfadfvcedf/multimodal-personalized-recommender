@@ -300,7 +300,7 @@ def classify(
         scores["filter"] += 0.8
     if "colors" in hard_fields:
         scores["filter"] += 0.5
-    if contains_any(text, ["只看", "只要", "筛选", "必须", "限定", "不超过", "以内", "以下", "少于", "少于", "only"]):
+    if contains_any(text, ["只看", "只要", "筛选", "必须", "限定", "不超过", "以内", "以下", "少于", "only"]):
         scores["filter"] += 0.5
 
     # 发现
@@ -430,9 +430,7 @@ def extract_slots(
             )
             slots["targets"] = Slot("targets", [ordinal_target], confidence=0.7, evidence=["文本序号指代"])
         referential = contains_any(text, LEX.get("referential_markers", ["这个", "这款", "它"]))
-        if ordinal_target:
-            pass
-        elif referential and (focus_item_id or session_items):
+        if not ordinal_target and referential and (focus_item_id or session_items):
             target = focus_item_id or session_items[0]
             slots["target"] = Slot("target", target, confidence=0.7, evidence=["文本指代词 + 会话焦点商品"])
             slots["targets"] = Slot("targets", [target], confidence=0.6, evidence=["会话焦点商品"])
@@ -461,7 +459,6 @@ def extract_slots(
     return slots
 
 
-_CN_NUM = {"一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
 _ORDINAL_RE = re.compile(r"第\s*([0-9]+|[一二两三四五六七八九十]+)\s*(?:个|件|款|项|条|号)")
 
 
@@ -473,13 +470,9 @@ def _resolve_ordinal_target(text: str, session_items: list[str] | None) -> str |
     if not match:
         return None
     raw = match.group(1)
-    index: int | None
-    if raw.isdigit():
-        index = int(raw)
-    else:
-        index = _CN_NUM.get(raw)
-        if index is None and len(raw) <= 2:
-            index = _CN_NUM.get(raw[0], 0) * 1 + _CN_NUM.get(raw[-1], 0) if raw[0] == "十" else None
+    # 复用完整中文数字解析：第十=10、第十五=15、第二十=20、第二十一=21。
+    # 旧实现只处理「十X」，且把单独的「十」算成 20。
+    index: int | None = int(raw) if raw.isdigit() else _cn_to_int(raw)
     if not index or index < 1 or index > len(session_items):
         return None
     return session_items[index - 1]
@@ -551,13 +544,15 @@ def detect_conflicts(slots: dict[str, Slot]) -> list[dict]:
             }
         )
     colors = slots.get("colors")
-    if colors and len(colors.value) > CONFLICT_RULES[1]["max_ok"]:
+    # 按 id 查规则而不是按下标 —— CONFLICT_RULES 顺序调整时这里不该悄悄失效
+    color_rule = next((r for r in CONFLICT_RULES if r["id"] == "color_exclusive"), None)
+    if colors and color_rule and len(colors.value) > color_rule["max_ok"]:
         conflicts.append(
             {
                 "id": "color_exclusive",
                 "desc": "同时指定了过多互斥颜色",
                 "detail": {"colors": colors.value},
-                "hint": f"一次最多保留 {CONFLICT_RULES[1]['max_ok']} 种颜色，请删减。",
+                "hint": f"一次最多保留 {color_rule['max_ok']} 种颜色，请删减。",
             }
         )
     cat = slots.get("category")

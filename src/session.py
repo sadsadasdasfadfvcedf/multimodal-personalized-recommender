@@ -329,6 +329,9 @@ class SessionContext:
             "turns": len(self.turns),
             "likes": dict(self.likes),
             "dislikes": dict(self.dislikes),
+            # 在清空之前取数，否则永远是 0
+            "viewed_items": len(self.viewed_items),
+            "viewed_categories": len(self.viewed_categories),
             "ended_at": now_iso(),
         }
         self.slot_state.clear()
@@ -340,7 +343,6 @@ class SessionContext:
         self.dislikes.clear()
         self.viewed_items.clear()
         self.viewed_categories.clear()
-        summary["viewed_items"] = 0
         return summary
 
     # ---------------- 导出 ----------------
