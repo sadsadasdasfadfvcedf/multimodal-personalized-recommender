@@ -78,7 +78,9 @@ class Orchestrator:
         # 不加载重型模型的承诺；测试可注入 chat_service 绕过此门控。
         if chat_service is not None:
             self.chat: Any | None = chat_service
-        elif settings.CHAT_CONFIG["enabled"] and self.multimodal.active_mode == "real":
+        elif settings.CHAT_CONFIG["enabled"] and (
+            self.multimodal.active_mode == "real" or ChatService.online_configured()
+        ):
             self.chat = ChatService()
         else:
             self.chat = None
@@ -885,6 +887,7 @@ class Orchestrator:
         }
 
     def modes(self) -> dict:
+        chat_report = self.chat.report() if self.chat is not None and hasattr(self.chat, "report") else {}
         return {
             "runtime_mode": self.mode,
             "multimodal": self.multimodal.active_mode,
@@ -892,6 +895,7 @@ class Orchestrator:
             "catalog_origin": self.catalog.origin,
             "catalog_products": self.catalog.size(),
             "llm_explain": "real" if self.llm_explainer.available() else "template",
+            "llm_provider": chat_report.get("last_provider") or chat_report.get("mode") or "off",
         }
 
     def degradations(self) -> dict:
@@ -901,7 +905,10 @@ class Orchestrator:
         }
 
     def llm_report(self) -> dict:
-        return self.llm_explainer.report()
+        report = self.llm_explainer.report()
+        if self.chat is not None and hasattr(self.chat, "report"):
+            report["chat"] = self.chat.report()
+        return report
 
     def adapter_report(self) -> dict:
         return {

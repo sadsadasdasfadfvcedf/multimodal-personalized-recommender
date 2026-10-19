@@ -26,6 +26,7 @@ from typing import Any
 from config import settings
 
 from .errors import ErrorCode, Result, fail, ok
+from .online_llm import OnlineChatClient, resolve_online_config
 
 
 def _to_simplified(text: str) -> str:
@@ -49,13 +50,45 @@ def _to_simplified(text: str) -> str:
 class ChatService:
     """常驻对话客户端。线程安全（同一时刻只处理一条消息）。"""
 
-    def __init__(self, cfg: dict | None = None) -> None:
+    def __init__(self, cfg: dict | None = None, online_client: OnlineChatClient | None = None) -> None:
         self.cfg = cfg or settings.CHAT_CONFIG
         self._proc: subprocess.Popen[str] | None = None
         self._queue: queue.Queue[str | None] = queue.Queue()
         self._lock = threading.Lock()
         self._seq = 0
         self._started_at = 0.0
+        # 在线后端是可选的：有 Key 时优先，失败后仍可回退本地 worker。
+        self._online: OnlineChatClient | None = online_client
+        if self._online is None and self.cfg.get("online") is not None:
+            online_cfg = resolve_online_config(self.cfg)
+            if online_cfg is not None:
+                self._online = OnlineChatClient(online_cfg)
+        self._last_provider = "online" if self._online is not None else "local"
+        self._last_error: str | None = None
+
+    @classmethod
+    def online_configured(cls, cfg: dict | None = None) -> bool:
+        """只检查配置，不发起网络请求。"""
+        return resolve_online_config(cfg or settings.CHAT_CONFIG) is not None
+
+    @property
+    def provider_mode(self) -> str:
+        return str(self.cfg.get("provider") or "auto").strip().lower()
+
+    @property
+    def online_available(self) -> bool:
+        return self._online is not None and self.provider_mode != "local"
+
+    def report(self) -> dict:
+        online = self._online.report() if self._online is not None else {"configured": False}
+        return {
+            "mode": self.provider_mode,
+            "online_configured": self._online is not None,
+            "last_provider": self._last_provider,
+            "last_error": self._last_error,
+            "online": online,
+            "local_worker": bool(self._proc is not None and self._proc.poll() is None),
+        }
 
     # ---------------- 启动 / 关闭 ----------------
     def _model_path(self) -> str | None:
@@ -193,6 +226,9 @@ class ChatService:
 
     def prewarm(self) -> None:
         """后台预加载模型，让首次聊天/LLM 解释不再等 ~25 秒。"""
+        # 在线模式不需要加载本地权重；只有真正需要回退时才按需加载。
+        if self.online_available:
+            return
         if self._proc is not None:
             return
         threading.Thread(target=self._prewarm_locked, daemon=True).start()
@@ -210,9 +246,27 @@ class ChatService:
     ) -> Result:
         """用同一个已加载模型批量生成（用于推荐解释，不写入聊天历史）。"""
         with self._lock:
+            if self.online_available:
+                assert self._online is not None
+                online_result = self._online.complete_many(
+                    prompts,
+                    max_new_tokens=max_new_tokens,
+                    temperature=temperature,
+                )
+                if online_result.ok:
+                    self._last_provider = "online"
+                    self._last_error = None
+                    return online_result
+                self._last_error = online_result.error.message if online_result.error else "在线 LLM 批量调用失败"
+                if self._online.cfg.strict:
+                    return online_result
             if not self._ensure():
-                return fail(ErrorCode.MODALITY_UNAVAILABLE, "对话模型不可用（未找到权重或启动失败）")
-            return self._send(
+                detail = f"；在线后端失败：{self._last_error}" if self._last_error else ""
+                return fail(
+                    ErrorCode.MODALITY_UNAVAILABLE,
+                    "对话模型不可用（未找到权重或启动失败）" + detail,
+                )
+            result = self._send(
                 {
                     "op": "prompts",
                     "prompts": list(prompts),
@@ -220,16 +274,37 @@ class ChatService:
                     "temperature": float(temperature),
                 }
             )
+            self._last_provider = "local"
+            return result
 
     def chat(self, text: str) -> Result:
         with self._lock:
+            if self.online_available:
+                assert self._online is not None
+                online_result = self._online.chat(text)
+                if online_result.ok:
+                    self._last_provider = "online"
+                    self._last_error = None
+                    return ok(_to_simplified(str(online_result.data or "")))
+                self._last_error = online_result.error.message if online_result.error else "在线 LLM 调用失败"
+                if self._online.cfg.strict:
+                    return online_result
             if not self._ensure():
-                return fail(ErrorCode.MODALITY_UNAVAILABLE, "对话模型不可用（未找到权重或启动失败）")
-            return self._send({"text": text})
+                detail = f"；在线后端失败：{self._last_error}" if self._last_error else ""
+                return fail(
+                    ErrorCode.MODALITY_UNAVAILABLE,
+                    "对话模型不可用（未找到权重或启动失败）" + detail,
+                )
+            result = self._send({"text": text})
+            if result.ok:
+                self._last_provider = "local"
+            return result
 
     def reset(self) -> None:
         """清空模型侧的多轮历史（切换用户 / 重开会话时调用）。"""
         with self._lock:
+            if self._online is not None:
+                self._online.reset()
             proc = self._proc
             if proc is None or proc.poll() is not None:
                 return

@@ -302,7 +302,9 @@ class LlmExplainer:
         }
 
     def available(self) -> bool:
-        return bool(self.enabled and self.adapter is not None and self.adapter.active_mode == "real")
+        online_chat = bool(self.chat is not None and getattr(self.chat, "online_available", False))
+        real_adapter = bool(self.adapter is not None and self.adapter.active_mode == "real")
+        return bool(self.enabled and (real_adapter or online_chat))
 
     def _finalize(
         self,

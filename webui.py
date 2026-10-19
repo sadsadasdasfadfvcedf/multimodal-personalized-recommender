@@ -1325,7 +1325,9 @@ async function openStatus(){
       '<h3 style="margin:0 0 6px;font-size:13px;color:#8b91a6">运行模式</h3>' +
       row('用户', info.user_id) + row('会话', info.session_id) +
       row('推荐适配器', zh(MODE_ZH, m.recommender)) + row('多模态适配器', zh(MODE_ZH, m.multimodal)) +
-      row('LLM 解释', info.llm ? '已开启' : '模板') + row('语音播报', info.voice ? '开' : '关') +
+      row('LLM 解释', info.llm ? '已开启' : '模板') +
+      row('对话后端', (m.llm_provider === 'online' ? '在线模型' : m.llm_provider === 'local' ? '本地 Qwen' : '未启用')) +
+      row('语音播报', info.voice ? '开' : '关') +
       '<h3 style="margin:14px 0 6px;font-size:13px;color:#8b91a6">本次会话</h3>' +
       row('轮次', String(s.turns ?? 0)) +
       row('已点赞', JSON.stringify(s.likes || {})) +
@@ -1532,6 +1534,7 @@ async function loadHomeShelf(force){
   const m = info.modes || {};
   needReal = m.multimodal !== 'real';
   $('chips').innerHTML = ['推荐 ' + zh(MODE_ZH, m.recommender), '多模态 ' + zh(MODE_ZH, m.multimodal),
+                          '对话 ' + (m.llm_provider === 'online' ? '在线' : m.llm_provider === 'local' ? '本地' : '关'),
                           '语音 ' + (info.voice ? '开' : '关')]
     .map(t => '<span class="chip' + (needReal ? ' dim' : '') + '">' + esc(t) + '</span>').join('');
   window.__accounts = info.accounts || [];
@@ -2161,6 +2164,9 @@ class App:
         return sess.snapshot() if sess else {}
 
     def info(self) -> dict:
+        chat_report = (
+            self.orch.chat.report() if self.orch.chat is not None and hasattr(self.orch.chat, "report") else {}
+        )
         return {
             "user_id": self.user_id,
             "session_id": self.session_id,
@@ -2170,6 +2176,7 @@ class App:
             "accounts": settings.DEMO_ACCOUNTS,
             "voice": self.with_voice,
             "llm": bool(self.orch.llm_explainer.enabled),
+            "llm_chat": chat_report,
         }
 
 
@@ -2391,7 +2398,8 @@ def main() -> int:
     print(f"地址： {url}")
     print(
         f"用户： {args.user}   多模态：{modes['multimodal']}   推荐：{modes['recommender']}   "
-        f"LLM：{modes.get('llm_explain')}   语音播报：{'开' if args.voice else '关'}"
+        f"LLM：{modes.get('llm_explain')}   对话后端：{modes.get('llm_provider')}   "
+        f"语音播报：{'开' if args.voice else '关'}"
     )
     print("按 Ctrl+C 停止服务\n")
     if not args.no_browser:

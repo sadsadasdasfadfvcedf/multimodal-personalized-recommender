@@ -19,6 +19,7 @@
 | R-11 | 意图词表覆盖不足导致误判 | 质量 | 中 | 低 | P2 | 26 条样例回归（阈值 80%）+ 错误案例根因分析 | `scripts/02_context_test.py` |
 | R-12 | 演示机器未安装 Python 依赖 | 环境 | 低 | 中 | P2 | 离线链路零第三方依赖即可跑通全部六阶段脚本 | 全项目 |
 | R-13 | mediapipe / torchvision 版本错配导致手势、视觉不可用 | 环境 | 中 | 高 | P1 | requirements 固定配套版本；`00_check_env.py` 快速校验 + `15_deps_check.py` 深检；webui 报错会附带修复提示 | `src/deps.py` |
+| R-14 | 在线 LLM 不可达、限流或 Key 失效 | 技术 | 中 | 中 | P1 | `auto` 模式在线失败自动回退本地 Qwen；`INTEGRATED_ONLINE_LLM_STRICT=1` 才禁止回退；Key 只读环境变量且错误信息脱敏 | `src/online_llm.py` / `src/llm_chat.py` |
 
 **风险等级定义**：P0 必须消除或必须现场规避；P1 需有明确降级路径；P2 记录并给出手工处置办法。
 

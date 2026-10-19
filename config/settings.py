@@ -344,11 +344,24 @@ ASR_CONFIG: dict = {
 
 CHAT_CONFIG: dict = {
     "enabled": True,
+    # auto   : 配置了在线 Key 就优先在线，失败自动回退本地模型
+    # online : 同上，但允许通过 INTEGRATED_ONLINE_LLM_STRICT=1 禁止回退
+    # local  : 强制使用本地 Qwen
+    "provider": os.getenv("INTEGRATED_LLM_PROVIDER", "auto").strip().lower(),
     "worker": "scripts/llm_chat_worker.py",
     "model_candidates": [
         "models/Qwen/Qwen3-4B-Instruct-2507",
         "models/Qwen/Qwen2-1.5B-Instruct",
     ],
+    "online": {
+        # 在线后端只读取环境变量中的 Key，绝不写入仓库或证据文件。
+        # 支持 DashScope / DeepSeek / OpenAI / SiliconFlow / Moonshot / 智谱，
+        # 也支持任意 OpenAI 兼容服务（用 INTEGRATED_ONLINE_LLM_BASE_URL 指定）。
+        "enabled": _flag("INTEGRATED_ONLINE_LLM", True),
+        "timeout_s": float(os.getenv("INTEGRATED_ONLINE_LLM_TIMEOUT_S", "45")),
+        "max_history_messages": int(os.getenv("INTEGRATED_ONLINE_LLM_HISTORY", "12")),
+        "concurrency": int(os.getenv("INTEGRATED_ONLINE_LLM_CONCURRENCY", "3")),
+    },
     "timeout_s": float(os.getenv("INTEGRATED_CHAT_TIMEOUT_S", "180")),
     "startup_timeout_s": 300.0,
     # 像问句 / 创意请求

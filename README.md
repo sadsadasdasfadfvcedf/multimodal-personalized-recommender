@@ -114,10 +114,34 @@ python webui.py --port 8030        # 换端口
 持续识别 👍/👎 并直接作用于**当前打开的商品**；换手势不需要把手移出画面，
 👎 紧跟 👍 也能连续触发。点「停止」或关闭弹窗会释放摄像头，也可切回「单次识别」。
 
-**开放问答（普通对话）**（需 `--real`）：
+**开放问答（普通对话）**（需 `--real`；配置在线 Key 后离线模式也可对话）：
 
 - 概念解释、写作、翻译、计算等非购物问句走**常驻 Qwen3-4B**，不返回商品；
   购物需求仍走推荐链路，寒暄 / 身份问答仍是 0 ms 固定文案；
+- **在线模型优先（可选）**：设置下面任意一个 Key 后，对话与 LLM 解释会优先走在线
+  OpenAI 兼容接口，失败自动回退本地 Qwen；不设置 Key 时行为与原来完全一致。
+
+  ```powershell
+  # 方式一：厂商专用 Key（自动识别）
+  $env:DASHSCOPE_API_KEY = "sk-..."          # DashScope / 通义千问
+  # 或 $env:DEEPSEEK_API_KEY = "sk-..."      # DeepSeek
+  # 或 $env:OPENAI_API_KEY = "sk-..."        # OpenAI
+
+  # 方式二：任意 OpenAI 兼容网关
+  $env:INTEGRATED_ONLINE_LLM_API_KEY = "sk-..."
+  $env:INTEGRATED_ONLINE_LLM_BASE_URL = "https://your-gateway/v1"
+  $env:INTEGRATED_ONLINE_LLM_MODEL = "qwen-plus"
+
+  # 强制本地 / 在线严格模式（默认 auto：在线失败回退本地）
+  $env:INTEGRATED_LLM_PROVIDER = "auto"      # auto | online | local
+  $env:INTEGRATED_ONLINE_LLM_STRICT = "0"    # 1 = 在线失败不再回退本地
+
+  python scripts/19_online_llm_check.py      # 实测联网、模型与延迟
+  ```
+
+  模型选择、接口地址和超时集中在 `config/settings.py` 的 `CHAT_CONFIG["online"]`；
+  Key 只从环境变量读取，不写入仓库、日志或证据文件。页面 ⚙ 状态面板会显示
+  「对话后端：在线模型 / 本地 Qwen / 未启用」。
 - 模型只在第一次对话时加载（约 25~40 秒），之后同一进程复用，多轮上下文保留
   （实测第二轮 4.2 秒）；
 - 点击「⟳ 重来」或切换右上角用户会清空对话历史；
@@ -266,7 +290,9 @@ python scripts/15_deps_check.py
 | `python scripts/16_webui_click_path_check.py` | 网页点击路径回归（需 webui 在跑 + Edge） | `outputs/webui_click_path.json` |
 | `python scripts/17_browser_qa.py` | 浏览器运行时 QA：console / 网络 / CWV / 无障碍（需 Edge） | `outputs/browser_qa.json`、三档截图 |
 | `python scripts/18_contract_check.py` | 网页 API 契约核验（protocol §10） | `outputs/contract_check.json` |
+| `python scripts/19_online_llm_check.py` | 在线 LLM 联通性与延迟（需 Key，可选） | `outputs/online_llm_check.json` |
 | `python scripts/19_security_check.py` | 网页服务安全基线与输入边界 | `outputs/security_check.json` |
+| `python scripts/20_fingerprint_stability.py` | 连续两轮离线套件，验证证据指纹可重复 | 控制台结果 |
 | `python scripts/13_webui_acceptance.py` | 网页改版验收（需 webui 在跑 + Edge） | `outputs/webui_acceptance.json` |
 | `python scripts/clean_workspace.py` | 打包前清理 | 删除 `__pycache__` / `*.pyc` |
 
