@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -22,6 +23,21 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+# 测试必须确定性、零网络、零 API 额度：即使本机 local.env 配了 DeepSeek Key，
+# 也不允许 ChatService 在测试进程里自动启用在线后端。
+os.environ["INTEGRATED_LLM_PROVIDER"] = "local"
+os.environ["INTEGRATED_ONLINE_LLM"] = "0"
+for _secret_env in (
+    "INTEGRATED_ONLINE_LLM_API_KEY",
+    "DASHSCOPE_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "OPENAI_API_KEY",
+    "SILICONFLOW_API_KEY",
+    "MOONSHOT_API_KEY",
+    "ZHIPUAI_API_KEY",
+):
+    os.environ.pop(_secret_env, None)
 
 OUTPUTS = PROJECT_ROOT / "outputs"
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"

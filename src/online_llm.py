@@ -139,6 +139,10 @@ def resolve_online_config(cfg: dict[str, Any] | None = None) -> OnlineLLMConfig 
         return None
 
     explicit_provider = _env("INTEGRATED_ONLINE_LLM_PROVIDER").lower()
+    # 允许直接用 INTEGRATED_LLM_PROVIDER=deepseek 指定厂商，
+    # 这样 local.env 里只写一行 provider + 一行 Key 就能固定到 DeepSeek。
+    if not explicit_provider and mode in PROVIDER_PRESETS:
+        explicit_provider = mode
     generic_key = _env(GENERIC_KEY_ENV)
     generic_base = _env("INTEGRATED_ONLINE_LLM_BASE_URL")
     generic_model = _env("INTEGRATED_ONLINE_LLM_MODEL")

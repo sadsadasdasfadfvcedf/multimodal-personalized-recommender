@@ -56,7 +56,13 @@ def main() -> int:
             text=True,
             encoding="utf-8",
             errors="replace",
-            env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"},
+            env={
+                **__import__("os").environ,
+                "PYTHONIOENCODING": "utf-8",
+                # 离线套件禁止误用 local.env 里的在线 Key，保证零网络、零额度消耗。
+                "INTEGRATED_LLM_PROVIDER": "local",
+                "INTEGRATED_ONLINE_LLM": "0",
+            },
         )
         cost = time.perf_counter() - start
         if args.quiet and proc.stdout:

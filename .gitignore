@@ -34,6 +34,7 @@ artifacts/
 
 # 密钥与环境
 .env
+local.env
 *.key
 *.pem
 

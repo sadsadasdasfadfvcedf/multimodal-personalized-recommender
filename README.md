@@ -139,6 +139,16 @@ python webui.py --port 8030        # 换端口
   python scripts/19_online_llm_check.py      # 实测联网、模型与延迟
   ```
 
+  也可以直接编辑项目根目录的 `local.env`（已被 `.gitignore` 忽略）：
+
+  ```dotenv
+  INTEGRATED_LLM_PROVIDER=deepseek
+  DEEPSEEK_API_KEY=sk-...
+  ```
+
+  项目启动时会自动读取 `local.env`；`local.env.example` 是可提交的模板。DeepSeek 默认使用
+  `https://api.deepseek.com/v1` 与 `deepseek-chat`。
+
   模型选择、接口地址和超时集中在 `config/settings.py` 的 `CHAT_CONFIG["online"]`；
   Key 只从环境变量读取，不写入仓库、日志或证据文件。页面 ⚙ 状态面板会显示
   「对话后端：在线模型 / 本地 Qwen / 未启用」。

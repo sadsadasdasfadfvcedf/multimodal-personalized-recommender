@@ -638,6 +638,8 @@ python scripts/07_live_integration_check.py
 
 - INTEGRATED_ONLINE_LLM_STRICT —— 1 表示在线失败禁止回退本地；默认 0
 
+- 项目根目录 `local.env` —— 启动时自动读取（不覆盖已有环境变量），适合本机填写 DeepSeek Key；该文件不进入 Git 或提交包
+
 ## 七、输入与输出
 
 ### 7.1 四类输入

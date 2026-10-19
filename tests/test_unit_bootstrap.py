@@ -13,6 +13,22 @@ import sys
 from conftest import PROJECT_ROOT
 
 
+def test_dotenv_loads_missing_values_without_overriding(tmp_path):
+    from config import settings
+
+    env_file = tmp_path / "local.env"
+    env_file.write_text(
+        "# comment\nDEEPSEEK_API_KEY=sk-from-dotenv\nINTEGRATED_LLM_PROVIDER=deepseek\n",
+        encoding="utf-8",
+    )
+    target: dict[str, str] = {"INTEGRATED_LLM_PROVIDER": "already-set"}
+
+    settings._load_dotenv(env_file, target)
+
+    assert target["DEEPSEEK_API_KEY"] == "sk-from-dotenv"
+    assert target["INTEGRATED_LLM_PROVIDER"] == "already-set"
+
+
 def test_gbk_console_does_not_crash_on_symbols(tmp_path):
     scripts_dir = PROJECT_ROOT / "scripts"
     script = tmp_path / "probe.py"

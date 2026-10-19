@@ -91,6 +91,19 @@ def test_resolve_generic_openai_compatible_endpoint(monkeypatch):
     assert cfg.model == "my-model"
 
 
+def test_deepseek_provider_mode_wins_over_other_keys(monkeypatch):
+    _clear_online_env(monkeypatch)
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "sk-dashscope")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-deepseek")
+
+    cfg = resolve_online_config({"provider": "deepseek", "online": {"enabled": True}})
+
+    assert cfg is not None
+    assert cfg.provider == "deepseek"
+    assert cfg.model == "deepseek-chat"
+    assert cfg.base_url == "https://api.deepseek.com/v1"
+
+
 def test_online_chat_keeps_multi_turn_history_and_reset(monkeypatch):
     calls: list[dict[str, Any]] = []
 

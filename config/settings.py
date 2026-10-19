@@ -20,12 +20,48 @@ from __future__ import annotations
 
 import os
 import random
+from collections.abc import MutableMapping
 from pathlib import Path
 
 # ============================================================
 # 1. 项目根目录 / 随机种子
 # ============================================================
 PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
+
+
+def _load_dotenv(path: Path | None = None, environ: MutableMapping[str, str] | None = None) -> None:
+    """加载本地 env 文件，不覆盖已经存在的环境变量。
+
+    只支持最简单的 ``KEY=VALUE`` 行；值为空时跳过。这样演示机可以直接把
+    DeepSeek Key 放在被 .gitignore 忽略的 local.env 中，无需改代码或提交密钥。
+    ``local.env`` 不匹配隐私扫描的 ``.env`` 禁止规则，也不会进入提交包。
+    """
+    target = environ if environ is not None else os.environ
+    if path is None:
+        candidate = PROJECT_ROOT / "local.env"
+        env_path = candidate if candidate.is_file() else PROJECT_ROOT / ".env"
+    else:
+        env_path = path
+    if not env_path.is_file():
+        return
+    try:
+        lines = env_path.read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.lower().startswith("export "):
+            line = line[7:].lstrip()
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and value:
+            target.setdefault(key, value)
+
+
+_load_dotenv()
 
 # 换行常量（避免源码里出现反斜杠转义）
 NL = chr(10)
