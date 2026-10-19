@@ -238,7 +238,6 @@
 | GET | `/api/home` | `?limit=8\|16\|24\|40`（可选，默认 8） | `{ok, title, subtitle, items[]}` | — |
 | GET | `/api/img/{item_id}` | — | 图片字节 | 404 `E_ITEM_NOT_FOUND` |
 | GET | `/api/product/{item_id}` | — | `{ok, product, similar[]}` | `{ok:false, code:E_ITEM_NOT_FOUND, ...}` |
-| GET | `/api/visual-similar/{item_id}` | `?k=8`（可选） | `{ok, item_id, items[], scanned, note}`；item 含 `similarity` | `{ok:false, code, field, error}` |
 | GET | `/audio/{name}` | — | 音频字节 | 404 `E_ITEM_NOT_FOUND` |
 | POST | `/api/chat` | `{text, top_k?}` | `{ok, response}`（response 见 §7） | `{ok:false, code, field, error}` |
 | POST | `/api/more` | `{text, top_k}`（`top_k` 上限 120） | `{ok, items[], top_k}` | 同上 |
