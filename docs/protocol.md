@@ -248,6 +248,7 @@
 | GET | `/camera/stream` | — | MJPEG 实时预览（multipart/x-mixed-replace） | 503 `E_MODALITY_UNAVAILABLE` |
 | GET | `/api/camera/state` | — | `{ok, state}`（running/current_gesture/event_id/fps） | — |
 | POST | `/api/camera/start` | `{}` | `{ok, state}` | `{ok:false, code, error}` |
+| POST | `/api/tts` | `{text}` | `{ok, audio_url, engine}` | `{ok:false, code, field, error}` |
 | POST | `/api/camera/stop` | `{}` | `{ok, state}` | — |
 | POST | `/api/vision` | `{question}` | `{ok, description, response}` | 同上 |
 | POST | `/api/undo` / `/api/reset` | `{}` | `{ok, response}` | 同上 |

@@ -130,6 +130,9 @@ python webui.py --port 8030        # 换端口
 - 手势直播用常驻摄像头 worker：摄像头只打开一次，网页用 `/camera/stream` 看 MJPEG 预览，
   `/api/camera/state` 轮询手势事件；摄像头序号/帧率用 `INTEGRATED_CAMERA_INDEX` /
   `INTEGRATED_CAMERA_FPS` 调整。
+- **性能优化**：网页推荐默认不再自动合成 TTS，先返回结果（实测 0.07s），需要时点
+  「🔊 语音播报」再合成；真实 LLM 解释复用常驻 Qwen3-4B 并批量生成，
+  预加载后 3 条解释约 8s（旧实现每件商品都重新加载权重）。
 
 **页面改版**（依据《页面改版设计README》，验收 10/10）：
 
