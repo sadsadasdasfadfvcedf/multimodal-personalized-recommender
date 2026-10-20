@@ -150,8 +150,9 @@
 > 不返回商品；首次加载约 25~40 秒，之后多轮复用（实测 4.2 秒/轮）。
 > 购物需求仍走推荐链路，`你是谁` 等寒暄仍是 0 ms 固定文案。
 >
-> 识图推荐：点「📷 识图推荐」后，系统会抓取当前摄像头画面，用 Qwen2-VL 识别画面中央的
-> 主要物品，再从视觉描述中抽取品类与颜色，直接进入现有召回/精排链路更新货架。
+> 识图推荐：点「📷 识图推荐」后，系统会抓取当前摄像头画面，优先用在线
+> `qwen3-vl-plus` 识别画面中央的主要物品（实测约 1~2 秒），失败时回退本地 Qwen2-VL。
+> 识别文本会抽取品类与颜色，再进入现有召回/精排链路更新货架。
 > 例如识别到「茶杯」会落到「厨房用品」并推荐茶具类商品；如果识别不到可映射的品类，
 > 页面会提示把物品放近、避免遮挡后重试，不会用无关商品凑结果。
 >
@@ -640,7 +641,7 @@ python scripts/07_live_integration_check.py
 
 - INTEGRATED_LLM_PROVIDER —— auto（默认，在线优先、失败回退本地）/ online / local
 
-- DASHSCOPE_API_KEY / DEEPSEEK_API_KEY / OPENAI_API_KEY —— 在线模型 Key（任选其一，自动识别）
+- DASHSCOPE_API_KEY / DEEPSEEK_API_KEY / OPENAI_API_KEY —— 在线模型 Key（任选其一，自动识别；DASHSCOPE 同时用于在线识图）
 
 - INTEGRATED_ONLINE_LLM_API_KEY + INTEGRATED_ONLINE_LLM_BASE_URL + INTEGRATED_ONLINE_LLM_MODEL —— 任意 OpenAI 兼容网关
 

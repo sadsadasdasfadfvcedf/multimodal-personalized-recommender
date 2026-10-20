@@ -8,6 +8,7 @@ let currentLimit = 8, loadingMore = false, hasMore = true;
 let focusItemId = null;   // 手势反馈默认目标：最近打开的商品，否则货架 Top1
 let detailItemId = null;
 let visionBusy = false;
+let visionOnline = false;
 const pendingItems = new Set();
 const shelfTopK = () => Math.max(pageSize, Math.min(120, currentItems.length || pageSize));
 
@@ -904,7 +905,9 @@ async function act(kind){
     setBusy(false); return;
   }
   const meta = {voice:{i:'🎤', t:'语音输入', d:'正在录音 4 秒…'},
-                vision:{i:'📷', t:'识图推荐', d:'正在识别画面中的主要物品并生成同类推荐（本地 VL 约 60~90 秒）…'}}[kind];
+                vision:{i:'📷', t:'识图推荐',
+                        d:visionOnline ? '正在在线识别画面中的主要物品并生成同类推荐（通常 1~5 秒）…'
+                                       : '正在识别画面中的主要物品并生成同类推荐（本地 VL 约 60~90 秒）…'}}[kind];
   const id = addAction(meta.i, meta.t, meta.d);
   try{
     const payload = kind === 'voice' ? {seconds: 4, top_k: pageSize} : {top_k: pageSize};
@@ -920,9 +923,12 @@ async function act(kind){
       }
     } else if (kind === 'vision'){
       if (d.description){
+        const provider = d.vision_provider && d.vision_provider !== 'local' ? '在线' : '本地';
+        const latency = d.vision_latency_ms != null ? ' · ' + Math.round(Number(d.vision_latency_ms)) + 'ms' : '';
         const why = d.ok ? '' : '<div class="errline" style="margin-top:6px">' + esc(d.error || '') + '</div>';
         finishAction(id, d.ok ? 'ok' : 'warn', d.ok ? '已完成' : '需重试',
-                     '识别到：<b>' + esc(d.description) + '</b>' + why +
+                     '识别到：<b>' + esc(d.description) + '</b><span class="vision-meta">' +
+                     esc(provider + latency) + '</span>' + why +
                      (d.ok ? '' : actionSuggestions('vision')));
         if (d.ok) renderBot(d.response, true);
       } else finishAction(id, 'err', '失败', esc(d.error) + actionSuggestions('vision'));
@@ -951,6 +957,8 @@ async function openStatus(){
       row('对话后端', (m.llm_provider === 'online' ? '在线模型' : m.llm_provider === 'local' ? '本地 Qwen' : '未启用')) +
       row('联网搜索', (info.llm_chat || {}).web_search ? '开 · 最多 ' + ((info.llm_chat || {}).web_search_count || 5) + ' 条' : '关') +
       row('语音播报', info.voice ? '开' : '关') +
+      row('识图后端', (info.vision || {}).configured
+        ? '在线 · ' + ((info.vision || {}).model || '') : '本地 · Qwen2-VL-2B-Instruct') +
       '<h3 style="margin:14px 0 6px;font-size:13px;color:#8b91a6">本次会话</h3>' +
       row('轮次', String(s.turns ?? 0)) +
       row('已点赞', JSON.stringify(s.likes || {})) +
@@ -1163,10 +1171,12 @@ async function loadHomeShelf(force){
   const info = await (await fetch('/api/info')).json();
   const m = info.modes || {};
   needReal = m.multimodal !== 'real';
+  visionOnline = !!((info.vision || {}).configured);
   if (!needReal){
     fetch('/api/camera/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}).catch(() => {});
   }
   $('chips').innerHTML = ['推荐 ' + zh(MODE_ZH, m.recommender), '多模态 ' + zh(MODE_ZH, m.multimodal),
+                          '识图 ' + (visionOnline ? '在线' : '本地'),
                           '对话 ' + (m.llm_provider === 'online' ? '在线' : m.llm_provider === 'local' ? '本地' : '关'),
                           '搜索 ' + ((info.llm_chat || {}).web_search ? '开' : '关'),
                           '语音 ' + (info.voice ? '开' : '关')]

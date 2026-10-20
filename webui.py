@@ -48,6 +48,7 @@ from src.errors import ErrorCode  # noqa: E402
 from src.orchestrator import Orchestrator  # noqa: E402
 from src.presentation import synthesize  # noqa: E402
 from src.utils import ensure_utf8_stdio  # noqa: E402
+from src.vision_api import DashScopeVisionClient  # noqa: E402
 
 # ------------------------------------------------------------
 # 商品图片：代理外部推荐系统的 /api/image/{id} 并本地缓存
@@ -212,6 +213,7 @@ class App:
         # allow_real 必须**显式传参**：settings.RUNTIME 在 import 时即已求值，
         # 之后再 os.environ[...]="1" 不会生效（这是实测踩到的坑）。
         self.orch = Orchestrator(mode=mode, allow_real=allow_real, with_voice=with_voice, use_llm=use_llm)
+        self.vision_api = DashScopeVisionClient.from_env()
         _asr = getattr(self.orch, "asr", None)
         if _asr is not None:
             _asr.prewarm()
@@ -229,6 +231,15 @@ class App:
             if item["user_id"] == self.user_id:
                 return item
         return {"user_id": self.user_id, "name": self.user_id, "persona": "", "color": "#6d5dfc"}
+
+    def _handle_spec_fast(self, spec: dict, top_k: int | None = None) -> dict:
+        """多模态快捷入口不等待 LLM 批量改写解释，先快速返回商品结果。"""
+        previous = self.orch.llm_explainer.enabled
+        self.orch.llm_explainer.enabled = False
+        try:
+            return self.handle_spec(spec, top_k=top_k)
+        finally:
+            self.orch.llm_explainer.enabled = previous
 
     def camera_start(self) -> dict:
         camera = getattr(self.orch, "camera", None)
@@ -438,7 +449,10 @@ class App:
                 gesture_votes=votes,
                 preview_url=preview_url,
             )
-        out = self.handle_spec({"source": "gesture", "gesture": {"name": name, "confidence": confidence}}, top_k=top_k)
+        out = self._handle_spec_fast(
+            {"source": "gesture", "gesture": {"name": name, "confidence": confidence}},
+            top_k=top_k,
+        )
         out.update(extra)
         return out
 
@@ -451,20 +465,48 @@ class App:
         if not captured:
             return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {capture_error}")
         vision_question = (question or "").strip() or _OBJECT_VISION_QUESTION
-        vl = ad.describe_image(str(frame), vision_question)
+        online_error: str | None = None
+        vl = None
+        if self.vision_api is not None:
+            vl = self.vision_api.describe_image(str(frame), vision_question)
+            if not vl.ok:
+                online_error = str(vl.error or "在线识图失败")
+                if not settings.VISION_API_CONFIG["fallback_to_local"]:
+                    return _err(ErrorCode.MODALITY_UNAVAILABLE, f"在线识图失败: {online_error}")
+        if vl is None or not vl.ok:
+            local_started = time.perf_counter()
+            vl = ad.describe_image(str(frame), vision_question)
+            if vl.ok and isinstance(vl.data, dict):
+                vl.data["provider"] = "local"
+                vl.data["latency_ms"] = round((time.perf_counter() - local_started) * 1000, 1)
         if not vl.ok:
             msg = f"视觉理解失败: {vl.error}"
             hint = _dep_hint(msg)
-            return _err(ErrorCode.MODALITY_UNAVAILABLE, msg + (f"（{hint}）" if hint else ""), hint=hint)
-        desc = (vl.data or {}).get("response") or ""
+            if online_error:
+                msg += f"；在线识图失败并已尝试本地回退: {online_error}"
+            return _err(
+                ErrorCode.MODALITY_UNAVAILABLE,
+                msg + (f"（{hint}）" if hint else ""),
+                hint=hint,
+                online_error=online_error,
+            )
+        vision_data = vl.data or {}
+        desc = vision_data.get("response") or ""
+        vision_meta = {
+            "vision_provider": vision_data.get("provider") or "local",
+            "vision_model": vision_data.get("model") or "",
+            "vision_latency_ms": vision_data.get("latency_ms"),
+            "vision_online_error": online_error,
+        }
         if not str(desc).strip():
             return _err(
                 ErrorCode.LOW_CONFIDENCE_MODALITY,
                 "没有识别出画面中的主要物品。请把物品举到画面中央并保持清晰后重试。",
                 description=desc,
                 vision_question=vision_question,
+                **vision_meta,
             )
-        out = self.handle_spec(
+        out = self._handle_spec_fast(
             # 没有提问时 text 必须传 None：传空串会被 parse_event 当成「空 ASR 文本」
             # 直接返回 E_EMPTY_TRANSCRIPT，视觉标签根本走不到（modality=visual 分支）。
             {
@@ -476,6 +518,7 @@ class App:
         )
         out["description"] = desc
         out["vision_question"] = vision_question
+        out.update(vision_meta)
         slots = ((out.get("response") or {}).get("intent_result") or {}).get("slots") or {}
         if not slots.get("category"):
             return _err(
@@ -483,6 +526,7 @@ class App:
                 f"识别到「{desc}」，但未能确定商品品类。请把物品放近、避免遮挡后重试。",
                 description=desc,
                 vision_question=vision_question,
+                **vision_meta,
             )
         return out
 
@@ -743,6 +787,9 @@ class App:
             "voice": self.with_voice,
             "llm": bool(self.orch.llm_explainer.enabled),
             "llm_chat": chat_report,
+            "vision": self.vision_api.public_info()
+            if self.vision_api is not None
+            else {"configured": False, "provider": "local", "model": "Qwen2-VL-2B-Instruct"},
         }
 
 

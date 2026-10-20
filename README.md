@@ -166,6 +166,19 @@ python webui.py --port 8030        # 换端口
   INTEGRATED_WEB_SEARCH_TIMEOUT_S=30
   ```
 
+  **在线识图（可选，推荐）**：网页「📷 识图推荐」默认优先调用阿里云百炼
+  `qwen3-vl-plus`，实测单次约 **1~2 秒**；未配置或调用失败时自动回退本地 Qwen2-VL。
+
+  ```dotenv
+  DASHSCOPE_API_KEY=sk-...
+  INTEGRATED_VL_PROVIDER=dashscope
+  INTEGRATED_VL_MODEL=qwen3-vl-plus
+  INTEGRATED_VL_TIMEOUT_S=15
+  INTEGRATED_VL_FALLBACK_LOCAL=1
+  ```
+
+  Key 只在服务端读取，不会暴露给前端。
+
   模型选择、接口地址和超时集中在 `config/settings.py` 的 `CHAT_CONFIG["online"]`；
   Key 只从环境变量读取，不写入仓库、日志或证据文件。页面 ⚙ 状态面板会显示
   「对话后端：在线模型 / 本地 Qwen / 未启用」与「联网搜索：开 / 关」。

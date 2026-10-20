@@ -94,6 +94,11 @@ python scripts/clean_workspace.py
 | `INTEGRATED_CAMERA_FPS` | 帧/秒 | `12` | 手势直播目标帧率 |
 | `INTEGRATED_GESTURE_FRAMES` | 帧 | `5` | 网页手势连拍帧数 |
 | `INTEGRATED_GESTURE_INTERVAL_MS` | 毫秒 | `250` | 网页手势连拍间隔 |
+| `DASHSCOPE_API_KEY` | 字符串 | 未配置 | 百炼在线视觉 Key，只在服务端读取 |
+| `INTEGRATED_VL_PROVIDER` | `dashscope` / `local` | `dashscope` | 视觉识别后端 |
+| `INTEGRATED_VL_MODEL` | 模型 ID | `qwen3-vl-plus` | 在线视觉模型 |
+| `INTEGRATED_VL_TIMEOUT_S` | 秒 | `15` | 在线识图超时 |
+| `INTEGRATED_VL_FALLBACK_LOCAL` | `0` / `1` | `1` | 在线失败时是否回退本地 Qwen2-VL |
 
 示例（启用推荐系统 HTTP 模式）：
 
@@ -234,9 +239,10 @@ python -c "from modelscope import snapshot_download; snapshot_download('Qwen/Qwe
 真实 ASR/VL/手势需要摄像头、麦克风与重型依赖。离线演示使用 `data/cases` 中的模态输入替代，
 两者的 `InteractionEvent` 契约完全一致。
 
-网页「📷 识图推荐」会把当前画面交给 Qwen2-VL，默认提示词只关注画面中央的主要物品；
-识别文本会作为视觉标签进入意图理解，从中抽取品类与颜色后复用现有推荐链路。
-未识别到可映射品类时返回可操作的失败提示，不生成无关推荐。
+网页「📷 识图推荐」默认把当前画面交给在线 `qwen3-vl-plus`，默认提示词只关注画面中央的
+主要物品；识别文本会作为视觉标签进入意图理解，从中抽取品类与颜色后复用现有推荐链路。
+在线接口失败时自动回退本地 Qwen2-VL。未识别到可映射品类时返回可操作的失败提示，
+不生成无关推荐。
 
 主页面不提供手势按钮，手势只在商品详情内使用。默认流程是常驻摄像头直播；
 直播不可用时，详情内可点「改用单次识别」：前端 3 秒倒计时 → `capture_burst` 一次抓 5 帧
@@ -266,7 +272,8 @@ worker 持续写 `latest.jpg` / `state.json`，网页用 `<img src="/camera/stre
 | 开放问答 | 常驻 Qwen3-4B，启动时后台预加载 | 预加载后约 4~9s/轮 |
 | LLM 解释 | 复用同一个常驻 Qwen3-4B，批量生成 | 预加载后 3 条约 **8.2s** |
 | ASR | 常驻 SenseVoiceSmall，启动时后台预加载 | 首载约 26s，之后 0.1~0.14s（另加录音） |
-| 画面理解 | Qwen2.5-VL 按需加载 | 本机实测约 60~90s（模型加载占主要时间） |
+| 在线识图 | 百炼 `qwen3-vl-plus` | 本机实测约 1~2s |
+| 本地识图兜底 | Qwen2-VL 按需加载 | 本机实测约 40~90s（模型加载占主要时间） |
 
 > 旧实现里 8 件商品会为每条解释各起一个 `mm_worker.py llm`，重复加载 4B 权重；
 > 现在先收集所有解释请求，再一次性复用常驻聊天 worker。若只想看最快推荐，

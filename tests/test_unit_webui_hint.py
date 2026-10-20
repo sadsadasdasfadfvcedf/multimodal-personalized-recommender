@@ -13,7 +13,7 @@ from pathlib import Path
 
 from conftest import PROJECT_ROOT
 
-from src.errors import ok
+from src.errors import ErrorCode, fail, ok
 
 
 def _webui():
@@ -254,6 +254,7 @@ def test_vision_uses_object_prompt_and_passes_visual_tag():
     w = _webui()
     app = w.App("15547", "offline", False, False, None)
     app.orch.multimodal.active_mode = "real"
+    app.vision_api = None
     captured: dict[str, object] = {}
 
     app.orch.multimodal.capture_frame = lambda *args, **kwargs: ok({"image": "frame.jpg"})
@@ -292,6 +293,7 @@ def test_vision_reuses_camera_worker_frame():
     w = _webui()
     app = w.App("15547", "offline", False, False, None)
     app.orch.multimodal.active_mode = "real"
+    app.vision_api = None
     jpeg = b"\xff\xd8camera-frame\xff\xd9"
     captured: dict[str, bytes] = {}
 
@@ -329,11 +331,105 @@ def test_vision_reuses_camera_worker_frame():
     assert captured["image"] == jpeg
 
 
+def test_vision_prefers_online_api(monkeypatch):
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+
+    class FakeCamera:
+        def start(self):
+            return ok({"running": True})
+
+        def frame(self):
+            return b"\xff\xd8camera\xff\xd9"
+
+    app.orch.camera = FakeCamera()
+    app.orch.multimodal.capture_frame = lambda *args, **kwargs: (_ for _ in ()).throw(
+        AssertionError("online success must not open local capture")
+    )
+    app.orch.llm_explainer.enabled = True
+    llm_state: dict[str, bool] = {}
+
+    class FakeVisionAPI:
+        def describe_image(self, image, question):
+            return ok(
+                {
+                    "response": "粉色花卉图案杯子",
+                    "provider": "dashscope",
+                    "model": "qwen3-vl-plus",
+                    "latency_ms": 855.0,
+                }
+            )
+
+    app.vision_api = FakeVisionAPI()
+
+    def fake_handle(*args, **kwargs):
+        llm_state["enabled"] = app.orch.llm_explainer.enabled
+        return {
+            "ok": True,
+            "response": {
+                "status": "ok",
+                "recommendations": [],
+                "intent_result": {"slots": {"category": {"value": "厨房用品"}}},
+            },
+        }
+
+    app.handle_spec = fake_handle
+
+    result = app.vision("", 8)
+
+    assert result["ok"] is True
+    assert result["vision_provider"] == "dashscope"
+    assert result["vision_model"] == "qwen3-vl-plus"
+    assert result["vision_latency_ms"] == 855.0
+    assert llm_state["enabled"] is False
+    assert app.orch.llm_explainer.enabled is True
+
+
+def test_vision_falls_back_to_local_when_online_fails():
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+
+    class FakeCamera:
+        def start(self):
+            return ok({"running": True})
+
+        def frame(self):
+            return b"\xff\xd8camera\xff\xd9"
+
+    app.orch.camera = FakeCamera()
+
+    class FailingVisionAPI:
+        def describe_image(self, image, question):
+            return fail(ErrorCode.TIMEOUT, "online timeout")
+
+    app.vision_api = FailingVisionAPI()
+    app.orch.multimodal.describe_image = lambda *args, **kwargs: ok(
+        {"response": "白色陶瓷杯", "model": "Qwen2-VL-2B-Instruct"}
+    )
+    app.handle_spec = lambda *args, **kwargs: {
+        "ok": True,
+        "response": {
+            "status": "ok",
+            "recommendations": [],
+            "intent_result": {"slots": {"category": {"value": "厨房用品"}}},
+        },
+    }
+
+    result = app.vision("", 8)
+
+    assert result["ok"] is True
+    assert result["vision_provider"] == "local"
+    assert "online timeout" in str(result["vision_online_error"])
+
+
 def test_vision_unmapped_object_returns_actionable_error():
     """识别不到商品品类时要提示重试，不能拿无关商品凑推荐。"""
     w = _webui()
     app = w.App("15547", "offline", False, False, None)
     app.orch.multimodal.active_mode = "real"
+    app.vision_api = None
     app.orch.multimodal.capture_frame = lambda *args, **kwargs: ok({"image": "frame.jpg"})
     app.orch.multimodal.describe_image = lambda *args, **kwargs: ok({"response": "一个不明物体"})
     app.handle_spec = lambda *args, **kwargs: {"ok": True, "response": {"status": "ok", "intent_result": {"slots": {}}}}

@@ -283,6 +283,23 @@ MULTIMODAL_ADAPTER: dict = {
     },
 }
 
+# 在线视觉理解（可选）：默认使用阿里云百炼 OpenAI 兼容接口。
+# 未配置 DASHSCOPE_API_KEY 时不会初始化，也不会影响离线链路。
+VISION_API_CONFIG: dict = {
+    "provider": os.getenv("INTEGRATED_VL_PROVIDER", "dashscope").strip().lower(),
+    "api_key_env": "DASHSCOPE_API_KEY",
+    "base_url": os.getenv(
+        "INTEGRATED_VL_BASE_URL",
+        "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    ).strip(),
+    "model": os.getenv("INTEGRATED_VL_MODEL", "qwen3-vl-plus").strip(),
+    "timeout_s": float(os.getenv("INTEGRATED_VL_TIMEOUT_S", "15")),
+    "max_tokens": int(os.getenv("INTEGRATED_VL_MAX_TOKENS", "32")),
+    "max_image_bytes": 4 * 1024 * 1024,
+    "fallback_to_local": os.getenv("INTEGRATED_VL_FALLBACK_LOCAL", "1").strip().lower()
+    in {"1", "true", "yes", "on", "y"},
+}
+
 
 # ============================================================
 # 6.1 商品图片与类目视觉（网页界面用）

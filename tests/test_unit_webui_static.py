@@ -39,6 +39,7 @@ def test_static_page_assets_are_served():
         assert b"function openCompare" in body
         assert "vision:{i:'📷'".encode() in body
         assert b"visionBusy" in body
+        assert b"visionOnline" in body
         assert b"speechSynthesis" in body
         assert b"pauseLiveGesture" in body
         assert b"payload.focus_item_id = String(focusItemId)" in body
