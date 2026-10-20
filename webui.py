@@ -786,7 +786,7 @@ function updateAction(id, detail){
 /* P1-8：失败时给至少一个可点击的下一步 */
 function actionSuggestions(kind){
   const how = {voice:'请靠近麦克风、在安静环境说一句完整的话，说完停顿 1 秒。',
-               gesture:'把手举到脸旁边、靠近画面中央，离镜头约 50–80cm；倒计时结束后保持手势约 1 秒：👍 点赞 · 👎 倒赞 · ✌️ 截图 · ✋ 停止播放 · ☝️ 开始录音 · 👇 暂停播放。',
+               gesture:'把手举到脸旁边、靠近画面中央，离镜头约 50–80cm；倒计时结束后保持约 1 秒。当前只支持 👍 点赞 / 👎 倒赞，其他手势会被忽略。',
                vision:'确保画面有光、主体在取景框内，再点一次。'}[kind] || '';
   return '<div class="sugg">' +
     '<button data-retry="' + kind + '">重试一次</button>' +
@@ -1053,8 +1053,7 @@ async function handleLiveEvent(g){
       if (stat) stat.textContent = '已识别 ' + g + '，已更新当前商品';
     } else if (stat) stat.textContent = '识别到 ' + g + '，但反馈失败：' + (r.error || '');
   } else if (g){
-    const labels = {open_palm:'✋ 停止播放', index_up:'☝️ 开始录音', index_down:'👇 暂停播放', victory:'✌️ 截图'};
-    if (stat) stat.textContent = '已识别 ' + (labels[g] || g);
+    if (stat) stat.textContent = '已识别 ' + g + '，当前仅支持 👍/👎，已忽略';
   }
 }
 
@@ -1298,15 +1297,6 @@ async function act(kind){
     } else if (kind === 'gesture'){
       if (d.ok){
         const label = '手势：<b>' + esc(d.gesture) + '</b>';
-        if (d.action === 'stop' || d.action === 'mute'){
-          document.querySelectorAll('audio').forEach(a => a.pause());
-        }
-        if (d.action === 'start_listening'){
-          finishAction(id, 'ok', '已识别', label + '，开始录音…' + shot(d));
-          setBusy(false);
-          setTimeout(() => act('voice'), 250);
-          return;
-        }
         finishAction(id, 'ok', '已识别', label + (d.message ? ' · ' + esc(d.message) : '') + shot(d));
         if (d.response) renderBot(d.response, true);
       } else finishAction(id, 'warn', '未识别', esc(d.error) + shot(d) + actionSuggestions('gesture'));
@@ -1660,19 +1650,6 @@ def _err(
     return payload
 
 
-GESTURE_ACTIONS: dict[str, tuple[str, str]] = {
-    "open_palm": ("stop", "已暂停语音播放"),
-    "index_up": ("start_listening", "已识别 ☝️，开始录音"),
-    "index_down": ("mute", "已暂停播放"),
-    "victory": ("snapshot", "已保存当前画面"),
-}
-
-
-def _gesture_action(name: str) -> tuple[str, str]:
-    """非反馈类手势 → 页面动作。👍/👎 不在这里，走推荐反馈链路。"""
-    return GESTURE_ACTIONS.get(name, ("unknown", f"已识别 {name}"))
-
-
 def _gesture_preview_url(rows: list[dict], name: str | None, burst_dir: Path, media: Path) -> str | None:
     """选出最佳帧并生成网页可访问的预览地址。"""
     if not rows:
@@ -1700,6 +1677,11 @@ def _gesture_preview_url(rows: list[dict], name: str | None, burst_dir: Path, me
     else:
         rel = Path(burst_dir.name) / p.name
     return "/capture/" + urllib.parse.quote(rel.as_posix())
+
+
+def _is_feedback_gesture(name: str | None) -> bool:
+    """页面只接受点赞/倒赞，其他识别结果一律忽略。"""
+    return bool(name and name in settings.MULTIMODAL_ADAPTER["gesture"]["feedback_map"])
 
 
 def _pick_gesture(rows: list[dict]) -> tuple[str | None, float, dict[str, int], int]:
@@ -1910,10 +1892,12 @@ class App:
                 "请等倒计时结束后把手举到脸旁边（画面中央），保持手势约 1 秒。",
                 preview_url=preview_url,
             )
-        if votes.get(name, 0) < 2:
+        min_votes = max(1, int(cfg.get("min_votes", 3)))
+        if votes.get(name, 0) < min_votes:
             return _err(
                 ErrorCode.LOW_CONFIDENCE_MODALITY,
-                f"手势结果不稳定（{name} 仅 {votes.get(name, 0)}/{len(rows)} 帧），请保持手势约 1 秒再试。",
+                f"手势结果不稳定（{name} 仅 {votes.get(name, 0)}/{len(rows)} 帧，"
+                f"至少需要 {min_votes} 帧），请保持手势约 1 秒再试。",
                 preview_url=preview_url,
             )
         extra = {
@@ -1923,14 +1907,20 @@ class App:
             "gesture_votes": votes,
             "preview_url": preview_url,
         }
-        if name in ("thumbs_up", "thumbs_down"):
-            out = self.handle_spec(
-                {"source": "gesture", "gesture": {"name": name, "confidence": confidence}}, top_k=top_k
+        if not _is_feedback_gesture(name):
+            return _err(
+                ErrorCode.INVALID_INPUT,
+                f"当前只支持 👍 点赞 / 👎 倒赞，检测到「{name}」已忽略。",
+                field="gesture",
+                gesture=name,
+                gesture_confidence=round(confidence, 4),
+                gesture_frames=len(rows),
+                gesture_votes=votes,
+                preview_url=preview_url,
             )
-            out.update(extra)
-            return out
-        action, message = _gesture_action(name)
-        return {"ok": True, **extra, "action": action, "message": message}
+        out = self.handle_spec({"source": "gesture", "gesture": {"name": name, "confidence": confidence}}, top_k=top_k)
+        out.update(extra)
+        return out
 
     def vision(self, question: str, top_k: int | None = None) -> dict:
         ad = self.orch.multimodal

@@ -12,6 +12,8 @@ import time
 
 from conftest import PROJECT_ROOT
 
+from src.errors import ok
+
 
 def _webui():
     spec = importlib.util.spec_from_file_location("webui_under_test", PROJECT_ROOT / "webui.py")
@@ -51,13 +53,120 @@ def test_err_helper_includes_protocol_fields():
     assert payload["extra"] == "x"
 
 
-def test_gesture_action_mapping_covers_six_gestures():
+def test_only_thumbs_are_feedback_gestures():
     w = _webui()
-    assert w._gesture_action("victory")[0] == "snapshot"
-    assert w._gesture_action("open_palm")[0] == "stop"
-    assert w._gesture_action("index_up")[0] == "start_listening"
-    assert w._gesture_action("index_down")[0] == "mute"
-    assert w._gesture_action("unknown_pose")[0] == "unknown"
+    assert w._is_feedback_gesture("thumbs_up")
+    assert w._is_feedback_gesture("thumbs_down")
+    assert not w._is_feedback_gesture("victory")
+    assert not w._is_feedback_gesture("open_palm")
+    assert not w._is_feedback_gesture("index_up")
+    assert not w._is_feedback_gesture("index_down")
+    assert not w._is_feedback_gesture("unknown_pose")
+
+
+def test_unsupported_gesture_does_not_write_feedback():
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    app.orch.multimodal.capture_burst = lambda *args, **kwargs: ok({"dir": "burst"})
+    app.orch.multimodal.recognize_gesture_batch = lambda *args, **kwargs: ok(
+        {
+            "results": [
+                {
+                    "image": "frame.jpg",
+                    "hands_detected": 1,
+                    "gestures": [{"name": "victory", "confidence": 0.99}],
+                },
+                {
+                    "image": "frame2.jpg",
+                    "hands_detected": 1,
+                    "gestures": [{"name": "victory", "confidence": 0.97}],
+                },
+                {
+                    "image": "frame3.jpg",
+                    "hands_detected": 1,
+                    "gestures": [{"name": "victory", "confidence": 0.96}],
+                },
+            ]
+        }
+    )
+    called: list[dict] = []
+    app.handle_spec = lambda spec, **kwargs: called.append(spec) or {"ok": True}
+
+    result = app.gesture(None, 8)
+
+    assert result["ok"] is False
+    assert result["code"] == "E_INVALID_INPUT"
+    assert result["gesture"] == "victory"
+    assert called == []
+
+
+def test_thumbs_up_still_writes_feedback():
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    app.orch.multimodal.capture_burst = lambda *args, **kwargs: ok({"dir": "burst"})
+    app.orch.multimodal.recognize_gesture_batch = lambda *args, **kwargs: ok(
+        {
+            "results": [
+                {
+                    "image": "frame.jpg",
+                    "hands_detected": 1,
+                    "gestures": [{"name": "thumbs_up", "confidence": 0.99}],
+                },
+                {
+                    "image": "frame2.jpg",
+                    "hands_detected": 1,
+                    "gestures": [{"name": "thumbs_up", "confidence": 0.97}],
+                },
+                {
+                    "image": "frame3.jpg",
+                    "hands_detected": 1,
+                    "gestures": [{"name": "thumbs_up", "confidence": 0.96}],
+                },
+            ]
+        }
+    )
+    called: list[dict] = []
+    app.handle_spec = lambda spec, **kwargs: called.append(spec) or {"ok": True, "status": "ok"}
+
+    result = app.gesture(None, 8)
+
+    assert result["ok"] is True
+    assert result["gesture"] == "thumbs_up"
+    assert called and called[0]["source"] == "gesture"
+
+
+def test_two_of_five_votes_do_not_write_feedback():
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    app.orch.multimodal.capture_burst = lambda *args, **kwargs: ok({"dir": "burst"})
+    app.orch.multimodal.recognize_gesture_batch = lambda *args, **kwargs: ok(
+        {
+            "results": [
+                {
+                    "image": "frame.jpg",
+                    "hands_detected": 1,
+                    "gestures": [{"name": "thumbs_up", "confidence": 0.99}],
+                },
+                {
+                    "image": "frame2.jpg",
+                    "hands_detected": 1,
+                    "gestures": [{"name": "thumbs_up", "confidence": 0.97}],
+                },
+            ]
+        }
+    )
+    called: list[dict] = []
+    app.handle_spec = lambda spec, **kwargs: called.append(spec) or {"ok": True}
+
+    result = app.gesture(None, 8)
+
+    assert result["ok"] is False
+    assert result["code"] == "E_LOW_CONFIDENCE_MODALITY"
+    assert "至少需要 3 帧" in result["error"]
+    assert called == []
 
 
 def test_home_and_more_do_not_call_llm_explain():

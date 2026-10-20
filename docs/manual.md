@@ -47,7 +47,7 @@
 | 来源 | 原项目 | 原本能做什么 | 在本项目中的角色 | 接入方式 |
 |---|---|---|---|---|
 | 模块一 | 推荐系统 v146 （Desktop\推荐系统） | XGBoost rank:pairwise 精排（800 棵树）与 v97 基线按 alpha=0.10 秩融合，官方综合分 0.8025；3642 件商品目录 / 736 个用户离线打分 / 23 个类目 / GBP 计价；自带 FastAPI 前端（127.0.0.1:8010） | 外部系统 B：候选池与排序分数来源 | 只经 RecommenderAdapter HTTP → 发布制品 → 内置快照 三级降级 |
-| 模块二 | 智能多模态AI助手 （Documents\trae_projects\multimodal_ai） | SenseVoiceSmall ASR + WebRTC VAD 断句、Qwen3 文本 LLM、BGE+FAISS 知识库 RAG、Qwen2.5-VL 视觉理解、edge-tts/SAPI 语音合成、MediaPipe Pose/Hands 六种手势、PyQt5 GUI | 外部系统 A：系统的「感官」与语音出口 | 只经 MultimodalAdapter 真实设备/模型不可用时走离线场景桩 |
+| 模块二 | 智能多模态AI助手 （Documents\trae_projects\multimodal_ai） | SenseVoiceSmall ASR + WebRTC VAD 断句、Qwen3 文本 LLM、BGE+FAISS 知识库 RAG、Qwen2.5-VL 视觉理解、edge-tts/SAPI 语音合成、MediaPipe Pose/Hands 六种手势（本项目页面仅启用 👍/👎）、PyQt5 GUI | 外部系统 A：系统的「感官」与语音出口 | 只经 MultimodalAdapter 真实设备/模型不可用时走离线场景桩 |
 | 集成层 | integrated_ai_project （本项目） | 原本不存在 | 事件协议、意图理解、会话状态、多路召回、可控精排、证据解释、反馈闭环、验收与证据 | 本项目全部代码 |
 
 表 1-1  两个前序项目的能力与接入方式
@@ -151,8 +151,8 @@
 > 购物需求仍走推荐链路，`你是谁` 等寒暄仍是 0 ms 固定文案。
 >
 > 手势：点击「✋ 手势」后先倒计时 3 秒，再连拍 5 帧（间隔 250ms）并逐帧识别，
-> 按票数 + 置信度选结果。👍/👎 触发商品反馈；✌️ 保存画面；✋ 停止播放；
-> ☝️ 开始录音；👇 暂停播放。倒计时期间把手举到脸旁边、靠近画面中央。
+> 按票数 + 置信度选结果，至少 3/5 帧一致。页面只接受 👍/👎 并写入商品反馈；
+> 其他手势会被识别但忽略，不执行截图、录音或播放控制。倒计时期间把手举到脸旁边、靠近画面中央。
 > 操作卡会显示本次抓拍的画面（点击可看大图）；货架右上角可下拉选择显示 8/16/24/40 件，
 > 滚动到底会自动续载（上限 120 件）。商品详情弹窗里有「✋ 手势评价」，👍/👎 直接作用于当前商品。
 > 语音输入使用常驻 ASR，启动时后台预加载，后续每轮约 4~5 秒（含 4 秒录音）。
@@ -765,7 +765,7 @@ python scripts/07_live_integration_check.py
 |---|---|---|
 | 真实 ASR | Realtek 麦克风 + 离线控制音频 | 控制音频识别为「开饭时间早上九点至下午五点」，与预期一致 |
 | 真实视觉理解 | 摄像头 640×480 + Qwen2-VL-2B-Instruct | 输出「画面里有一个人，他穿着黑色的衣服，坐在椅子上。」 |
-| 真实手势识别 | MediaPipe Pose / Hands | 批量扫描 46 帧：14 帧检出手、10 帧识别出手势（victory ×9、thumbs_up ×1） |
+| 真实手势识别 | MediaPipe Pose / Hands | 批量扫描 46 帧：14 帧检出手、10 帧识别出手势（victory ×9、thumbs_up ×1；victory 仅验证识别能力，页面忽略） |
 | 多模态适配器 | 8 次调用 | 成功率 100%，平均 14.5 s、最大 32.6 s |
 | 真实 LLM 解释 | Qwen3-4B-Instruct-2507 | 门控通过 4/4（100%），平均 12.35 s / 条 |
 | 真实 LLM 对比 | Qwen2-1.5B-Instruct | 门控通过 3/6（50%），会编造价格数字，故不采用 |

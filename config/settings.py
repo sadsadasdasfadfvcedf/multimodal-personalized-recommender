@@ -273,6 +273,8 @@ MULTIMODAL_ADAPTER: dict = {
     },
     "gesture": {
         "min_confidence": 0.60,
+        # 主页面单次识别至少 3/5 帧一致才触发，避免扩展手势误判成点赞/倒赞
+        "min_votes": int(os.getenv("INTEGRATED_GESTURE_MIN_VOTES", "3")),
         # 手势 → 反馈极性映射（thumbs_up/down → 正/负反馈）
         "feedback_map": {"thumbs_up": "positive", "thumbs_down": "negative"},
         # 网页端连拍：一次抓多帧，给用户留出摆姿势的时间，再按票数选最佳结果
