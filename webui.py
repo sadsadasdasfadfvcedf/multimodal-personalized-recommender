@@ -629,11 +629,14 @@ class App:
                 if str(item_id) not in sess.last_item_ids:
                     sess.last_item_ids = [str(item_id), *sess.last_item_ids]
         prev_llm = self.orch.llm_explainer.enabled
+        prev_dry = self.orch.dry_run_voice
         self.orch.llm_explainer.enabled = False
+        self.orch.dry_run_voice = True
         try:
             return self.handle_spec({"source": "gesture", "gesture": {"name": name, "confidence": 1.0}}, top_k=top_k)
         finally:
             self.orch.llm_explainer.enabled = prev_llm
+            self.orch.dry_run_voice = prev_dry
 
     def products(self, item_ids: list[str]) -> dict:
         """批量取商品详情 —— 供对比栏做字段对照。

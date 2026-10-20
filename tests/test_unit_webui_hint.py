@@ -228,6 +228,26 @@ def test_feedback_clear_skips_tts_synthesis():
     assert app.orch.dry_run_voice is original
 
 
+def test_feedback_write_skips_tts_synthesis():
+    """点赞/倒赞只更新货架，不能在请求线程里同步合成语音。"""
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    captured: dict[str, bool] = {}
+
+    def fake_handle(spec, **kwargs):
+        captured["dry_run"] = app.orch.dry_run_voice
+        return {"ok": True, "status": "ok"}
+
+    app.handle_spec = fake_handle
+    original = app.orch.dry_run_voice
+
+    result = app.feedback("20829", "up", 8)
+
+    assert result["ok"] is True
+    assert captured["dry_run"] is True
+    assert app.orch.dry_run_voice is original
+
+
 def test_home_and_more_do_not_call_llm_explain():
     """首页货架/翻页必须快；运行时开着 LLM 解释也不能在这里拉起 4B 模型。"""
     w = _webui()

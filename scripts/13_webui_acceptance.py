@@ -160,6 +160,20 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
             op = await ev("getComputedStyle(document.querySelector('.pacts')).opacity")
             add(2, "触屏可反馈（👍/👎 常驻，不依赖 hover）", str(op) in ("1", "1.0"), f"opacity={op}")
 
+            await ev("document.querySelector('.pcard [data-like=\"up\"]').click()")
+            busy_after = await ev("busy")
+            card_pending = await ev("document.querySelector('.pcard.pending')!==null")
+            add(
+                12,
+                "反馈不锁整页（只锁当前商品）",
+                busy_after is False and bool(card_pending),
+                f"反馈期间 busy={busy_after}，当前卡片 pending={card_pending}",
+            )
+            for _ in range(80):
+                if await ev("document.querySelector('.pcard.pending')===null"):
+                    break
+                await asyncio.sleep(0.1)
+
             n = await ev("document.querySelectorAll('#fchips [data-drop]').length")
             add(3, "筛选条件可单独移除", (n or 0) > 0, f"可移除 chip {n or 0} 个")
 

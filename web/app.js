@@ -6,6 +6,7 @@ let pageSize = 8, lastQuery = null;   // null = 首页货架；字符串 = 最�
 let liveTimer = null, liveItem = null, liveEventId = 0, liveBusy = false;
 let currentLimit = 8, loadingMore = false, hasMore = true;
 let focusItemId = null;   // 手势反馈默认目标：最近打开的商品，否则货架 Top1
+const pendingItems = new Set();
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
 const INTENT_ZH = {discover:'随便看看', similar:'找相似', filter:'条件筛选',
@@ -102,7 +103,10 @@ function renderShelf(items, title, subtitle, resp, append){
       focusItemId = currentItems.length ? String(currentItems[0].item_id) : null;
     }
   }
-  if (resp) activeFilters = filtersFrom(resp);
+  // 反馈响应只带 polarity/target，不含当前生效条件；不能因此把货架筛选 chip 清空。
+  if (resp && ['discover', 'similar', 'filter', 'browse'].includes((resp.intent_result || {}).intent)){
+    activeFilters = filtersFrom(resp);
+  }
   renderFilters();
   $('shelfTitle').textContent = title || '推荐结果';
   $('shelfCnt').textContent = currentItems.length ? ('共 ' + currentItems.length + ' 件') : '';
@@ -346,38 +350,66 @@ async function ask(text, opt){
 }
 
 /* ============ 点赞 / 倒赞（常驻，触屏可达） ============ */
+function setCardPending(itemId, on){
+  const key = String(itemId);
+  if (on) pendingItems.add(key); else pendingItems.delete(key);
+  const card = document.querySelector('.pcard[data-item="' + key + '"]');
+  if (!card) return;
+  card.classList.toggle('pending', on);
+  card.querySelectorAll('[data-like],[data-cmp]').forEach(b => { b.disabled = on; });
+}
+
+function syncRatingUI(itemId){
+  const key = String(itemId);
+  const card = document.querySelector('.pcard[data-item="' + key + '"]');
+  if (!card) return;
+  card.querySelectorAll('[data-like]').forEach(b => {
+    b.classList.toggle('on', b.dataset.like === ratings.get(key));
+  });
+}
+
 async function rate(itemId, polarity, forceCancel){
-  if (busy) return;
-  focusItemId = String(itemId);
-  const cancel = !!forceCancel || ratings.get(String(itemId)) === polarity;
+  const key = String(itemId);
+  if (busy || pendingItems.has(key)) return;
+  const cancel = !!forceCancel || ratings.get(key) === polarity;
+  focusItemId = key;
+  setCardPending(key, true);
+  const previous = ratings.get(key);
+  if (cancel) ratings.delete(key); else ratings.set(key, polarity);
+  syncRatingUI(key);
   const id = addAction(polarity === 'up' ? '👍' : '👎',
                        cancel ? '取消反馈' : (polarity === 'up' ? '点赞' : '倒赞'),
                        cancel ? '正在撤销该商品的反馈并重新排序…' : '正在写入会话偏好并重新排序…');
-  setBusy(true);
   try{
-    const d = await post('/api/feedback', {item_id: itemId, polarity: cancel ? 'none' : polarity, top_k: pageSize});
+    const d = await post('/api/feedback', {item_id: key, polarity: cancel ? 'none' : polarity, top_k: pageSize});
     const r = d.response || {};
     const okStatus = r.status === 'ok' || r.status === 'degraded';
     if (d.ok && okStatus){
       const fb = r.feedback || {};
       finishAction(id, 'ok', cancel ? '已取消' : '已记录', esc(cancel ? '反馈' : fb.polarity === 'positive' ? '点赞' : '倒赞') +
-        '：<b>' + esc(fb.target_title || itemId) + '</b>');
+        '：<b>' + esc(fb.target_title || key) + '</b>');
       if (cancel){
-        ratings.delete(String(itemId));
-        document.querySelectorAll('[data-undo-feedback="' + itemId + '"]').forEach(b => b.remove());
+        ratings.delete(key);
+        document.querySelectorAll('[data-undo-feedback="' + key + '"]').forEach(b => b.remove());
       } else {
-        ratings.set(String(itemId), polarity);
+        ratings.set(key, fb.polarity === 'negative' ? 'down' : polarity);
       }
+      syncRatingUI(key);
       renderBot(r, true);
-      const card = document.querySelector('.pcard[data-item="' + itemId + '"]');
-      if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on',
-        !cancel && b.dataset.like === polarity));
     } else {
       const msg = (r.error && r.error.message) || r.clarification || d.error || '反馈未生效';
       finishAction(id, 'warn', '未生效', esc(msg) + actionSuggestions('feedback'));
+      if (previous) ratings.set(key, previous); else ratings.delete(key);
+      syncRatingUI(key);
     }
-  }catch(e){ finishAction(id, 'err', '失败', esc(e.message) + actionSuggestions('feedback')); }
-  setBusy(false);
+  }catch(e){
+    if (previous) ratings.set(key, previous); else ratings.delete(key);
+    syncRatingUI(key);
+    finishAction(id, 'err', '失败', esc(e.message) + actionSuggestions('feedback'));
+    toast('反馈失败：' + e.message);
+  }finally{
+    setCardPending(key, false);
+  }
 }
 
 /* ============ 商品对比（P1-6） ============ */
