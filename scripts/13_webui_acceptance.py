@@ -2,7 +2,7 @@
 scripts/13_webui_acceptance.py
 ==============================
 
-网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 14 项）。
+网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 15 项）。
 
 实现方式：用 Edge 的 CDP（Chrome DevTools Protocol）驱动无头浏览器，
 在真实页面上**测量**而不是靠肉眼判断：
@@ -21,6 +21,7 @@ scripts/13_webui_acceptance.py
   12. 反馈只锁当前商品，不锁整页
   13. 桌面为商品瀑布流 + 推荐助手两栏布局
   14. 商品详情含推荐理由、证据、对比与继续追问
+  15. 识图请求不锁整页，失败原因可见
 
 前置条件（缺一即跳过，不影响离线可复现性）：
     · 本机装有 Microsoft Edge
@@ -306,6 +307,32 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
             if await ev("document.getElementById('modal').classList.contains('show')"):
                 await ev("document.querySelector('#modal [data-close]').click()")
 
+            await ev(
+                "(function(){window.__visionOrigFetch=window.fetch;"
+                "window.fetch=async function(url,opts){"
+                "if(String(url)==='/api/vision'){await new Promise(r=>setTimeout(r,900));"
+                "return new Response(JSON.stringify({ok:false,description:'眼镜',"
+                "error:'识别到「眼镜」，但未能确定商品品类。请把物品放近、避免遮挡后重试。'}),"
+                "{status:200,headers:{'Content-Type':'application/json'}});}"
+                "return window.__visionOrigFetch(url,opts)};})()"
+            )
+            vision_state = await ev(
+                "(function(){document.querySelector('[data-act=\"vision\"]').click();"
+                "return {busy:busy,visionBusy:visionBusy}})()"
+            )
+            await asyncio.sleep(1.1)
+            vision_error_visible = await ev("document.getElementById('stream').innerText.includes('未能确定商品品类')")
+            await ev("window.fetch=window.__visionOrigFetch")
+            add(
+                15,
+                "识图请求不锁整页且失败原因可见",
+                (vision_state or {}).get("busy") is False
+                and (vision_state or {}).get("visionBusy") is True
+                and bool(vision_error_visible),
+                f"请求中 busy={(vision_state or {}).get('busy')}，"
+                f"visionBusy={(vision_state or {}).get('visionBusy')}，错误可见={vision_error_visible}",
+            )
+
             root = settings.PROJECT_ROOT
             src = (root / "webui.py").read_text(encoding="utf-8")
             src += "\n".join(
@@ -329,7 +356,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=9455, help="CDP 调试端口")
     args = parser.parse_args()
 
-    banner("网页改版验收核验（设计文档表 6-1，14 项）")
+    banner("网页改版验收核验（设计文档表 6-1，15 项）")
     report = {"checked_at": now_iso(), "url": args.url, "checks": [], "verdict": "SKIP"}
 
     edge = _edge()

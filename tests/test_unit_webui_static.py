@@ -38,6 +38,9 @@ def test_static_page_assets_are_served():
         assert "javascript" in ctype
         assert b"function openCompare" in body
         assert "vision:{i:'📷'".encode() in body
+        assert b"visionBusy" in body
+        assert b"speechSynthesis" in body
+        assert b"pauseLiveGesture" in body
     finally:
         server.shutdown()
         server.server_close()

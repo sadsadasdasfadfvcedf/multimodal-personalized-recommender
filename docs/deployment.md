@@ -253,7 +253,8 @@ python -c "from modelscope import snapshot_download; snapshot_download('Qwen/Qwe
 打开商品详情会自动 `POST /api/camera/start` 拉起常驻 `scripts/camera_worker.py`，摄像头只打开一次；
 worker 持续写 `latest.jpg` / `state.json`，网页用 `<img src="/camera/stream">` 看 MJPEG 实时预览，
 每 300ms 轮询 `/api/camera/state`。检测到稳定 👍/👎（连续 3 帧）后自动对当前商品写入反馈；
-换手势（👍 → 👎）会立即重新武装，不需要先把手移出画面。点「停止」或关闭弹窗会释放摄像头。
+换手势（👍 → 👎）会立即重新武装，不需要先把手移出画面。页面打开后会后台预热摄像头，
+关闭详情只暂停识别，离开整个页面时才释放摄像头。
 摄像头序号/帧率可用 `INTEGRATED_CAMERA_INDEX` / `INTEGRATED_CAMERA_FPS` 调整。
 
 ### 5.8 性能与模型加载策略
@@ -261,11 +262,11 @@ worker 持续写 `latest.jpg` / `state.json`，网页用 `<img src="/camera/stre
 | 链路 | 策略 | 实测 |
 |---|---|---|
 | 推荐（LLM 解释关） | 直接返回文本货架，不自动合成 TTS | **0.07s** |
-| 语音播报 | 页面点「🔊 语音播报」才合成 | 约 3~4s/次 |
+| 语音播报 | 优先使用浏览器语音即时播放，失败才回退服务端 TTS | 通常即时，回退约 3~4s |
 | 开放问答 | 常驻 Qwen3-4B，启动时后台预加载 | 预加载后约 4~9s/轮 |
 | LLM 解释 | 复用同一个常驻 Qwen3-4B，批量生成 | 预加载后 3 条约 **8.2s** |
 | ASR | 常驻 SenseVoiceSmall，启动时后台预加载 | 首载约 26s，之后 0.1~0.14s（另加录音） |
-| 画面理解 | Qwen2.5-VL 按需加载 | 仍是最重链路，约 20~40s |
+| 画面理解 | Qwen2.5-VL 按需加载 | 本机实测约 60~90s（模型加载占主要时间） |
 
 > 旧实现里 8 件商品会为每条解释各起一个 `mm_worker.py llm`，重复加载 4B 权重；
 > 现在先收集所有解释请求，再一次性复用常驻聊天 worker。若只想看最快推荐，

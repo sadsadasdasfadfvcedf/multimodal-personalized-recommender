@@ -89,6 +89,31 @@ def test_visual_tag_can_supply_object_category(categories):
     assert intent.classify(event, slots, categories)[0] == "discover"
 
 
+def test_visual_tag_maps_glasses_to_accessories(categories):
+    """「举起眼镜」这类常见物品也必须能映射到目录品类，不能只识别不推荐。"""
+    event = make_event(
+        user_id="u-test",
+        source="vision",
+        modality="visual",
+        visual_tags=[{"tag": "一副黑色眼镜", "confidence": 0.9}],
+    )
+    slots = intent.extract_slots(event, catalog_categories=categories)
+    assert slots["category"].value == "饰品"
+    assert slots["colors"].value == ["黑色"]
+
+
+def test_visual_tag_maps_monitor_to_office_supplies(categories):
+    event = make_event(
+        user_id="u-test",
+        source="vision",
+        modality="visual",
+        visual_tags=[{"tag": "黑色电脑显示器", "confidence": 0.88}],
+    )
+    slots = intent.extract_slots(event, catalog_categories=categories)
+    assert slots["category"].value == "办公用品"
+    assert slots["colors"].value == ["黑色"]
+
+
 @pytest.mark.parametrize(
     "text,expected_index",
     [

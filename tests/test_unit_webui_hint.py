@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import time
+from pathlib import Path
 
 from conftest import PROJECT_ROOT
 
@@ -284,6 +285,48 @@ def test_vision_uses_object_prompt_and_passes_visual_tag():
     assert captured["spec"]["text"] is None
     assert captured["spec"]["visual_tags"][0]["tag"] == "一个白色陶瓷杯"
     assert result["description"] == "一个白色陶瓷杯"
+
+
+def test_vision_reuses_camera_worker_frame():
+    """摄像头直播已占用设备时，识图必须复用 worker 帧，不能再开一路 VideoCapture。"""
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    jpeg = b"\xff\xd8camera-frame\xff\xd9"
+    captured: dict[str, bytes] = {}
+
+    class FakeCamera:
+        def start(self):
+            return ok({"running": True})
+
+        def frame(self):
+            return jpeg
+
+    app.orch.camera = FakeCamera()
+
+    def must_not_open_camera(*args, **kwargs):
+        raise AssertionError("camera worker 已在运行，不应直接打开第二路摄像头")
+
+    app.orch.multimodal.capture_frame = must_not_open_camera
+
+    def fake_describe(image, question):
+        captured["image"] = Path(image).read_bytes()
+        return ok({"response": "一副黑色眼镜"})
+
+    app.orch.multimodal.describe_image = fake_describe
+    app.handle_spec = lambda *args, **kwargs: {
+        "ok": True,
+        "response": {
+            "status": "ok",
+            "recommendations": [],
+            "intent_result": {"slots": {"category": {"value": "饰品"}}},
+        },
+    }
+
+    result = app.vision("", 8)
+
+    assert result["ok"] is True
+    assert captured["image"] == jpeg
 
 
 def test_vision_unmapped_object_returns_actionable_error():

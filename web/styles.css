@@ -389,6 +389,7 @@
   .dact:disabled{opacity:.5;cursor:wait}
   .dact.primary{background:var(--brand);border-color:var(--brand);color:#fff}
   .dact.primary:hover{background:#4338ca;border-color:#4338ca}
+  .detail-hint{margin-top:7px;font-size:11.5px;line-height:1.55;color:var(--muted)}
   .detail .kv{margin-top:16px}
   .gesture-wrap{border-top:1px dashed var(--line);padding-top:14px}
   .sec{padding:15px 24px;border-top:1px solid var(--line)}

@@ -110,7 +110,10 @@ _DEP_HINTS = (
 )
 
 _OBJECT_VISION_QUESTION = (
-    "只识别画面中央最主要的一个物品。用一句简短中文说明它是什么、是什么颜色；不要描述人物、动作或背景。"
+    "只识别画面中央最主要的一个物品。只回答「颜色+品类」。"
+    "品类优先从这些词中选择：家居装饰、装饰品、厨房用品、生活用品、收纳用品、派对用品、"
+    "手工用品、饰品、购物袋、玩具、园艺用品、办公用品、宠物用品、文具用品。"
+    "不要描述人物、动作或背景。"
 )
 
 
@@ -336,6 +339,27 @@ class App:
         out["transcript"] = text
         return out
 
+    def _capture_vision_frame(self, target: Path) -> tuple[bool, str]:
+        """优先复用常驻摄像头 worker，避免视觉抓帧和手势直播同时抢占设备。"""
+        camera = getattr(self.orch, "camera", None)
+        if camera is not None:
+            started = camera.start()
+            if started.ok:
+                deadline = time.time() + 3.0
+                while time.time() < deadline:
+                    data = camera.frame()
+                    if data:
+                        try:
+                            target.write_bytes(data)
+                            return True, ""
+                        except OSError as exc:
+                            return False, f"写入抓帧文件失败: {exc}"
+                    time.sleep(0.1)
+        cap = self.orch.multimodal.capture_frame(str(target))
+        if cap.ok:
+            return True, ""
+        return False, str(cap.error or "摄像头抓帧失败")
+
     def gesture(self, item_id: str | None = None, top_k: int | None = None) -> dict:
         ad = self.orch.multimodal
         if ad.active_mode != "real":
@@ -415,9 +439,9 @@ class App:
         if ad.active_mode != "real":
             return _err(ErrorCode.MODALITY_UNAVAILABLE, "视觉理解需要 --real 模式")
         frame = self.media / f"vision_{self.turn}.jpg"
-        cap = ad.capture_frame(str(frame))
-        if not cap.ok:
-            return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {cap.error}")
+        captured, capture_error = self._capture_vision_frame(frame)
+        if not captured:
+            return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {capture_error}")
         vision_question = (question or "").strip() or _OBJECT_VISION_QUESTION
         vl = ad.describe_image(str(frame), vision_question)
         if not vl.ok:

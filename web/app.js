@@ -7,6 +7,7 @@ let liveTimer = null, liveItem = null, liveEventId = 0, liveBusy = false;
 let currentLimit = 8, loadingMore = false, hasMore = true;
 let focusItemId = null;   // 手势反馈默认目标：最近打开的商品，否则货架 Top1
 let detailItemId = null;
+let visionBusy = false;
 const pendingItems = new Set();
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
@@ -62,6 +63,16 @@ function toast(msg){
     t.classList.remove('show');
     t.textContent = '';
   }, 2600);
+}
+function speakInBrowser(text){
+  if (!text || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return false;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'zh-CN';
+  u.rate = 1.05;
+  u.pitch = 1;
+  window.speechSynthesis.speak(u);
+  return true;
 }
 
 /* ============ 筛选口径 → 可移除 chip（P1-5） ============ */
@@ -282,7 +293,7 @@ function renderBot(resp, updateShelf){
 
   const pres = resp.presentation || {};
   if (pres.audio_url) h += '<audio controls preload="none" src="' + esc(pres.audio_url) + '"></audio>';
-  else if (pres.spoken_text) h += '<button class="ttsbtn" data-tts="' + encodeURIComponent(pres.spoken_text) + '">🔊 语音播报</button>';
+  else if (pres.spoken_text) h += '<button class="ttsbtn" data-tts="' + encodeURIComponent(pres.spoken_text) + '">🔊 立即播报</button>';
 
   /* P1-7：运行细节默认折叠（寒暄回答不需要召回/排序依据） */
   if (!resp.answer) {
@@ -516,14 +527,20 @@ async function openCompare(){
 }
 
 /* ============ 商品详情 ============ */
+function pauseLiveGesture(){
+  if (liveTimer !== null){ clearInterval(liveTimer); liveTimer = null; }
+  liveItem = null;
+  liveBusy = false;
+}
+
 async function stopLiveGesture(){
   // 停止前先处理一次最后的状态，避免「刚比完手势就点停止」丢掉最后一次事件
   if (liveItem !== null){
     try { await pollLiveGesture(true); } catch(e){}
   }
-  if (liveTimer !== null){ clearInterval(liveTimer); liveTimer = null; }
-  if (liveItem !== null){
-    liveItem = null;
+  const hadLiveItem = liveItem !== null;
+  pauseLiveGesture();
+  if (hadLiveItem){
     try { await post('/api/camera/stop'); } catch(e){}
   }
 }
@@ -626,11 +643,22 @@ async function startLiveGesture(itemId){
   }
   box.innerHTML = '<div class="mstatus">正在打开摄像头…</div>';
   try{
+    const current = await (await fetch('/api/camera/state')).json();
+    const state = current.state || {};
+    if (state.running){
+      liveEventId = Number(state.event_id || 0);
+      renderLivePanel(itemId);
+      liveTimer = setInterval(pollLiveGesture, 300);
+      return;
+    }
     const d = await post('/api/camera/start');
     if (!d.ok){
       liveItem = null;
       box.innerHTML = '<div class="mstatus err">' + esc(d.error || '摄像头打开失败') +
-        '</div><button class="cmpbtn" data-single-gesture="1">改用单次识别</button>';
+        '</div><div class="sugg"><button data-retry-live="1">重试直播</button>' +
+        '<button data-single-gesture="1">改用单次识别</button></div>';
+      const retry = box.querySelector('[data-retry-live]');
+      if (retry) retry.onclick = () => startLiveGesture(itemId);
       const b = box.querySelector('[data-single-gesture]');
       if (b) b.onclick = () => modalGesture(itemId);
       return;
@@ -640,7 +668,10 @@ async function startLiveGesture(itemId){
     liveTimer = setInterval(pollLiveGesture, 300);
   }catch(e){
     liveItem = null;
-    box.innerHTML = '<div class="mstatus err">摄像头启动失败：' + esc(e.message) + '</div>';
+    box.innerHTML = '<div class="mstatus err">摄像头启动失败：' + esc(e.message) +
+      '</div><div class="sugg"><button data-retry-live="1">重试直播</button></div>';
+    const retry = box.querySelector('[data-retry-live]');
+    if (retry) retry.onclick = () => startLiveGesture(itemId);
   }
 }
 
@@ -765,8 +796,10 @@ async function openDetail(itemId){
             '<button class="dact" data-rate="down">👎 不喜欢</button>' +
             '<button class="dact" data-cmp2="' + esc(p.item_id) + '">' +
               (pickedNow ? '✓ 已加入对比' : '▦ 加入对比') + '</button>' +
-            '<button class="dact primary" data-ask-product>💬 追问此商品</button>' +
+            '<button class="dact primary" data-ask-product title="选中当前商品并在右侧继续提问">💬 继续问这件</button>' +
           '</div>' +
+          '<div class="detail-hint">“继续问这件”会选中当前商品并聚焦右侧输入框，' +
+            '例如问“为什么推荐它”“还有别的颜色吗”。</div>' +
           '<dl class="kv">' +
             '<dt>类目</dt><dd>' + esc(p.emoji + ' ' + p.category) + '</dd>' +
             '<dt>价格来源</dt><dd>' + esc(zh(SRC_ZH, p.price_source, p.price_source || '—')) + '</dd>' +
@@ -800,7 +833,7 @@ async function openDetail(itemId){
       }
       setTimeout(() => {
         $('q2').focus();
-        toast('已选中当前商品，可以继续追问');
+        toast('已选中此商品，可问：为什么推荐它 / 还有别的颜色吗');
       }, 0);
     };
     await startLiveGesture(itemId);   // 进入商品详情自动开启摄像头直播
@@ -810,7 +843,7 @@ async function openDetail(itemId){
   }
 }
 function closeAll(){
-  stopLiveGesture();
+  pauseLiveGesture();
   detailItemId = null;
   $('modal').classList.remove('show');
   $('cmpModal').classList.remove('show');
@@ -824,7 +857,13 @@ async function act(kind){
     addBot('<div class="slots">该功能需要真实设备，请以 <code>python webui.py --real</code> 启动。</div>');
     return;
   }
-  setBusy(true);
+  const localized = kind === 'vision';
+  if (localized){
+    if (visionBusy) return;
+    visionBusy = true;
+  } else {
+    setBusy(true);
+  }
   if (kind === 'llm'){
     try{
       const d = await post('/api/llm');
@@ -852,7 +891,7 @@ async function act(kind){
     setBusy(false); return;
   }
   const meta = {voice:{i:'🎤', t:'语音输入', d:'正在录音 4 秒…'},
-                vision:{i:'📷', t:'识图推荐', d:'正在识别画面中的主要物品并生成同类推荐（约 20~40 秒）…'}}[kind];
+                vision:{i:'📷', t:'识图推荐', d:'正在识别画面中的主要物品并生成同类推荐（本地 VL 约 60~90 秒）…'}}[kind];
   const id = addAction(meta.i, meta.t, meta.d);
   try{
     const payload = kind === 'voice' ? {seconds: 4, top_k: pageSize} : {top_k: pageSize};
@@ -868,15 +907,17 @@ async function act(kind){
       }
     } else if (kind === 'vision'){
       if (d.description){
-        finishAction(id, d.ok ? 'ok' : 'warn', d.ok ? '已完成' : '部分完成',
-                     '识别到：<b>' + esc(d.description) + '</b>' + (d.ok ? '' : actionSuggestions('vision')));
+        const why = d.ok ? '' : '<div class="errline" style="margin-top:6px">' + esc(d.error || '') + '</div>';
+        finishAction(id, d.ok ? 'ok' : 'warn', d.ok ? '已完成' : '需重试',
+                     '识别到：<b>' + esc(d.description) + '</b>' + why +
+                     (d.ok ? '' : actionSuggestions('vision')));
         if (d.ok) renderBot(d.response, true);
       } else finishAction(id, 'err', '失败', esc(d.error) + actionSuggestions('vision'));
     } else if (!d.ok){
       finishAction(id, 'err', '失败', esc(d.error) + actionSuggestions(kind));
     } else { finishAction(id, 'ok', '完成', ''); if (d.response) renderBot(d.response, true); }
   }catch(e){ finishAction(id, 'err', '失败', esc(e.message) + actionSuggestions(kind)); }
-  setBusy(false);
+  if (localized) visionBusy = false; else setBusy(false);
 }
 
 /* ============ 运行状态抽屉 ============ */
@@ -1029,6 +1070,11 @@ document.addEventListener('click', async ev => {
   const tts = ev.target.closest('[data-tts]');
   if (tts && !tts.disabled){
     const text = decodeURIComponent(tts.dataset.tts || '');
+    if (speakInBrowser(text)){
+      tts.textContent = '🔊 再播一次';
+      toast('已使用浏览器语音即时播报');
+      return;
+    }
     tts.disabled = true; tts.textContent = '合成中…';
     try{
       const d = await post('/api/tts', {text});
@@ -1042,7 +1088,7 @@ document.addEventListener('click', async ev => {
   if (c){
     ev.stopPropagation();
     document.querySelector(c.dataset.close).classList.remove('show');
-    if (c.dataset.close === '#modal') stopLiveGesture();
+    if (c.dataset.close === '#modal') pauseLiveGesture();
   }
 });
 $('modal').addEventListener('click', ev => { if (ev.target === $('modal')) closeAll(); });
@@ -1104,6 +1150,9 @@ async function loadHomeShelf(force){
   const info = await (await fetch('/api/info')).json();
   const m = info.modes || {};
   needReal = m.multimodal !== 'real';
+  if (!needReal){
+    fetch('/api/camera/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}).catch(() => {});
+  }
   $('chips').innerHTML = ['推荐 ' + zh(MODE_ZH, m.recommender), '多模态 ' + zh(MODE_ZH, m.multimodal),
                           '对话 ' + (m.llm_provider === 'online' ? '在线' : m.llm_provider === 'local' ? '本地' : '关'),
                           '搜索 ' + ((info.llm_chat || {}).web_search ? '开' : '关'),
@@ -1126,3 +1175,9 @@ async function loadHomeShelf(force){
     '</div>');
   $('q').focus();
 })();
+
+window.addEventListener('pagehide', () => {
+  if (!needReal){
+    fetch('/api/camera/stop', {method:'POST', keepalive:true}).catch(() => {});
+  }
+});
