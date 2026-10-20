@@ -75,6 +75,20 @@ def test_extract_color_and_category(categories):
     assert slots["category"].value
 
 
+def test_visual_tag_can_supply_object_category(categories):
+    """举物品识图：没有文字时，视觉标签也要能提供品类与颜色。"""
+    event = make_event(
+        user_id="u-test",
+        source="vision",
+        modality="visual",
+        visual_tags=[{"tag": "一个白色陶瓷杯", "confidence": 0.9}],
+    )
+    slots = intent.extract_slots(event, catalog_categories=categories)
+    assert slots["category"].value == "厨房用品"
+    assert slots["colors"].value == ["白色"]
+    assert intent.classify(event, slots, categories)[0] == "discover"
+
+
 @pytest.mark.parametrize(
     "text,expected_index",
     [

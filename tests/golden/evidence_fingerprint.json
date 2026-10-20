@@ -3,7 +3,7 @@
   "e2e_run_log.jsonl": "10f6fe7252bec666c1c44f46d8fdb90714c35f2f576c7689195ba6ca7ef3f1ae",
   "env_check.json": "05926de4fa132d9a9ab15d13f832bab4d7262ba5be78f573cc8645fe119e7cb1",
   "stage01_contract_report.json": "997ce7875f13b2d5db8175dd83fcd077b092272b77859c9300f5e5f86bf260db",
-  "stage02_context_cases.jsonl": "95877191ff33ea236b4f5d4ebfdc826590066cbe51f7bb3638dfe1dbfa5a8ba6",
+  "stage02_context_cases.jsonl": "fb2fed8303792adb4c1e80247d25c400c9a62c2087c42b21e2971344fe435991",
   "stage02_context_metrics.json": "c5f3777aeb2878ac2bf8fb49b332ff93eb3687bd946098e6b09581d2f70edbc7",
   "stage03_demo.json": "9f42a9b5be06eafcb18ea39a820a177ab0207dcfdf2fae3721b2be77bc999b34",
   "stage03_traces.jsonl": "830057cd30e25cb1c87266cb999f9102ea59d9488fe58cbdf77f4ee79a4f63c5",

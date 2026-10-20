@@ -26,6 +26,7 @@ def test_static_page_assets_are_served():
         assert status == 200
         assert "text/html" in ctype
         assert b'id="pgrid"' in body
+        assert "识图推荐".encode() in body
 
         status, ctype, body = _get(port, "/styles.css")
         assert status == 200
@@ -36,6 +37,7 @@ def test_static_page_assets_are_served():
         assert status == 200
         assert "javascript" in ctype
         assert b"function openCompare" in body
+        assert "vision:{i:'📷'".encode() in body
     finally:
         server.shutdown()
         server.server_close()

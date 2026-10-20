@@ -234,6 +234,10 @@ python -c "from modelscope import snapshot_download; snapshot_download('Qwen/Qwe
 真实 ASR/VL/手势需要摄像头、麦克风与重型依赖。离线演示使用 `data/cases` 中的模态输入替代，
 两者的 `InteractionEvent` 契约完全一致。
 
+网页「📷 识图推荐」会把当前画面交给 Qwen2-VL，默认提示词只关注画面中央的主要物品；
+识别文本会作为视觉标签进入意图理解，从中抽取品类与颜色后复用现有推荐链路。
+未识别到可映射品类时返回可操作的失败提示，不生成无关推荐。
+
 主页面不提供手势按钮，手势只在商品详情内使用。默认流程是常驻摄像头直播；
 直播不可用时，详情内可点「改用单次识别」：前端 3 秒倒计时 → `capture_burst` 一次抓 5 帧
 （同一摄像头进程）→ `gesture_batch` 一次加载 MediaPipe 并逐帧识别 → 按票数/置信度选最佳手势。

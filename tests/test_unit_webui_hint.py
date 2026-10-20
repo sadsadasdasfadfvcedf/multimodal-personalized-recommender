@@ -248,6 +248,60 @@ def test_feedback_write_skips_tts_synthesis():
     assert app.orch.dry_run_voice is original
 
 
+def test_vision_uses_object_prompt_and_passes_visual_tag():
+    """举物品识图：默认提示词聚焦主要物品，VL 描述进入视觉标签槽位。"""
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    captured: dict[str, object] = {}
+
+    app.orch.multimodal.capture_frame = lambda *args, **kwargs: ok({"image": "frame.jpg"})
+
+    def fake_describe(image, question):
+        captured["question"] = question
+        return ok({"response": "一个白色陶瓷杯"})
+
+    app.orch.multimodal.describe_image = fake_describe
+
+    def fake_handle(spec, **kwargs):
+        captured["spec"] = spec
+        return {
+            "ok": True,
+            "response": {
+                "status": "ok",
+                "recommendations": [],
+                "intent_result": {"slots": {"category": {"value": "厨房用品"}}},
+            },
+        }
+
+    app.handle_spec = fake_handle
+
+    result = app.vision("", 8)
+
+    assert result["ok"] is True
+    assert "最主要的一个物品" in str(captured["question"])
+    assert captured["spec"]["source"] == "vision"
+    assert captured["spec"]["text"] is None
+    assert captured["spec"]["visual_tags"][0]["tag"] == "一个白色陶瓷杯"
+    assert result["description"] == "一个白色陶瓷杯"
+
+
+def test_vision_unmapped_object_returns_actionable_error():
+    """识别不到商品品类时要提示重试，不能拿无关商品凑推荐。"""
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    app.orch.multimodal.capture_frame = lambda *args, **kwargs: ok({"image": "frame.jpg"})
+    app.orch.multimodal.describe_image = lambda *args, **kwargs: ok({"response": "一个不明物体"})
+    app.handle_spec = lambda *args, **kwargs: {"ok": True, "response": {"status": "ok", "intent_result": {"slots": {}}}}
+
+    result = app.vision("", 8)
+
+    assert result["ok"] is False
+    assert result["code"] == str(w.ErrorCode.LOW_CONFIDENCE_MODALITY)
+    assert "未能确定商品品类" in result["error"]
+
+
 def test_home_and_more_do_not_call_llm_explain():
     """首页货架/翻页必须快；运行时开着 LLM 解释也不能在这里拉起 4B 模型。"""
     w = _webui()

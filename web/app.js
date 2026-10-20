@@ -226,7 +226,7 @@ function updateAction(id, detail){
 /* P1-8：失败时给至少一个可点击的下一步 */
 function actionSuggestions(kind){
   const how = {voice:'请靠近麦克风、在安静环境说一句完整的话，说完停顿 1 秒。',
-               vision:'确保画面有光、主体在取景框内，再点一次。'}[kind] || '';
+               vision:'把要推荐的物品举到画面中央，确保有光，再点一次。'}[kind] || '';
   return '<div class="sugg">' +
     '<button data-retry="' + kind + '">重试一次</button>' +
     '<button data-type><span>改用打字</span></button>' +
@@ -852,7 +852,7 @@ async function act(kind){
     setBusy(false); return;
   }
   const meta = {voice:{i:'🎤', t:'语音输入', d:'正在录音 4 秒…'},
-                vision:{i:'👁', t:'画面理解', d:'正在抓取画面并做视觉理解（约 20~40 秒）…'}}[kind];
+                vision:{i:'📷', t:'识图推荐', d:'正在识别画面中的主要物品并生成同类推荐（约 20~40 秒）…'}}[kind];
   const id = addAction(meta.i, meta.t, meta.d);
   try{
     const payload = kind === 'voice' ? {seconds: 4, top_k: pageSize} : {top_k: pageSize};
@@ -869,7 +869,7 @@ async function act(kind){
     } else if (kind === 'vision'){
       if (d.description){
         finishAction(id, d.ok ? 'ok' : 'warn', d.ok ? '已完成' : '部分完成',
-                     '画面：<b>' + esc(d.description) + '</b>' + (d.ok ? '' : actionSuggestions('vision')));
+                     '识别到：<b>' + esc(d.description) + '</b>' + (d.ok ? '' : actionSuggestions('vision')));
         if (d.ok) renderBot(d.response, true);
       } else finishAction(id, 'err', '失败', esc(d.error) + actionSuggestions('vision'));
     } else if (!d.ok){
@@ -1120,7 +1120,7 @@ async function loadHomeShelf(force){
   stream.innerHTML = '';
   await loadHomeShelf();
   addBot('<div style="font-weight:620;margin-bottom:5px">你好，我是推荐助手</div>' +
-    '<div style="font-size:13px;color:#8b91a6">在上方说一句需求，或点工具条用<b>语音 / 画面</b>提要求；手势可在商品详情内直接使用。' +
+    '<div style="font-size:13px;color:#8b91a6">在上方说一句需求，或点工具条用<b>语音 / 识图推荐</b>提要求；手势可在商品详情内直接使用。' +
     '推荐结果在左侧货架：<b>点商品看详情</b>、<b>卡片右上角点赞 / 倒赞</b>、<b>点「加入对比」做字段对照</b>。' +
     (needReal ? '<br>当前为<b>离线模式</b>；用 <code>python webui.py --real</code> 可启用麦克风与摄像头。' : '') +
     '</div>');

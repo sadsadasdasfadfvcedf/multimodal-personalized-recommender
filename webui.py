@@ -11,7 +11,7 @@ webui.py —— 多模态个性化推荐助手 · 网页对话界面
     文本对话      输入框直接问
     🎤 语音      点按钮录 4 秒真实麦克风 → ASR → 对话（需 --real）
     ✋ 手势      商品详情内自动开启手势直播，👍→点赞、👎→倒赞（需 --real）
-    👁 画面      抓帧做视觉理解（需 --real）
+    📷 识图推荐  识别画面中的主要物品并更新商品推荐（需 --real）
     ↩ 撤销 / ⟳ 重来 / 会话状态 / LLM 开关
 
 用法：
@@ -107,6 +107,10 @@ _DEP_HINTS = (
     ("FieldDescriptor", "protobuf 版本过高：mediapipe 0.10.14 要求 protobuf>=4.25.3,<5"),
     ("torchvision::nms", "torchvision 与 torch 不配套：0.21.0 对应 torch 2.6.0"),
     ("AutoProcessor", "transformers 的 AutoProcessor 依赖可用的 torchvision，请先修 torchvision"),
+)
+
+_OBJECT_VISION_QUESTION = (
+    "只识别画面中央最主要的一个物品。用一句简短中文说明它是什么、是什么颜色；不要描述人物、动作或背景。"
 )
 
 
@@ -414,19 +418,40 @@ class App:
         cap = ad.capture_frame(str(frame))
         if not cap.ok:
             return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {cap.error}")
-        vl = ad.describe_image(str(frame), question or "")
+        vision_question = (question or "").strip() or _OBJECT_VISION_QUESTION
+        vl = ad.describe_image(str(frame), vision_question)
         if not vl.ok:
             msg = f"视觉理解失败: {vl.error}"
             hint = _dep_hint(msg)
             return _err(ErrorCode.MODALITY_UNAVAILABLE, msg + (f"（{hint}）" if hint else ""), hint=hint)
         desc = (vl.data or {}).get("response") or ""
+        if not str(desc).strip():
+            return _err(
+                ErrorCode.LOW_CONFIDENCE_MODALITY,
+                "没有识别出画面中的主要物品。请把物品举到画面中央并保持清晰后重试。",
+                description=desc,
+                vision_question=vision_question,
+            )
         out = self.handle_spec(
             # 没有提问时 text 必须传 None：传空串会被 parse_event 当成「空 ASR 文本」
             # 直接返回 E_EMPTY_TRANSCRIPT，视觉标签根本走不到（modality=visual 分支）。
-            {"source": "vision", "text": question or None, "visual_tags": [{"tag": desc[:24], "confidence": 0.85}]},
+            {
+                "source": "vision",
+                "text": (question or "").strip() or None,
+                "visual_tags": [{"tag": desc[:64], "confidence": 0.85}],
+            },
             top_k=top_k,
         )
         out["description"] = desc
+        out["vision_question"] = vision_question
+        slots = ((out.get("response") or {}).get("intent_result") or {}).get("slots") or {}
+        if not slots.get("category"):
+            return _err(
+                ErrorCode.LOW_CONFIDENCE_MODALITY,
+                f"识别到「{desc}」，但未能确定商品品类。请把物品放近、避免遮挡后重试。",
+                description=desc,
+                vision_question=vision_question,
+            )
         return out
 
     def control(self, action: str) -> dict:

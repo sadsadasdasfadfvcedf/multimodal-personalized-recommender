@@ -365,6 +365,23 @@ def extract_slots(
                 "category_alt", [c for c, _ in cat_hits[1:]], confidence=0.5, evidence=["文本命中多个类目词"]
             )
 
+    # 举物品识图：没有文字时，VL 描述本身也应能提供品类线索。
+    if "category" not in slots and event.visual_tags:
+        visual_categories: list[tuple[str, float, str, str]] = []
+        for tag in event.visual_tags:
+            for cat, word in _match_categories(tag.tag, catalog_categories):
+                eff = float(tag.raw.get("effective_confidence", tag.confidence))
+                visual_categories.append((cat, eff, tag.tag, word))
+        if visual_categories:
+            visual_categories.sort(key=lambda x: (-x[1], -len(x[3])))
+            cat, eff, raw_tag, word = visual_categories[0]
+            slots["category"] = Slot(
+                "category",
+                cat,
+                confidence=round(eff, 4),
+                evidence=[f"视觉标签「{raw_tag}」识别为「{cat}」（命中「{word}」）"],
+            )
+
     # --- 颜色 ---
     color_hits = _match_colors(text)
     if color_hits:
