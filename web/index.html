@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>多模态个性化推荐助手</title>
+<link rel="stylesheet" href="/styles.css">
+
+</head>
+<body>
+<header class="appbar">
+  <div class="brand"><span class="logo">拾</span><b>多模态推荐助手</b></div>
+  <form class="search" id="searchForm" role="search">
+    <label class="sr" for="q">搜索或提问</label>
+    <input id="q" type="text" autocomplete="off"
+           placeholder="说一句需求，或直接提问…">
+    <button type="submit" id="sendbtn">搜索</button>
+  </form>
+  <div class="chips" id="chips"></div>
+  <div class="right">
+    <button class="userbtn" id="userBtn" aria-label="当前用户" aria-haspopup="menu" aria-expanded="false">
+      <span class="avatar" id="uava">林</span><span id="uname">林先生</span><span style="color:#9aa0bd">▾</span>
+    </button>
+    <button class="iconbtn" id="gearBtn" aria-label="运行状态与设置" title="运行状态与设置">⚙</button>
+    <div class="usermenu" id="userMenu" role="menu" aria-label="切换演示账号"></div>
+  </div>
+</header>
+
+<div class="toolbar" id="toolbar" role="toolbar" aria-label="操作">
+  <button data-act="voice">🎤 语音</button>
+  <button data-act="vision">👁 画面</button>
+  <span class="sep"></span>
+  <button data-act="undo">↩ 撤销</button>
+  <button data-act="reset">⟳ 重来</button>
+  <button data-act="compare">▦ 对比<span class="pill" id="cmpPill">0</span></button>
+  <span class="sep"></span>
+  <button data-act="llm" id="llmbtn">LLM 解释：关</button>
+  <button class="ghost" id="statusBtn">运行状态 →</button>
+</div>
+
+<main class="layout">
+  <section class="shelf">
+    <div class="resultbar">
+      <div class="rbtop">
+        <h2 id="shelfTitle">猜你喜欢</h2>
+        <div class="fchips" id="fchips"></div>
+        <span class="cnt" id="shelfCnt"></span>
+      </div>
+      <div class="rbbot">
+        <label class="sr" for="sortSel">排序方式</label>
+        <select id="sortSel">
+          <option value="match">按匹配度</option>
+          <option value="priceAsc">价格从低到高</option>
+          <option value="priceDesc">价格从高到低</option>
+        </select>
+        <label class="sr" for="pageSize">显示数量</label>
+        <select id="pageSize" aria-label="显示数量">
+          <option value="8">显示 8 件</option>
+          <option value="16">显示 16 件</option>
+          <option value="24">显示 24 件</option>
+          <option value="40">显示 40 件</option>
+        </select>
+        <div class="vswitch" id="viewSwitch" role="group" aria-label="视图切换">
+          <button data-view="grid" class="on" aria-label="网格视图">▦</button>
+          <button data-view="list" aria-label="列表视图">☰</button>
+        </div>
+        <span class="sp"></span>
+      </div>
+    </div>
+    <div class="pgrid" id="pgrid"></div>
+    <button class="loadmore" id="loadMore" hidden>加载更多商品</button>
+    <div class="empty" id="empty" style="display:none"></div>
+  </section>
+
+  <aside class="panel" id="panel" aria-label="推荐助手">
+    <div class="phead">
+      <span class="dot" id="liveDot"></span><b>推荐助手</b>
+      <span class="live" id="liveTxt">实时</span>
+      <button class="clr" id="clearChat">清空</button>
+    </div>
+    <div class="stream" id="stream" aria-live="polite"></div>
+    <button class="jump" id="toBottom">↓ 回到最新</button>
+    <div class="pfoot">
+      <label class="sr" for="q2">继续对话</label>
+      <input id="q2" type="text" autocomplete="off" placeholder="继续说，例如：为什么推荐第一个">
+      <button id="sendbtn2">发送</button>
+    </div>
+  </aside>
+</main>
+
+<div class="tray" id="tray" role="region" aria-label="商品对比">
+  <div class="in">
+    <span class="lab">商品对比</span>
+    <div class="items" id="trayItems"></div>
+    <div class="acts">
+      <button id="trayClear">清空</button>
+      <button class="go" id="trayGo" disabled>开始对比</button>
+    </div>
+  </div>
+</div>
+
+<nav class="tabbar" id="tabbar" role="tablist">
+  <button data-tab="shelf" class="on"><b>▦</b>货架</button>
+  <button data-tab="chat"><b>💬</b>助手</button>
+  <button data-tab="status"><b>⚙</b>状态</button>
+</nav>
+
+<button class="fab" id="fab" aria-label="打开助手">💬</button>
+
+<div class="mask" id="mask"></div>
+
+<aside class="drawer" id="statusDrawer" aria-label="运行状态">
+  <div class="dh"><b>运行状态与设置</b><button id="statusClose" aria-label="关闭">✕</button></div>
+  <div class="db" id="statusBody"></div>
+</aside>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="商品详情">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<div class="modal" id="cmpModal" role="dialog" aria-modal="true" aria-label="商品对比">
+  <div class="sheet" id="cmpSheet"></div>
+</div>
+
+<div class="sr" id="toast" role="status" aria-live="polite"></div>
+<script src="/app.js" defer></script>
+
+</body>
+</html>
