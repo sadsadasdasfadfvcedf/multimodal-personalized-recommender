@@ -272,8 +272,18 @@ function renderBot(resp, updateShelf){
     '<button class="slotchip" data-slot="' + esc(String(v.value)) + '">' + esc(k) + ' · ' +
     esc(String(v.value)) + '</button>').join('') + '</div>';
 
+  const intent = (resp.intent_result || {}).intent;
   const n = (resp.recommendations || []).length;
-  if (n) h += '<div style="margin-top:6px">为你找到 <b>' + n + '</b> 件商品，已更新左侧货架。</div>';
+  const explainItem = intent === 'explain' ? (resp.recommendations || [])[0] : null;
+  const explainText = explainItem && (explainItem.explanation || explainItem.reason);
+  if (explainText){
+    h += '<div class="explain-card" data-explain><div class="explain-title">' +
+      esc(explainItem.title || '当前商品') + '</div><div>' + escHuman(explainText) + '</div>' +
+      (explainItem.evidence_count ? '<div class="explain-meta">可核验依据 ' +
+        Number(explainItem.evidence_count) + ' 条</div>' : '') + '</div>';
+  } else if (n){
+    h += '<div style="margin-top:6px">为你找到 <b>' + n + '</b> 件商品，已更新左侧货架。</div>';
+  }
   if (resp.browse) h += '<div style="margin-top:4px">已记录浏览：<b>' + esc(resp.browse.title || '') +
     '</b>（弱反馈，仅轻微上浮）</div>';
   if (resp.feedback){
@@ -311,7 +321,7 @@ function renderBot(resp, updateShelf){
        '<div class="body">' + detail + '</div></div>';
   }
   addBot(h);
-  if (updateShelf && n) {
+  if (updateShelf && n && intent !== 'explain') {
     renderShelf(resp.recommendations, shelfTitle(resp), shelfSub(resp), resp);
   }
 }
@@ -356,7 +366,9 @@ async function ask(text, opt){
   if (!opt.silent) addUser(text);
   setBusy(true); addSkeleton();
   try{
-    const d = await post('/api/chat', {text, top_k: pageSize});
+    const payload = {text, top_k: pageSize};
+    if (focusItemId) payload.focus_item_id = String(focusItemId);
+    const d = await post('/api/chat', payload);
     $('sk')?.remove();
     if (d.ok) renderBot(d.response, true);
     else addBot('<div class="errline">' + esc(d.error) + '</div>' +

@@ -1,7 +1,7 @@
 # 电商化体验重做 Implementation Plan
 
 > 完成状态：2026-10-20 六个任务全部完成，并补充「举起物品 → 识图 → 推荐」链路；
-> 验证结果 232 passed、网页验收 15/15、浏览器 QA SHIP。
+> 验证结果 234 passed、网页验收 16/16、浏览器 QA SHIP。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
@@ -275,7 +275,7 @@ python -m ruff format --check .
 python -m mypy
 ```
 
-Expected: 对比提示检查 PASS；后续任务全部完成后网页验收应为 15/15。
+Expected: 对比提示检查 PASS；后续任务全部完成后网页验收应为 16/16。
 
 - [x] **Step 5: 提交**
 
@@ -635,7 +635,7 @@ python scripts/13_webui_acceptance.py
 python scripts/17_browser_qa.py
 ```
 
-Expected: 9/9、全部 pytest、16/16、15/15、浏览器无 console error。
+Expected: 9/9、全部 pytest、16/16、16/16、浏览器无 console error。
 
 - [x] **Step 3: 清理可再生文件**
 

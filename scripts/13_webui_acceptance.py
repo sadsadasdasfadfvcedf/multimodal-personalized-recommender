@@ -2,7 +2,7 @@
 scripts/13_webui_acceptance.py
 ==============================
 
-网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 15 项）。
+网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 16 项）。
 
 实现方式：用 Edge 的 CDP（Chrome DevTools Protocol）驱动无头浏览器，
 在真实页面上**测量**而不是靠肉眼判断：
@@ -22,6 +22,7 @@ scripts/13_webui_acceptance.py
   13. 桌面为商品瀑布流 + 推荐助手两栏布局
   14. 商品详情含推荐理由、证据、对比与继续追问
   15. 识图请求不锁整页，失败原因可见
+  16. 追问携带焦点商品并直接展示推荐理由，不覆盖当前货架
 
 前置条件（缺一即跳过，不影响离线可复现性）：
     · 本机装有 Microsoft Edge
@@ -333,6 +334,45 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 f"visionBusy={(vision_state or {}).get('visionBusy')}，错误可见={vision_error_visible}",
             )
 
+            await ev(
+                "(function(){window.__chatOrigFetch=window.fetch;"
+                "window.__testItemId=document.querySelector('.pcard').dataset.item;"
+                "window.__cardsBefore=document.querySelectorAll('.pcard').length;"
+                "focusItemId=window.__testItemId;"
+                "window.fetch=async function(url,opts){"
+                "if(String(url)==='/api/chat'){window.__chatPayload=JSON.parse(opts.body||'{}');"
+                "return new Response(JSON.stringify({ok:true,response:{status:'ok',"
+                "intent_result:{intent:'explain',slots:{target:{value:window.__testItemId}}},"
+                "recommendations:[{item_id:window.__testItemId,title:'当前商品',"
+                "explanation:'它符合你当前的品类和预算条件，并且有可核验的商品证据。',"
+                "evidence_count:7}],trace:{latency_ms:{},modes:{},recall:{},ranking:{}},"
+                "presentation:{}}}),{status:200,headers:{'Content-Type':'application/json'}});}"
+                "return window.__chatOrigFetch(url,opts)};"
+                "document.getElementById('q2').value='为什么推荐它';"
+                "document.getElementById('sendbtn2').click();})()"
+            )
+            await asyncio.sleep(0.35)
+            explain_state = await ev(
+                "(function(){var bots=document.querySelectorAll('.bub.bot');"
+                "return {text:bots[bots.length-1]?.innerText||'',"
+                "focus:window.__chatPayload?.focus_item_id||'',before:window.__cardsBefore,"
+                "after:document.querySelectorAll('.pcard').length}})()"
+            )
+            await ev("window.fetch=window.__chatOrigFetch")
+            explain_ok = (
+                "可核验的商品证据" in str((explain_state or {}).get("text", ""))
+                and (explain_state or {}).get("focus") == (await ev("window.__testItemId"))
+                and (explain_state or {}).get("before") == (explain_state or {}).get("after")
+            )
+            add(
+                16,
+                "追问携带焦点商品并展示推荐理由",
+                explain_ok,
+                f"payload.focus={((explain_state or {}).get('focus'))}，"
+                f"理由已显示={'可核验的商品证据' in str((explain_state or {}).get('text', ''))}，"
+                f"货架卡片 {(explain_state or {}).get('before')}→{(explain_state or {}).get('after')}",
+            )
+
             root = settings.PROJECT_ROOT
             src = (root / "webui.py").read_text(encoding="utf-8")
             src += "\n".join(
@@ -356,7 +396,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=9455, help="CDP 调试端口")
     args = parser.parse_args()
 
-    banner("网页改版验收核验（设计文档表 6-1，15 项）")
+    banner("网页改版验收核验（设计文档表 6-1，16 项）")
     report = {"checked_at": now_iso(), "url": args.url, "checks": [], "verdict": "SKIP"}
 
     edge = _edge()

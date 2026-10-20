@@ -174,7 +174,11 @@ class Orchestrator:
 
         # 2.7) 开放问答：非推荐类问句交给常驻 LLM（加载一次、多轮复用）。
         # 只处理文字/语音；视觉与手势事件必须走各自的多模态链路。
-        if self.chat is not None and event.source in ("text", "voice") and self._should_chat(event.text):
+        if (
+            self.chat is not None
+            and event.source in ("text", "voice")
+            and self._should_chat(event.text, focus_item_id=session.focus_item_id)
+        ):
             chat_result = self.chat.chat(event.text or "")
             if chat_result.ok:
                 chat_data = chat_result.data
@@ -819,7 +823,7 @@ class Orchestrator:
         return f"{prefix}推荐：" if prefix else "为你推荐："
 
     @staticmethod
-    def _should_chat(text: str | None) -> bool:
+    def _should_chat(text: str | None, *, focus_item_id: str | None = None) -> bool:
         """开放问句 → 对话；购物/推荐需求 → 推荐链路。"""
         cfg = settings.CHAT_CONFIG
         if not text:
@@ -831,6 +835,8 @@ class Orchestrator:
         # 里的「推荐」是名词，不是购物指令。
         if any(marker in lowered for marker in cfg.get("tech_markers", [])):
             return True
+        if focus_item_id and any(marker in lowered for marker in LEX.get("referential_markers", [])):
+            return False
         if any(marker in lowered for marker in cfg["block_markers"]):
             return False
         signals = set(LEX["category_synonyms"]) | set(LEX["scenes"]) | set(LEX["colors"])

@@ -109,6 +109,29 @@ def test_recommendation_system_question_routes_to_chat():
     assert chat.calls
 
 
+def test_reason_question_uses_focused_product():
+    """点「继续问这件」后，为什么推荐它必须走 explain，而不是通用问答。"""
+    chat = FakeChat()
+    orch = Orchestrator(with_voice=False, chat_service=chat)
+    session_id = "focus-explain-probe"
+    first = orch.handle(
+        {"source": "text", "text": "推荐一些厨房用品"},
+        user_id="15547",
+        session_id=session_id,
+    ).data
+    target = first["recommendations"][0]["item_id"]
+
+    d = orch.handle(
+        {"source": "text", "text": "为什么推荐它"},
+        user_id="15547",
+        session_id=session_id,
+    ).data
+
+    assert d["intent_result"]["intent"] == "explain"
+    assert d["recommendations"][0]["item_id"] == target
+    assert chat.calls == []
+
+
 def test_shopping_phrases_are_not_chat():
     for text in ["有什么好推荐", "帮我推荐点东西", "推荐一下有什么好东西"]:
         chat = FakeChat()
@@ -178,3 +201,6 @@ def test_should_chat_is_pure_heuristic():
     assert not Orchestrator._should_chat("有什么好推荐")
     assert not Orchestrator._should_chat("随便看看")
     assert not Orchestrator._should_chat("")
+    assert not Orchestrator._should_chat("为什么推荐它", focus_item_id="20829")
+    assert not Orchestrator._should_chat("它是什么颜色", focus_item_id="20829")
+    assert Orchestrator._should_chat("它和基于内容的推荐有什么区别？", focus_item_id="20829")

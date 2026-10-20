@@ -314,7 +314,14 @@ class App:
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    def chat(self, text: str, top_k: int | None = None) -> dict:
+    def chat(self, text: str, top_k: int | None = None, focus_item_id: str | None = None) -> dict:
+        focus = str(focus_item_id or "").strip()
+        if focus and self.orch.catalog.exists(focus):
+            with self.lock:
+                session = self.orch.store.get_or_create(self.session_id, self.user_id)
+                session.focus_item_id = focus
+                if focus not in session.last_item_ids:
+                    session.last_item_ids = [focus, *session.last_item_ids]
         return self.handle_spec({"source": "text", "text": text}, top_k=top_k)
 
     def voice(self, seconds: float, top_k: int | None = None) -> dict:
@@ -882,7 +889,13 @@ def make_handler(app: App):
             try:
                 if self.path == "/api/chat":
                     raw_k = body.get("top_k")
-                    self._json(app.chat(str(body.get("text", "")), int(raw_k) if raw_k else None))
+                    self._json(
+                        app.chat(
+                            str(body.get("text", "")),
+                            int(raw_k) if raw_k else None,
+                            str(body.get("focus_item_id") or ""),
+                        )
+                    )
                 elif self.path == "/api/more":
                     raw_k = body.get("top_k")
                     self._json(app.more(str(body.get("text", "")), int(raw_k) if raw_k else 16))

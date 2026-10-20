@@ -345,6 +345,26 @@ def test_vision_unmapped_object_returns_actionable_error():
     assert "未能确定商品品类" in result["error"]
 
 
+def test_chat_receives_explicit_focus_item():
+    """网页追问必须显式把当前商品传给后端，不能只依赖前端局部变量。"""
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    captured: dict[str, str] = {}
+
+    def fake_handle(spec, **kwargs):
+        session = app.orch.store.get_or_create(app.session_id, app.user_id)
+        captured["focus"] = session.focus_item_id or ""
+        captured["text"] = spec.get("text") or ""
+        return {"ok": True, "response": {"status": "ok", "recommendations": []}}
+
+    app.handle_spec = fake_handle
+
+    result = app.chat("为什么推荐它", 8, "20829")
+
+    assert result["ok"] is True
+    assert captured == {"focus": "20829", "text": "为什么推荐它"}
+
+
 def test_home_and_more_do_not_call_llm_explain():
     """首页货架/翻页必须快；运行时开着 LLM 解释也不能在这里拉起 4B 模型。"""
     w = _webui()
