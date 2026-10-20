@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import sys
 import time
 import uuid
 from collections.abc import Iterable
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,21 @@ from typing import Any
 # trace / id
 # ------------------------------------------------------------
 TRACE_PREFIX = "tr"
+
+
+def ensure_utf8_stdio() -> None:
+    """把命令行入口的 stdout/stderr 固定为 UTF-8，避免中文 Windows GBK 崩溃。"""
+    if os.name == "nt":
+        with suppress(Exception):
+            import ctypes
+
+            ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+            ctypes.windll.kernel32.SetConsoleCP(65001)
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        reconfig = getattr(stream, "reconfigure", None)
+        if callable(reconfig):
+            with suppress(Exception):
+                reconfig(encoding="utf-8", errors="replace")
 
 
 def new_trace_id(seed_hint: str | None = None) -> str:

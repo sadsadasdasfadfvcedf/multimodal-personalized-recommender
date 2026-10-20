@@ -41,7 +41,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from config import settings  # noqa: E402
 from src.orchestrator import Orchestrator  # noqa: E402
-from src.utils import now_iso  # noqa: E402
+from src.utils import ensure_utf8_stdio, now_iso  # noqa: E402
 
 HELP = """可用输入：
   直接打字             例如「500以内的婚礼装饰品」「和这个相似的商品」「为什么推荐第一个」
@@ -330,4 +330,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    ensure_utf8_stdio()
     raise SystemExit(main())

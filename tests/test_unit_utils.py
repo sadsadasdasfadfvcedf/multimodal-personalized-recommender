@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from src import utils
@@ -97,3 +99,23 @@ def test_trace_id_shape():
 
 def test_now_iso_is_iso8601():
     assert utils.is_iso8601(utils.now_iso())
+
+
+def test_ensure_utf8_stdio_reconfigures_console_streams(monkeypatch):
+    calls: list[dict] = []
+
+    class FakeStream:
+        def reconfigure(self, **kwargs):
+            calls.append(kwargs)
+
+    monkeypatch.setattr(sys, "stdin", FakeStream())
+    monkeypatch.setattr(sys, "stdout", FakeStream())
+    monkeypatch.setattr(sys, "stderr", FakeStream())
+
+    utils.ensure_utf8_stdio()
+
+    assert calls == [
+        {"encoding": "utf-8", "errors": "replace"},
+        {"encoding": "utf-8", "errors": "replace"},
+        {"encoding": "utf-8", "errors": "replace"},
+    ]

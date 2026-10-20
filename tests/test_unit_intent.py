@@ -114,6 +114,17 @@ def test_visual_tag_maps_monitor_to_office_supplies(categories):
     assert slots["colors"].value == ["黑色"]
 
 
+def test_visual_tag_maps_skateboard_to_toys(categories):
+    event = make_event(
+        user_id="u-test",
+        source="vision",
+        modality="visual",
+        visual_tags=[{"tag": "一块滑板", "confidence": 0.86}],
+    )
+    slots = intent.extract_slots(event, catalog_categories=categories)
+    assert slots["category"].value == "玩具"
+
+
 @pytest.mark.parametrize(
     "text,expected_index",
     [

@@ -29,7 +29,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from config import settings  # noqa: E402
 from src.orchestrator import Orchestrator  # noqa: E402
-from src.utils import now_iso, write_json  # noqa: E402
+from src.utils import ensure_utf8_stdio, now_iso, write_json  # noqa: E402
 
 SCRIPT = [
     ("voice", "我要给朋友挑一个结婚礼物，500以内", "语音请求（ASR 文本）"),
@@ -136,4 +136,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    ensure_utf8_stdio()
     raise SystemExit(main())

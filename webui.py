@@ -47,6 +47,7 @@ from config import settings  # noqa: E402
 from src.errors import ErrorCode  # noqa: E402
 from src.orchestrator import Orchestrator  # noqa: E402
 from src.presentation import synthesize  # noqa: E402
+from src.utils import ensure_utf8_stdio  # noqa: E402
 
 # ------------------------------------------------------------
 # 商品图片：代理外部推荐系统的 /api/image/{id} 并本地缓存
@@ -1008,4 +1009,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    ensure_utf8_stdio()
     raise SystemExit(main())

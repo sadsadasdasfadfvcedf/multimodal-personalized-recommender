@@ -175,20 +175,26 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
 
             feedback_state = await ev(
                 "(function(){document.querySelector('.pcard [data-like=\"up\"]').click();"
-                "return {busy:busy,pending:document.querySelector('.pcard.pending')!==null}})()"
+                "return {busy:busy,pending:document.querySelector('.pcard.pending')!==null,"
+                "cards:document.querySelectorAll('.pcard').length}})()"
             )
             busy_after = (feedback_state or {}).get("busy")
             card_pending = (feedback_state or {}).get("pending")
-            add(
-                12,
-                "反馈不锁整页（只锁当前商品）",
-                busy_after is False and bool(card_pending),
-                f"反馈期间 busy={busy_after}，当前卡片 pending={card_pending}",
-            )
+            cards_before_feedback = (feedback_state or {}).get("cards")
             for _ in range(80):
                 if await ev("document.querySelector('.pcard.pending')===null"):
                     break
                 await asyncio.sleep(0.1)
+            cards_after_feedback = await ev("document.querySelectorAll('.pcard').length")
+            add(
+                12,
+                "反馈不锁整页且货架数量不缩水",
+                busy_after is False
+                and bool(card_pending)
+                and (cards_after_feedback or 0) >= (cards_before_feedback or 0),
+                f"反馈期间 busy={busy_after}，当前卡片 pending={card_pending}，"
+                f"货架 {cards_before_feedback}→{cards_after_feedback}",
+            )
 
             n = await ev("document.querySelectorAll('#fchips [data-drop]').length")
             add(3, "筛选条件可单独移除", (n or 0) > 0, f"可移除 chip {n or 0} 个")

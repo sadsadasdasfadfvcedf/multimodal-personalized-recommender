@@ -9,6 +9,7 @@ let focusItemId = null;   // 手势反馈默认目标：最近打开的商品，
 let detailItemId = null;
 let visionBusy = false;
 const pendingItems = new Set();
+const shelfTopK = () => Math.max(pageSize, Math.min(120, currentItems.length || pageSize));
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
 const INTENT_ZH = {discover:'随便看看', similar:'找相似', filter:'条件筛选',
@@ -423,7 +424,7 @@ async function rate(itemId, polarity, forceCancel){
                        cancel ? '取消反馈' : (polarity === 'up' ? '点赞' : '倒赞'),
                        cancel ? '正在撤销该商品的反馈并重新排序…' : '正在写入会话偏好并重新排序…');
   try{
-    const d = await post('/api/feedback', {item_id: key, polarity: cancel ? 'none' : polarity, top_k: pageSize});
+    const d = await post('/api/feedback', {item_id: key, polarity: cancel ? 'none' : polarity, top_k: shelfTopK()});
     const r = d.response || {};
     const okStatus = r.status === 'ok' || r.status === 'degraded';
     if (d.ok && okStatus){
@@ -579,7 +580,7 @@ async function handleLiveEvent(g){
     if (!target) return;
     const dir = g === 'thumbs_up' ? 'up' : 'down';
     const cancel = ratings.get(String(target)) === dir;
-    const r = await post('/api/feedback', {item_id: target, polarity: cancel ? 'none' : dir, top_k: pageSize});
+    const r = await post('/api/feedback', {item_id: target, polarity: cancel ? 'none' : dir, top_k: shelfTopK()});
     if (r.ok){
       if (cancel){
         ratings.delete(String(target));
@@ -699,7 +700,7 @@ async function modalGesture(itemId){
   }
   status('正在连拍并识别…');
   try{
-    const d = await post('/api/gesture', {item_id: itemId, top_k: pageSize});
+    const d = await post('/api/gesture', {item_id: itemId, top_k: shelfTopK()});
     const shot = d.preview_url ? '<a class="shotwrap" href="' + esc(d.preview_url) +
       '" target="_blank" rel="noopener"><img class="shot" src="' + esc(d.preview_url) +
       '" alt="手势抓拍画面"></a><div class="shotcap">抓拍画面 · 点击查看大图</div>' : '';
@@ -709,7 +710,7 @@ async function modalGesture(itemId){
       const dir = pol === 'positive' ? 'up' : 'down';
       const cancel = ratings.get(String(itemId)) === dir;
       if (cancel){
-        const c = await post('/api/feedback', {item_id: itemId, polarity: 'none', top_k: pageSize});
+        const c = await post('/api/feedback', {item_id: itemId, polarity: 'none', top_k: shelfTopK()});
         if (c.ok){
           ratings.delete(String(itemId));
           document.querySelectorAll('[data-undo-feedback="' + itemId + '"]').forEach(b => b.remove());
