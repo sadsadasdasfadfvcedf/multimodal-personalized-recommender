@@ -138,7 +138,7 @@
 
 | 入口 | 命令 | 用途与特点 |
 |---|---|---|
-| Web 对话界面 | python webui.py → http://127.0.0.1:8020 | 按电商平台形态组织：顶部搜索框 + 左侧商品货架 + 右侧推荐助手。点图看商品详情（大图 / 中英标题 / 参考价 / 价格来源 / 历史成交 / 相似商品下钻），悬停卡片浮出 👍/👎 一键反馈并重排。零新增依赖（Python 标准库实现） |
+| Web 对话界面 | python webui.py → http://127.0.0.1:8020 | 按电商平台形态组织：顶部搜索框 + 左侧商品货架 + 右侧推荐助手。点图看详情（大图 / 中英标题 / 参考价 / 价格来源 / 历史成交 / 推荐理由 / 证据 / 对比 / 追问），卡片右上角 👍/👎 常驻并局部更新。零新增依赖（Python 标准库实现） |
 | 终端对话 | python chat.py | 不开浏览器就用它。支持直接打字，也支持 /voice 录音识别、/gesture 手势、/vision 画面理解，以及 /undo 撤销、/reset 重开、/state 看槽位与反馈、/llm on&#124;off、/say on&#124;off |
 | 一键演示 | python main.py | 写死的三轮端到端演示脚本，用于验收取证（含语音播报）。日常对话请用 chat.py 或 webui.py |
 
@@ -419,7 +419,7 @@ integrated_ai_project/
 │  ├─ 17_browser_qa.py                         浏览器运行时 QA（console/CWV/无障碍）
 │  ├─ 18_contract_check.py                     网页 API 契约核验（14 项）
 │  ├─ 19_security_check.py                     网页服务安全基线（8 项）
-│  ├─ 13_webui_acceptance.py                   网页改版验收（10 项，需 Edge）
+│  ├─ 13_webui_acceptance.py                   网页改版验收（14 项，需 Edge）
 │  ├─ run_all_offline.py                       一键跑完整离线套件（汇总表）
 ```
 

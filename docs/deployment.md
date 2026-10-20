@@ -72,6 +72,10 @@ python scripts/12_text_norm_check.py         # 文本规范化与流畅度门控
 python scripts/clean_workspace.py
 ```
 
+网页静态资源位于 `web/index.html`、`web/styles.css`、`web/app.js`，由 `webui.py` 的静态文件路由提供，
+不依赖 npm 或 CDN。页面功能边界是阶段 1~6 的导购闭环：推荐、详情与证据、2~4 件商品对比、
+点赞/倒赞反馈、撤销与继续追问；不包含购物车、结算、支付、订单、物流、地址、会员、优惠券或独立收藏夹。
+
 ## 4. 运行模式与环境变量
 
 | 环境变量 | 取值 | 默认 | 作用 |

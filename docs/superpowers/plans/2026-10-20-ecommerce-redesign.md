@@ -1,6 +1,8 @@
 # 电商化体验重做 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> 完成状态：2026-10-20 六个任务全部完成；验证结果 226 passed、网页验收 14/14、浏览器 QA SHIP。
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 在不改变六个阶段业务边界的前提下，把现有页面重做成“商品瀑布流 + 推荐助手”的电商导购体验，并消除反馈卡顿、隐藏提示和全局锁屏。
 
@@ -37,7 +39,7 @@
 - Consumes: 现有 `PAGE` 中的 HTML、`<style>` 内容和 `<script>` 内容
 - Produces: `GET /`、`GET /styles.css`、`GET /app.js`；静态文件只从 `PROJECT_ROOT / "web"` 读取
 
-- [ ] **Step 1: 写静态服务失败测试**
+- [x] **Step 1: 写静态服务失败测试**
 
 ```python
 # tests/test_unit_webui_static.py
@@ -79,7 +81,7 @@ def test_static_page_assets_are_served():
         thread.join(timeout=2)
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run:
 
@@ -89,7 +91,7 @@ python -m pytest tests/test_unit_webui_static.py -q
 
 Expected: `/styles.css` 或 `/app.js` 返回 404，测试失败。
 
-- [ ] **Step 3: 一次性拆出 PAGE**
+- [x] **Step 3: 一次性拆出 PAGE**
 
 在项目根目录临时运行以下脚本（执行后删除脚本）：
 
@@ -117,7 +119,7 @@ Path("web/app.js").write_text(script.strip() + "\n", encoding="utf-8")
 
 删除 `webui.py` 中从 `PAGE = r"""` 到对应结束 `"""` 的整段内嵌页面。
 
-- [ ] **Step 4: 实现静态文件服务**
+- [x] **Step 4: 实现静态文件服务**
 
 在 `webui.py` 顶部加入：
 
@@ -150,7 +152,7 @@ if self.path == "/app.js":
     return
 ```
 
-- [ ] **Step 5: 运行静态测试**
+- [x] **Step 5: 运行静态测试**
 
 Run:
 
@@ -160,7 +162,7 @@ python -m pytest tests/test_unit_webui_static.py -q
 
 Expected: PASS。
 
-- [ ] **Step 6: 跑完整回归**
+- [x] **Step 6: 跑完整回归**
 
 Run:
 
@@ -173,7 +175,7 @@ python -m mypy
 
 Expected: 全部通过；页面行为与拆分前一致。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```powershell
 git add web/index.html web/styles.css web/app.js webui.py tests/test_unit_webui_static.py
@@ -194,7 +196,7 @@ git commit -m "重构：拆分网页静态资源"
 - Consumes: `openCompare()`、`toast(message)`
 - Produces: 可见 toast；0/1 件对比时显示明确提示，2~4 件时打开对比表
 
-- [ ] **Step 1: 写验收失败测试**
+- [x] **Step 1: 写验收失败测试**
 
 在 `scripts/13_webui_acceptance.py` 的对比检查前加入：
 
@@ -212,7 +214,7 @@ add(
 
 Expected: 当前 `.sr` toast 不可见，测试失败。
 
-- [ ] **Step 2: 实现可见 toast**
+- [x] **Step 2: 实现可见 toast**
 
 在 `web/index.html` 顶部/底部加入：
 
@@ -246,7 +248,7 @@ function toast(msg){
 }
 ```
 
-- [ ] **Step 3: 对比不足时给出明确引导**
+- [x] **Step 3: 对比不足时给出明确引导**
 
 在 `openCompare` 开头替换为：
 
@@ -262,7 +264,7 @@ async function openCompare(){
 }
 ```
 
-- [ ] **Step 4: 运行验收与回归**
+- [x] **Step 4: 运行验收与回归**
 
 ```powershell
 python scripts/13_webui_acceptance.py
@@ -274,7 +276,7 @@ python -m mypy
 
 Expected: 对比提示检查 PASS；网页验收在完成本任务后新增到 14 项，后续任务全部完成时应为 14/14。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git add web/index.html web/styles.css web/app.js scripts/13_webui_acceptance.py
@@ -294,7 +296,7 @@ git commit -m "修复：对比按钮可见反馈"
 - Consumes: `POST /api/feedback`、`POST /api/gesture`、`ratings` Map
 - Produces: `setCardPending(itemId, on)`、`applyFeedbackOptimistic(itemId, polarity)`；反馈期间全局 `busy` 保持不变
 
-- [ ] **Step 1: 写浏览器回归**
+- [x] **Step 1: 写浏览器回归**
 
 在 `scripts/13_webui_acceptance.py` 的点赞检查中加入：
 
@@ -311,7 +313,7 @@ add(
 
 Expected: 当前 `rate()` 会调用 `setBusy(true)`，测试失败。
 
-- [ ] **Step 2: 实现局部状态**
+- [x] **Step 2: 实现局部状态**
 
 在 `web/app.js` 增加：
 
@@ -377,7 +379,7 @@ function syncRatingUI(itemId){
 
 倒赞成功时，`renderBot` 会使用后端返回的推荐列表自动移除商品；取消倒赞时会重新出现。
 
-- [ ] **Step 3: 样式与提示**
+- [x] **Step 3: 样式与提示**
 
 在 `web/styles.css` 加入：
 
@@ -395,7 +397,7 @@ if (fb.polarity !== 'none' && fb.item_id){
 }
 ```
 
-- [ ] **Step 4: 运行回归**
+- [x] **Step 4: 运行回归**
 
 ```powershell
 python -m pytest tests/test_unit_webui_hint.py tests/test_unit_feedback_toggle.py -q
@@ -405,7 +407,7 @@ python -m pytest -q
 
 Expected: 反馈不设置全局 `busy`；点赞/取消/倒赞都通过。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git add web/app.js web/styles.css scripts/13_webui_acceptance.py
@@ -426,7 +428,7 @@ git commit -m "优化：反馈改局部 pending 与乐观更新"
 - Consumes: 现有 `#pgrid`、`#stream`、`#toolbar`、`#tray`、`#modal`、`#cmpModal`
 - Produces: 桌面两栏布局 `#shelf` + `#assistant`；窄屏底部 Tab；详情模态、对比栏保持
 
-- [ ] **Step 1: 写布局验收**
+- [x] **Step 1: 写布局验收**
 
 在 `scripts/13_webui_acceptance.py` 检查：
 
@@ -440,7 +442,7 @@ add(13, "电商两栏布局", bool(layout), f"瀑布流宽于助手={layout}")
 
 Expected: 当前布局不具备 `#shelf` / `#assistant` 结构，测试失败。
 
-- [ ] **Step 2: 重写 HTML 骨架**
+- [x] **Step 2: 重写 HTML 骨架**
 
 `web/index.html` 的主体调整为：
 
@@ -464,7 +466,7 @@ Expected: 当前布局不具备 `#shelf` / `#assistant` 结构，测试失败。
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 ```
 
-- [ ] **Step 3: 布局样式**
+- [x] **Step 3: 布局样式**
 
 在 `web/styles.css` 设置：
 
@@ -483,11 +485,11 @@ Expected: 当前布局不具备 `#shelf` / `#assistant` 结构，测试失败。
 }
 ```
 
-- [ ] **Step 4: 更新 JS 选择器**
+- [x] **Step 4: 更新 JS 选择器**
 
 保持 `renderShelf` 目标仍是 `#pgrid`，消息流仍是 `#stream`。把旧布局中依赖 `.shelf`/`.panel` 的引用统一到 `#shelf`/`#assistant`，并保留 `#toolbar`、`#tray`、`#modal`、`#cmpModal` id。
 
-- [ ] **Step 5: 运行视觉与功能回归**
+- [x] **Step 5: 运行视觉与功能回归**
 
 ```powershell
 python scripts/13_webui_acceptance.py
@@ -496,7 +498,7 @@ python scripts/17_browser_qa.py
 
 Expected: 桌面两栏、窄屏抽屉、无横向溢出；对比和反馈仍可用。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```powershell
 git add web/index.html web/styles.css web/app.js scripts/13_webui_acceptance.py
@@ -517,7 +519,7 @@ git commit -m "界面：重构为电商两栏骨架"
 - Consumes: `POST /api/view`、`GET /api/product/{id}`、`POST /api/products`、`POST /api/feedback`
 - Produces: 详情模态中的证据、解释、点赞/倒赞、加入对比、追问按钮
 
-- [ ] **Step 1: 详情验收**
+- [x] **Step 1: 详情验收**
 
 ```python
 detail = await ev(
@@ -528,7 +530,7 @@ has_reason = await ev("!!document.querySelector('#modal [data-reason]')")
 add(14, "商品详情可打开且含推荐理由", bool(detail) and bool(has_reason), f"detail={detail}, reason={has_reason}")
 ```
 
-- [ ] **Step 2: 详情结构**
+- [x] **Step 2: 详情结构**
 
 详情模态使用：
 
@@ -550,7 +552,7 @@ add(14, "商品详情可打开且含推荐理由", bool(detail) and bool(has_rea
 </div>
 ```
 
-- [ ] **Step 3: 追问行为**
+- [x] **Step 3: 追问行为**
 
 ```js
 const ask = $('sheet').querySelector('[data-ask-product]');
@@ -562,7 +564,7 @@ if (ask) ask.onclick = () => {
 };
 ```
 
-- [ ] **Step 4: 详情内点赞/倒赞复用 `rate`**
+- [x] **Step 4: 详情内点赞/倒赞复用 `rate`**
 
 ```js
 $('sheet').querySelectorAll('[data-rate]').forEach(el => {
@@ -573,11 +575,11 @@ $('sheet').querySelectorAll('[data-rate]').forEach(el => {
 });
 ```
 
-- [ ] **Step 5: 对比保持当前字段表**
+- [x] **Step 5: 对比保持当前字段表**
 
 保留 `openCompare` 的 7 行字段；把差异高亮和底部对比栏保留。对比不足 2 件时使用 Task 2 的可见提示。
 
-- [ ] **Step 6: 运行回归**
+- [x] **Step 6: 运行回归**
 
 ```powershell
 python scripts/13_webui_acceptance.py
@@ -586,7 +588,7 @@ python -m pytest -q
 
 Expected: 详情、对比、追问、反馈全部可用。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```powershell
 git add web/index.html web/styles.css web/app.js
@@ -608,7 +610,7 @@ git commit -m "界面：完善详情、对比与继续追问"
 - Consumes: 前五个任务的页面与反馈行为
 - Produces: 可复现的六阶段交付包与更新后的页面说明
 
-- [ ] **Step 1: 更新页面说明**
+- [x] **Step 1: 更新页面说明**
 
 README 和 docs 更新：
 
@@ -619,7 +621,7 @@ README 和 docs 更新：
 - 主页面无手势按钮，手势只在详情
 - 不提供购物车/支付/订单
 
-- [ ] **Step 2: 跑完整验收**
+- [x] **Step 2: 跑完整验收**
 
 ```powershell
 python -B scripts/run_all_offline.py
@@ -634,7 +636,7 @@ python scripts/17_browser_qa.py
 
 Expected: 9/9、全部 pytest、16/16、14/14、浏览器无 console error。
 
-- [ ] **Step 3: 清理可再生文件**
+- [x] **Step 3: 清理可再生文件**
 
 ```powershell
 python scripts/clean_workspace.py
@@ -642,7 +644,7 @@ python scripts/clean_workspace.py
 
 不要删除 `web/`、源码、文档或数据。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git add README.md docs/manual.md docs/deployment.md scripts/13_webui_acceptance.py
@@ -651,12 +653,12 @@ git commit -m "文档：更新电商化页面与验收说明"
 
 ## Self-Review
 
-- [ ] 设计文档 §3.1 两栏布局由 Task 4 覆盖。
-- [ ] 设计文档 §3.3 商品卡由 Task 4 覆盖。
-- [ ] 设计文档 §3.4 详情与追问由 Task 5 覆盖。
-- [ ] 设计文档 §3.5 对比与可见提示由 Task 2、Task 5 覆盖。
-- [ ] 设计文档 §4 反馈局部化、取消、倒赞移除由 Task 3 覆盖。
-- [ ] 设计文档 §5 静态拆分/API 复用由 Task 1、Task 4 覆盖。
-- [ ] 设计文档 §5.4 不换主模型、VL 按需加载由 Task 3/6 的回归口径保留。
-- [ ] 设计文档 §8 六阶段自动/手工验收由 Task 6 覆盖。
-- [ ] 不新增购物车、支付、订单、独立收藏夹；全文无相关实现任务。
+- [x] 设计文档 §3.1 两栏布局由 Task 4 覆盖。
+- [x] 设计文档 §3.3 商品卡由 Task 4 覆盖。
+- [x] 设计文档 §3.4 详情与追问由 Task 5 覆盖。
+- [x] 设计文档 §3.5 对比与可见提示由 Task 2、Task 5 覆盖。
+- [x] 设计文档 §4 反馈局部化、取消、倒赞移除由 Task 3 覆盖。
+- [x] 设计文档 §5 静态拆分/API 复用由 Task 1、Task 4 覆盖。
+- [x] 设计文档 §5.4 不换主模型、VL 按需加载由 Task 3/6 的回归口径保留。
+- [x] 设计文档 §8 六阶段自动/手工验收由 Task 6 覆盖。
+- [x] 不新增购物车、支付、订单、独立收藏夹；全文无相关实现任务。

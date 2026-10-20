@@ -2,7 +2,7 @@
 scripts/13_webui_acceptance.py
 ==============================
 
-网页改版的验收清单核验（对应《页面改版设计README》表 6-1 的 10 项）。
+网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 14 项）。
 
 实现方式：用 Edge 的 CDP（Chrome DevTools Protocol）驱动无头浏览器，
 在真实页面上**测量**而不是靠肉眼判断：
@@ -16,7 +16,11 @@ scripts/13_webui_acceptance.py
     7. 模态输入失败时是否给出可点击的下一步
     8. 运行细节是否默认折叠
     9. 原有能力（证据条数 / 详情入口 / 回到最新）是否保留
-   10. 未新增前端依赖（由代码结构保证，此项由本脚本静态确认）
+  10. 未新增第三方前端依赖（由项目内静态资源与标准库共同保证）
+  11. 对比不足 2 件时有可见提示
+  12. 反馈只锁当前商品，不锁整页
+  13. 桌面为商品瀑布流 + 推荐助手两栏布局
+  14. 商品详情含推荐理由、证据、对比与继续追问
 
 前置条件（缺一即跳过，不影响离线可复现性）：
     · 本机装有 Microsoft Edge
@@ -167,9 +171,12 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
             op = await ev("getComputedStyle(document.querySelector('.pacts')).opacity")
             add(2, "触屏可反馈（👍/👎 常驻，不依赖 hover）", str(op) in ("1", "1.0"), f"opacity={op}")
 
-            await ev("document.querySelector('.pcard [data-like=\"up\"]').click()")
-            busy_after = await ev("busy")
-            card_pending = await ev("document.querySelector('.pcard.pending')!==null")
+            feedback_state = await ev(
+                "(function(){document.querySelector('.pcard [data-like=\"up\"]').click();"
+                "return {busy:busy,pending:document.querySelector('.pcard.pending')!==null}})()"
+            )
+            busy_after = (feedback_state or {}).get("busy")
+            card_pending = (feedback_state or {}).get("pending")
             add(
                 12,
                 "反馈不锁整页（只锁当前商品）",
@@ -278,19 +285,36 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 "!/(historical_mode|category_median|catalog_default|offline_snapshot|offline_stub)/"
                 ".test(document.getElementById('modal').innerText)"
             )
+            await ev("document.querySelector('#modal [data-ask-product]').click()")
+            await asyncio.sleep(0.15)
+            ask_focus = await ev(
+                "!document.getElementById('modal').classList.contains('show') && "
+                "document.activeElement && document.activeElement.id==='q2'"
+            )
             add(
                 14,
                 "商品详情含推荐理由、证据、对比与继续追问",
-                bool(detail) and bool(has_reason) and bool(has_evidence) and bool(has_actions) and bool(humanized),
-                f"详情={detail}，理由={has_reason}，证据={has_evidence}，操作={has_actions}，术语已翻译={humanized}",
+                bool(detail)
+                and bool(has_reason)
+                and bool(has_evidence)
+                and bool(has_actions)
+                and bool(humanized)
+                and bool(ask_focus),
+                f"详情={detail}，理由={has_reason}，证据={has_evidence}，操作={has_actions}，"
+                f"术语已翻译={humanized}，追问聚焦={ask_focus}",
             )
-            await ev("document.querySelector('#modal [data-close]').click()")
+            if await ev("document.getElementById('modal').classList.contains('show')"):
+                await ev("document.querySelector('#modal [data-close]').click()")
 
-            src = Path(settings.PROJECT_ROOT / "webui.py").read_text(encoding="utf-8")
+            root = settings.PROJECT_ROOT
+            src = (root / "webui.py").read_text(encoding="utf-8")
+            src += "\n".join(
+                (root / "web" / name).read_text(encoding="utf-8") for name in ("index.html", "styles.css", "app.js")
+            )
             external = [u for u in ("cdn.", "unpkg", "jsdelivr", "googleapis") if u in src]
             add(
                 10,
-                "未新增第三方前端依赖（仍为单文件 + 标准库）",
+                "未新增第三方前端依赖（项目内静态资源 + 标准库）",
                 not external,
                 f"外部 CDN 引用 {external}" if external else "无外部 CDN / 无 npm 依赖",
             )
@@ -305,7 +329,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=9455, help="CDP 调试端口")
     args = parser.parse_args()
 
-    banner("网页改版验收核验（设计文档表 6-1，10 项）")
+    banner("网页改版验收核验（设计文档表 6-1，14 项）")
     report = {"checked_at": now_iso(), "url": args.url, "checks": [], "verdict": "SKIP"}
 
     edge = _edge()
