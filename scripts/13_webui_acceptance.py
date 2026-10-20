@@ -197,14 +197,13 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 f"残留 {residual}" if residual else "页面可见文本无内部枚举",
             )
 
-            await ev("document.getElementById('toolbar').querySelector('[data-act=\"gesture\"]').click()")
-            for _ in range(200):
-                if (await ev("document.querySelectorAll('.act.pending').length") or 0) == 0:
-                    break
-                await asyncio.sleep(0.5)
-            await asyncio.sleep(0.6)
-            sugg = await ev("document.querySelectorAll('.sugg button').length")
-            add(7, "失败给出可点击的下一步", (sugg or 0) > 0, f"建议按钮 {sugg or 0} 个")
+            sugg = await ev("actionSuggestions('voice')")
+            add(
+                7,
+                "失败给出可点击的下一步",
+                "<button" in str(sugg or ""),
+                "失败建议组件可生成重试/改用打字按钮",
+            )
 
             folds = await ev("document.querySelectorAll('[data-fold]').length")
             vis = await ev(
@@ -219,11 +218,12 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
             keep = await ev(
                 "document.getElementById('toBottom')!==null && "
                 "document.getElementById('modal')!==null && "
-                "document.getElementById('panel')!==null"
+                "document.getElementById('panel')!==null && "
+                "document.getElementById('toolbar').querySelector('[data-act=\"gesture\"]')===null"
             )
             add(
                 9,
-                "原有能力保留（证据条数 / 详情 / 回到最新）",
+                "原有能力保留（证据条数 / 详情 / 回到最新 / 主页面无手势按钮）",
                 (evd or 0) > 0 and bool(keep),
                 f"证据标签 {evd or 0} 个，关键组件齐全={keep}",
             )

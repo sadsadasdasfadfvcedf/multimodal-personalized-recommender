@@ -26,8 +26,8 @@ from .adapters import MultimodalAdapter, RecommenderAdapter
 from .asr_service import AsrService
 from .camera_service import CameraService
 from .catalog import Catalog
-from .contracts import RecommendationItem, RecommendationRequest
-from .errors import ErrorCode, Result, ok
+from .contracts import RecommendationItem, RecommendationRequest, make_event
+from .errors import ErrorCode, Result, fail, ok
 from .evidence import build_pack
 from .explain import explain
 from .intent import understand
@@ -490,6 +490,77 @@ class Orchestrator:
         }
         payload["note"] = f"已记录{'点赞' if polarity == 'positive' else '倒赞'}：{self.catalog.title(str(target))}"
         return payload
+
+    def clear_feedback(
+        self,
+        item_id: str,
+        *,
+        user_id: str,
+        session_id: str,
+        top_k: int | None = None,
+    ) -> Result:
+        """取消某件商品的点赞/倒赞，并按当前会话条件重新排序。"""
+        session = self.store.get_or_create(session_id, user_id)
+        item_id = str(item_id)
+        if not self.catalog.exists(item_id):
+            return fail(ErrorCode.ITEM_NOT_FOUND, f"商品 {item_id} 不在目录中，无法取消反馈", "item_id")
+
+        before_ids = list(session.last_item_ids)
+        category = self.catalog.category_of(item_id)
+        removed = session.remove_feedback(item_id, category=category)
+        if not removed.ok:
+            return removed
+
+        request = RecommendationRequest(
+            trace_id=new_trace_id("feedback-clear"),
+            user_id=user_id,
+            timestamp=now_iso(),
+            source="text",
+            intent="filter" if any(c.kind == "hard" for c in session.constraints) else "discover",
+            slots=dict(session.slot_state),
+            constraints=list(session.constraints),
+            top_k=top_k or settings.RANKING_CONFIG["top_k"],
+            session_id=session_id,
+            mode=self.mode,
+        )
+        event = make_event(user_id=user_id, source="text")
+        timer = Timer()
+        payload = self._handle_recommend(event, request, session, timer)
+        status = payload.pop("status", "ok")
+        after_ids = [r["item_id"] for r in payload.get("recommendations", [])]
+        top_n = settings.FEEDBACK_CONFIG["ab"]["top_k"]
+        title = self.catalog.title(item_id)
+        payload["feedback"] = {
+            "item_id": item_id,
+            "polarity": "none",
+            "cleared": bool((removed.data or {}).get("removed")),
+            "likes": dict(session.likes),
+            "dislikes": dict(session.dislikes),
+            "target_title": title,
+        }
+        payload["before_after"] = {
+            "before_topk": before_ids[:top_n],
+            "after_topk": after_ids[:top_n],
+            "changed": before_ids[:top_n] != after_ids[:top_n],
+        }
+        payload["note"] = f"已取消反馈：{title}"
+        return ok(
+            self._envelope(
+                event,
+                session,
+                timer,
+                status=status,
+                intent_result={
+                    "intent": "feedback",
+                    "intent_confidence": 1.0,
+                    "slots": {},
+                    "missing_slots": [],
+                    "conflicts": [],
+                },
+                request=request.to_dict(),
+                **payload,
+            )
+        )
 
     # ============================================================
     # 处理器：对比

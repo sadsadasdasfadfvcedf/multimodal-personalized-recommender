@@ -10,7 +10,7 @@ webui.py —— 多模态个性化推荐助手 · 网页对话界面
 页面能力：
     文本对话      输入框直接问
     🎤 语音      点按钮录 4 秒真实麦克风 → ASR → 对话（需 --real）
-    ✋ 手势      抓帧识别手势，👍→点赞、👎→倒赞（需 --real）
+    ✋ 手势      商品详情内自动开启手势直播，👍→点赞、👎→倒赞（需 --real）
     👁 画面      抓帧做视觉理解（需 --real）
     ↩ 撤销 / ⟳ 重来 / 会话状态 / LLM 开关
 
@@ -485,7 +485,6 @@ PAGE = r"""<!DOCTYPE html>
 
 <div class="toolbar" id="toolbar" role="toolbar" aria-label="操作">
   <button data-act="voice">🎤 语音</button>
-  <button data-act="gesture">✋ 手势</button>
   <button data-act="vision">👁 画面</button>
   <span class="sep"></span>
   <button data-act="undo">↩ 撤销</button>
@@ -790,7 +789,6 @@ function updateAction(id, detail){
 /* P1-8：失败时给至少一个可点击的下一步 */
 function actionSuggestions(kind){
   const how = {voice:'请靠近麦克风、在安静环境说一句完整的话，说完停顿 1 秒。',
-               gesture:'把手举到脸旁边、靠近画面中央，离镜头约 50–80cm；倒计时结束后保持约 1 秒。当前只支持 👍 点赞 / 👎 倒赞，其他手势会被忽略。',
                vision:'确保画面有光、主体在取景框内，再点一次。'}[kind] || '';
   return '<div class="sugg">' +
     '<button data-retry="' + kind + '">重试一次</button>' +
@@ -830,9 +828,18 @@ function renderBot(resp, updateShelf){
   if (n) h += '<div style="margin-top:6px">为你找到 <b>' + n + '</b> 件商品，已更新左侧货架。</div>';
   if (resp.browse) h += '<div style="margin-top:4px">已记录浏览：<b>' + esc(resp.browse.title || '') +
     '</b>（弱反馈，仅轻微上浮）</div>';
-  if (resp.feedback) h += '<div style="margin-top:4px">已记录 <b>' +
-    esc(resp.feedback.polarity === 'positive' ? '点赞' : '倒赞') + '</b> → ' +
-    esc(resp.feedback.target_title || '') + '</div>';
+  if (resp.feedback){
+    const fb = resp.feedback;
+    const verb = fb.polarity === 'positive' ? '点赞' : fb.polarity === 'negative' ? '倒赞' : '';
+    h += '<div style="margin-top:4px">' +
+      (fb.polarity === 'none' || fb.cleared ? '已取消反馈' : '已记录 <b>' + esc(verb) + '</b>') +
+      ' → ' + esc(fb.target_title || '') + '</div>';
+    if (fb.polarity !== 'none' && fb.item_id){
+      const p = fb.polarity === 'positive' ? 'up' : 'down';
+      h += '<button class="cmpbtn" style="margin-top:5px" data-undo-feedback="' + esc(fb.item_id) +
+        '" data-feedback-polarity="' + p + '">撤销' + (p === 'up' ? '点赞' : '倒赞') + '</button>';
+    }
+  }
   if (resp.before_after) h += '<div style="margin-top:4px;font-size:12.5px;color:#8b91a6">排序变化：<b style="color:#1b1f30">' +
     (resp.before_after.changed ? '有' : '无') + '</b></div>';
 
@@ -915,24 +922,32 @@ async function ask(text, opt){
 }
 
 /* ============ 点赞 / 倒赞（常驻，触屏可达） ============ */
-async function rate(itemId, polarity){
+async function rate(itemId, polarity, forceCancel){
   if (busy) return;
   focusItemId = String(itemId);
+  const cancel = !!forceCancel || ratings.get(String(itemId)) === polarity;
   const id = addAction(polarity === 'up' ? '👍' : '👎',
-                       polarity === 'up' ? '点赞' : '倒赞', '正在写入会话偏好并重新排序…');
+                       cancel ? '取消反馈' : (polarity === 'up' ? '点赞' : '倒赞'),
+                       cancel ? '正在撤销该商品的反馈并重新排序…' : '正在写入会话偏好并重新排序…');
   setBusy(true);
   try{
-    const d = await post('/api/feedback', {item_id: itemId, polarity: polarity, top_k: pageSize});
+    const d = await post('/api/feedback', {item_id: itemId, polarity: cancel ? 'none' : polarity, top_k: pageSize});
     const r = d.response || {};
     const okStatus = r.status === 'ok' || r.status === 'degraded';
     if (d.ok && okStatus){
       const fb = r.feedback || {};
-      finishAction(id, 'ok', '已记录', esc(fb.polarity === 'positive' ? '点赞' : '倒赞') +
+      finishAction(id, 'ok', cancel ? '已取消' : '已记录', esc(cancel ? '反馈' : fb.polarity === 'positive' ? '点赞' : '倒赞') +
         '：<b>' + esc(fb.target_title || itemId) + '</b>');
-      ratings.set(itemId, polarity);
+      if (cancel){
+        ratings.delete(String(itemId));
+        document.querySelectorAll('[data-undo-feedback="' + itemId + '"]').forEach(b => b.remove());
+      } else {
+        ratings.set(String(itemId), polarity);
+      }
       renderBot(r, true);
       const card = document.querySelector('.pcard[data-item="' + itemId + '"]');
-      if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', b.dataset.like === polarity));
+      if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on',
+        !cancel && b.dataset.like === polarity));
     } else {
       const msg = (r.error && r.error.message) || r.clarification || d.error || '反馈未生效';
       finishAction(id, 'warn', '未生效', esc(msg) + actionSuggestions('feedback'));
@@ -1050,13 +1065,21 @@ async function handleLiveEvent(g){
     const target = liveItem;
     if (!target) return;
     const dir = g === 'thumbs_up' ? 'up' : 'down';
-    const r = await post('/api/feedback', {item_id: target, polarity: dir, top_k: pageSize});
+    const cancel = ratings.get(String(target)) === dir;
+    const r = await post('/api/feedback', {item_id: target, polarity: cancel ? 'none' : dir, top_k: pageSize});
     if (r.ok){
-      ratings.set(String(target), dir);
-      setModalRating(dir);
+      if (cancel){
+        ratings.delete(String(target));
+        document.querySelectorAll('[data-undo-feedback="' + target + '"]').forEach(b => b.remove());
+      } else {
+        ratings.set(String(target), dir);
+      }
+      setModalRating(cancel ? null : dir);
+      if (r.response) renderBot(r.response, true);
       const card = document.querySelector('.pcard[data-item="' + target + '"]');
-      if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', b.dataset.like === dir));
-      if (stat) stat.textContent = '已识别 ' + g + '，已更新当前商品';
+      if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on',
+        !cancel && b.dataset.like === dir));
+      if (stat) stat.textContent = cancel ? '已取消反馈，商品已恢复' : '已识别 ' + g + '，已更新当前商品';
     } else if (stat) stat.textContent = '识别到 ' + g + '，但反馈失败：' + (r.error || '');
   } else if (g){
     if (stat) stat.textContent = '已识别 ' + g + '，当前仅支持 👍/👎，已忽略';
@@ -1157,10 +1180,26 @@ async function modalGesture(itemId){
       const pol = (((d.response || {}).feedback) || {}).polarity ||
                   (d.gesture === 'thumbs_up' ? 'positive' : 'negative');
       const dir = pol === 'positive' ? 'up' : 'down';
+      const cancel = ratings.get(String(itemId)) === dir;
+      if (cancel){
+        const c = await post('/api/feedback', {item_id: itemId, polarity: 'none', top_k: pageSize});
+        if (c.ok){
+          ratings.delete(String(itemId));
+          document.querySelectorAll('[data-undo-feedback="' + itemId + '"]').forEach(b => b.remove());
+          setModalRating(null);
+          if (c.response) renderBot(c.response, true);
+          box.innerHTML = '<div class="mstatus ok">已识别 ' + esc(d.gesture) + '，已取消该商品反馈</div>' + shot;
+        } else {
+          box.innerHTML = '<div class="mstatus err">取消反馈失败：' + esc(c.error || '') + '</div>' + shot;
+        }
+        box.dataset.busy = '0';
+        return;
+      }
       ratings.set(String(itemId), dir);
       setModalRating(dir);
       const card = document.querySelector('.pcard[data-item="' + itemId + '"]');
       if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', b.dataset.like === dir));
+      if (d.response) renderBot(d.response, true);
       box.innerHTML = '<div class="mstatus ok">已识别 ' + esc(d.gesture) + '，已更新该商品评价</div>' + shot;
     } else if (d.ok){
       box.innerHTML = '<div class="mstatus ok">已识别 ' + esc(d.gesture) +
@@ -1244,7 +1283,7 @@ function closeAll(){
 async function act(kind){
   if (busy) return;
   if (kind === 'compare'){ openCompare(); return; }
-  if (needReal && ['voice','gesture','vision'].includes(kind)){
+  if (needReal && ['voice','vision'].includes(kind)){
     addBot('<div class="slots">该功能需要真实设备，请以 <code>python webui.py --real</code> 启动。</div>');
     return;
   }
@@ -1276,24 +1315,10 @@ async function act(kind){
     setBusy(false); return;
   }
   const meta = {voice:{i:'🎤', t:'语音输入', d:'正在录音 4 秒…'},
-                gesture:{i:'✋', t:'手势识别', d:'正在抓取画面并识别手势…'},
                 vision:{i:'👁', t:'画面理解', d:'正在抓取画面并做视觉理解（约 20~40 秒）…'}}[kind];
   const id = addAction(meta.i, meta.t, meta.d);
-  const shot = d => d && d.preview_url ? '<a class="shotwrap" href="' + esc(d.preview_url) +
-    '" target="_blank" rel="noopener"><img class="shot" src="' + esc(d.preview_url) +
-    '" alt="手势抓拍画面"></a><div class="shotcap">抓拍画面 · 点击查看大图</div>' : '';
-  if (kind === 'gesture'){
-    for (let left = 3; left > 0; left--){
-      updateAction(id, '请把手举到脸旁边，保持手势… ' + left);
-      await new Promise(r => setTimeout(r, 1000));
-    }
-    updateAction(id, '倒计时结束，正在连拍并识别…');
-  }
   try{
-    const gestureTarget = focusItemId || (currentItems[0] ? String(currentItems[0].item_id) : null);
-    const payload = kind === 'voice' ? {seconds: 4, top_k: pageSize}
-      : kind === 'gesture' ? {item_id: gestureTarget, top_k: pageSize}
-      : {top_k: pageSize};
+    const payload = kind === 'voice' ? {seconds: 4, top_k: pageSize} : {top_k: pageSize};
     const d = await post('/api/' + kind, payload);
     if (kind === 'voice'){
       if (d.transcript){
@@ -1304,20 +1329,6 @@ async function act(kind){
         finishAction(id, 'err', '未识别到有效语音',
                      esc(d.error || '没听清内容') + actionSuggestions('voice'));
       }
-    } else if (kind === 'gesture'){
-      if (d.ok){
-        const label = '手势：<b>' + esc(d.gesture) + '</b>';
-        const fb = (d.response || {}).feedback || {};
-        if (fb.item_id){
-          const dir = fb.polarity === 'positive' ? 'up' : 'down';
-          ratings.set(String(fb.item_id), dir);
-          focusItemId = String(fb.item_id);
-          const card = document.querySelector('.pcard[data-item="' + fb.item_id + '"]');
-          if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', b.dataset.like === dir));
-        }
-        finishAction(id, 'ok', '已识别', label + (d.message ? ' · ' + esc(d.message) : '') + shot(d));
-        if (d.response) renderBot(d.response, true);
-      } else finishAction(id, 'warn', '未识别', esc(d.error) + shot(d) + actionSuggestions('gesture'));
     } else if (kind === 'vision'){
       if (d.description){
         finishAction(id, d.ok ? 'ok' : 'warn', d.ok ? '已完成' : '部分完成',
@@ -1456,6 +1467,8 @@ grid.addEventListener('click', ev => {
   if (ev.target.closest('[data-open]')) openDetail(id);
 });
 stream.addEventListener('click', ev => {
+  const uf = ev.target.closest('[data-undo-feedback]');
+  if (uf){ rate(uf.dataset.undoFeedback, uf.dataset.feedbackPolarity, true); return; }
   const fold = ev.target.closest('[data-fold]');
   if (fold){ const f = fold.closest('.fold'); f.classList.toggle('open');
              fold.textContent = (f.classList.contains('open') ? '▾ 收起依据' : '▸ 展开依据'); return; }
@@ -1570,7 +1583,7 @@ async function loadHomeShelf(force){
   stream.innerHTML = '';
   await loadHomeShelf();
   addBot('<div style="font-weight:620;margin-bottom:5px">你好，我是推荐助手</div>' +
-    '<div style="font-size:13px;color:#8b91a6">在上方说一句需求，或点工具条用<b>语音 / 手势 / 画面</b>提要求。' +
+    '<div style="font-size:13px;color:#8b91a6">在上方说一句需求，或点工具条用<b>语音 / 画面</b>提要求；手势可在商品详情内直接使用。' +
     '推荐结果在左侧货架：<b>点商品看详情</b>、<b>卡片右上角点赞 / 倒赞</b>、<b>点「加入对比」做字段对照</b>。' +
     (needReal ? '<br>当前为<b>离线模式</b>；用 <code>python webui.py --real</code> 可启用麦克风与摄像头。' : '') +
     '</div>');
@@ -2136,7 +2149,22 @@ class App:
         复用 Orchestrator 的反馈闭环（正负互斥、会话隔离、反馈后重排），
         不另起一套逻辑 —— 这样页面上的点赞与语音/手势点赞行为完全一致。
         """
-        polarity = "positive" if str(polarity).lower() in ("positive", "up", "like", "1") else "negative"
+        raw_polarity = str(polarity).lower()
+        if raw_polarity in ("none", "clear", "cancel", "off"):
+            prev_llm = self.orch.llm_explainer.enabled
+            self.orch.llm_explainer.enabled = False
+            try:
+                result = self.orch.clear_feedback(
+                    str(item_id),
+                    user_id=self.user_id,
+                    session_id=self.session_id,
+                    top_k=top_k,
+                )
+                return {"ok": True, "response": result.data} if result.ok else _from_app_error(result.error)
+            finally:
+                self.orch.llm_explainer.enabled = prev_llm
+
+        polarity = "positive" if raw_polarity in ("positive", "up", "like", "1") else "negative"
         name = "thumbs_up" if polarity == "positive" else "thumbs_down"
         with self.lock:
             sess = self.orch.store.get_or_create(self.session_id, self.user_id)

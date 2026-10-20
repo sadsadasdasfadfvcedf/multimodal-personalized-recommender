@@ -261,13 +261,24 @@ class SessionContext:
             }
         )
 
-    def remove_feedback(self, item_id: str) -> Result:
+    def remove_feedback(self, item_id: str, *, category: str | None = None) -> Result:
         item_id = str(item_id)
+        was_liked = item_id in self.likes
+        was_disliked = item_id in self.dislikes
         removed = False
         for bucket in (self.likes, self.dislikes):
             if item_id in bucket:
                 del bucket[item_id]
                 removed = True
+        if category:
+            if was_liked and self.liked_categories.get(category, 0) > 0:
+                self.liked_categories[category] -= 1
+                if self.liked_categories[category] <= 0:
+                    del self.liked_categories[category]
+            if was_disliked and self.disliked_categories.get(category, 0) > 0:
+                self.disliked_categories[category] -= 1
+                if self.disliked_categories[category] <= 0:
+                    del self.disliked_categories[category]
         return ok({"item_id": item_id, "removed": removed})
 
     # ---------------- 偏好信号 ----------------

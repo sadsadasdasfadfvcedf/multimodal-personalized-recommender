@@ -198,6 +198,17 @@ def test_gesture_item_id_sets_session_focus_before_feedback():
     assert called and called[0]["source"] == "gesture"
 
 
+def test_feedback_clear_returns_ok_wrapper():
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.clear_feedback = lambda *args, **kwargs: ok({"status": "ok", "feedback": {"polarity": "none"}})
+
+    result = app.feedback("20829", "none", 8)
+
+    assert result["ok"] is True
+    assert result["response"]["feedback"]["polarity"] == "none"
+
+
 def test_home_and_more_do_not_call_llm_explain():
     """首页货架/翻页必须快；运行时开着 LLM 解释也不能在这里拉起 4B 模型。"""
     w = _webui()
