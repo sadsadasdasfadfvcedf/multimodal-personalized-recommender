@@ -2152,7 +2152,9 @@ class App:
         raw_polarity = str(polarity).lower()
         if raw_polarity in ("none", "clear", "cancel", "off"):
             prev_llm = self.orch.llm_explainer.enabled
+            prev_dry = self.orch.dry_run_voice
             self.orch.llm_explainer.enabled = False
+            self.orch.dry_run_voice = True
             try:
                 result = self.orch.clear_feedback(
                     str(item_id),
@@ -2163,6 +2165,7 @@ class App:
                 return {"ok": True, "response": result.data} if result.ok else _from_app_error(result.error)
             finally:
                 self.orch.llm_explainer.enabled = prev_llm
+                self.orch.dry_run_voice = prev_dry
 
         polarity = "positive" if raw_polarity in ("positive", "up", "like", "1") else "negative"
         name = "thumbs_up" if polarity == "positive" else "thumbs_down"

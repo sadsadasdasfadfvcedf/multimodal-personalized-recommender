@@ -480,6 +480,8 @@ class Orchestrator:
         session.pending_clarification = None
 
         payload = self._handle_recommend(event, request, session, timer)
+        # 反馈/取消反馈只需要货架与 before/after，不必把整包解释证据再序列化一遍。
+        payload.pop("explanations", None)
         after_ids = [r["item_id"] for r in payload.get("recommendations", [])]
         top_n = settings.FEEDBACK_CONFIG["ab"]["top_k"]
         payload["feedback"] = {**feedback_result.data, "target_title": self.catalog.title(str(target))}
@@ -526,6 +528,7 @@ class Orchestrator:
         event = make_event(user_id=user_id, source="text")
         timer = Timer()
         payload = self._handle_recommend(event, request, session, timer)
+        payload.pop("explanations", None)
         status = payload.pop("status", "ok")
         after_ids = [r["item_id"] for r in payload.get("recommendations", [])]
         top_n = settings.FEEDBACK_CONFIG["ab"]["top_k"]

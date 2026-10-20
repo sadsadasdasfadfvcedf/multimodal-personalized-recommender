@@ -209,6 +209,25 @@ def test_feedback_clear_returns_ok_wrapper():
     assert result["response"]["feedback"]["polarity"] == "none"
 
 
+def test_feedback_clear_skips_tts_synthesis():
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    captured: dict[str, bool] = {}
+
+    def fake_clear(*args, **kwargs):
+        captured["dry_run"] = app.orch.dry_run_voice
+        return ok({"status": "ok", "feedback": {"polarity": "none"}})
+
+    app.orch.clear_feedback = fake_clear
+    original = app.orch.dry_run_voice
+
+    result = app.feedback("20829", "none", 8)
+
+    assert result["ok"] is True
+    assert captured["dry_run"] is True
+    assert app.orch.dry_run_voice is original
+
+
 def test_home_and_more_do_not_call_llm_explain():
     """首页货架/翻页必须快；运行时开着 LLM 解释也不能在这里拉起 4B 模型。"""
     w = _webui()
