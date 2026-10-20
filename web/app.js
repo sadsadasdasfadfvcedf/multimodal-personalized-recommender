@@ -978,13 +978,13 @@ stream.addEventListener('scroll', () => {
   $('toBottom').classList.toggle('show', far);
 });
 $('fab').addEventListener('click', () => {
-  $('panel').classList.toggle('show');
-  $('fab').textContent = $('panel').classList.contains('show') ? '✕' : '💬';
+  $('assistant').classList.toggle('show');
+  $('fab').textContent = $('assistant').classList.contains('show') ? '✕' : '💬';
 });
 function syncTabbar(){
   const narrow = window.innerWidth <= 639;
   $('tabbar').classList.toggle('is-on', narrow);
-  if (!narrow) $('panel').classList.remove('show');
+  if (window.innerWidth > 1023) $('assistant').classList.remove('show');
 }
 window.addEventListener('resize', syncTabbar);
 syncTabbar();
@@ -993,9 +993,9 @@ $('tabbar').addEventListener('click', ev => {
   const b = ev.target.closest('button[data-tab]'); if (!b) return;
   $('tabbar').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
   const tab = b.dataset.tab;
-  if (tab === 'chat'){ $('panel').classList.add('show'); $('fab').textContent = '✕'; }
-  else if (tab === 'status'){ $('panel').classList.remove('show'); $('fab').textContent = '💬'; openStatus(); }
-  else { $('panel').classList.remove('show'); $('fab').textContent = '💬'; window.scrollTo({top:0,behavior:'smooth'}); }
+  if (tab === 'chat'){ $('assistant').classList.add('show'); $('fab').textContent = '✕'; }
+  else if (tab === 'status'){ $('assistant').classList.remove('show'); $('fab').textContent = '💬'; openStatus(); }
+  else { $('assistant').classList.remove('show'); $('fab').textContent = '💬'; window.scrollTo({top:0,behavior:'smooth'}); }
 });
 
 async function loadHomeShelf(force){

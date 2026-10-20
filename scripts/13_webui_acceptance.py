@@ -144,6 +144,13 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
             )
             await asyncio.sleep(0.5)
 
+            layout = await ev(
+                "(function(){var s=document.getElementById('shelf'),"
+                "a=document.getElementById('assistant');"
+                "return s&&a?s.getBoundingClientRect().width>a.getBoundingClientRect().width:false})()"
+            )
+            add(13, "电商两栏布局（瀑布流宽于助手）", bool(layout), f"瀑布流更宽={layout}")
+
             await ev(
                 "document.getElementById('q').value='500以内的婚礼装饰品';"
                 "document.getElementById('searchForm').dispatchEvent(new Event('submit',{cancelable:true}))"
@@ -243,7 +250,7 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
             keep = await ev(
                 "document.getElementById('toBottom')!==null && "
                 "document.getElementById('modal')!==null && "
-                "document.getElementById('panel')!==null && "
+                "document.getElementById('assistant')!==null && "
                 "document.getElementById('toolbar').querySelector('[data-act=\"gesture\"]')===null"
             )
             add(
