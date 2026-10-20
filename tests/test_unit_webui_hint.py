@@ -169,6 +169,35 @@ def test_two_of_five_votes_do_not_write_feedback():
     assert called == []
 
 
+def test_gesture_item_id_sets_session_focus_before_feedback():
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    app.orch.multimodal.capture_burst = lambda *args, **kwargs: ok({"dir": "burst"})
+    app.orch.multimodal.recognize_gesture_batch = lambda *args, **kwargs: ok(
+        {
+            "results": [
+                {
+                    "image": f"frame{i}.jpg",
+                    "hands_detected": 1,
+                    "gestures": [{"name": "thumbs_up", "confidence": 0.96}],
+                }
+                for i in range(3)
+            ]
+        }
+    )
+    session = app.orch.store.get_or_create(app.session_id, app.user_id)
+    called: list[dict] = []
+    app.handle_spec = lambda spec, **kwargs: called.append(spec) or {"ok": True, "status": "ok"}
+
+    result = app.gesture("20829", 8)
+
+    assert result["ok"] is True
+    assert session.focus_item_id == "20829"
+    assert session.last_item_ids[0] == "20829"
+    assert called and called[0]["source"] == "gesture"
+
+
 def test_home_and_more_do_not_call_llm_explain():
     """首页货架/翻页必须快；运行时开着 LLM 解释也不能在这里拉起 4B 模型。"""
     w = _webui()

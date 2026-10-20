@@ -45,7 +45,7 @@ EXPLAIN_TOP_N = 3
 
 CLARIFY_NO_TARGET = "想让我解释哪件商品的推荐理由？请指明商品名称，或先说「这个」。"
 CLARIFY_COMPARE = "想对比的两件商品我没有都识别到，请补充商品名称，或先在推荐结果里指一下它们。"
-CLARIFY_FEEDBACK = "想对哪件商品点赞或倒赞？请先选定商品，或直接说「这个」。"
+CLARIFY_FEEDBACK = "想对哪件商品点赞或倒赞？请先搜索出商品或点开商品详情，再比 👍/👎。"
 
 
 class Orchestrator:

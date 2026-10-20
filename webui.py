@@ -589,6 +589,7 @@ let activeFilters = [], sortMode = 'match', viewMode = 'grid', userSaid = [];
 let pageSize = 8, lastQuery = null;   // null = 首页货架；字符串 = 最近一次文字需求
 let liveTimer = null, liveItem = null, liveEventId = 0, liveBusy = false;
 let currentLimit = 8, loadingMore = false, hasMore = true;
+let focusItemId = null;   // 手势反馈默认目标：最近打开的商品，否则货架 Top1
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
 const INTENT_ZH = {discover:'随便看看', similar:'找相似', filter:'条件筛选',
@@ -674,6 +675,9 @@ function renderShelf(items, title, subtitle, resp, append){
     currentItems = items || [];
     currentLimit = currentItems.length;
     hasMore = currentItems.length > 0;
+    if (!focusItemId || !currentItems.some(x => String(x.item_id) === focusItemId)){
+      focusItemId = currentItems.length ? String(currentItems[0].item_id) : null;
+    }
   }
   if (resp) activeFilters = filtersFrom(resp);
   renderFilters();
@@ -798,7 +802,8 @@ function renderBot(resp, updateShelf){
   if (resp.event && resp.event.text) lastQuery = resp.event.text;
   let h = '<div class="rh">' + badge(st) +
           '<span class="k">意图 <b>' + esc(intentZh(resp)) + '</b></span></div>';
-  if (resp.error) h += '<div class="errline">' + esc(resp.error.message) + '</div>';
+  if (resp.error && (!resp.clarification || resp.error.message !== resp.clarification))
+    h += '<div class="errline">' + esc(resp.error.message) + '</div>';
   if (resp.clarification) h += '<div>' + esc(resp.clarification) + '</div>';
   if (resp.answer) h += '<div style="margin-top:6px;line-height:1.65">' + esc(resp.answer) + '</div>';
   const ws = resp.web_search || null;
@@ -912,6 +917,7 @@ async function ask(text, opt){
 /* ============ 点赞 / 倒赞（常驻，触屏可达） ============ */
 async function rate(itemId, polarity){
   if (busy) return;
+  focusItemId = String(itemId);
   const id = addAction(polarity === 'up' ? '👍' : '👎',
                        polarity === 'up' ? '点赞' : '倒赞', '正在写入会话偏好并重新排序…');
   setBusy(true);
@@ -1169,6 +1175,7 @@ async function modalGesture(itemId){
 }
 
 async function openDetail(itemId){
+  focusItemId = String(itemId);
   $('modal').classList.add('show');
   $('sheet').innerHTML = '<button class="x" data-close="#modal" aria-label="关闭">✕</button>' +
     '<div class="sec"><span class="spin"></span> 正在读取商品详情…</div>';
@@ -1283,7 +1290,10 @@ async function act(kind){
     updateAction(id, '倒计时结束，正在连拍并识别…');
   }
   try{
-    const payload = kind === 'voice' ? {seconds: 4, top_k: pageSize} : {top_k: pageSize};
+    const gestureTarget = focusItemId || (currentItems[0] ? String(currentItems[0].item_id) : null);
+    const payload = kind === 'voice' ? {seconds: 4, top_k: pageSize}
+      : kind === 'gesture' ? {item_id: gestureTarget, top_k: pageSize}
+      : {top_k: pageSize};
     const d = await post('/api/' + kind, payload);
     if (kind === 'voice'){
       if (d.transcript){
@@ -1297,6 +1307,14 @@ async function act(kind){
     } else if (kind === 'gesture'){
       if (d.ok){
         const label = '手势：<b>' + esc(d.gesture) + '</b>';
+        const fb = (d.response || {}).feedback || {};
+        if (fb.item_id){
+          const dir = fb.polarity === 'positive' ? 'up' : 'down';
+          ratings.set(String(fb.item_id), dir);
+          focusItemId = String(fb.item_id);
+          const card = document.querySelector('.pcard[data-item="' + fb.item_id + '"]');
+          if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', b.dataset.like === dir));
+        }
         finishAction(id, 'ok', '已识别', label + (d.message ? ' · ' + esc(d.message) : '') + shot(d));
         if (d.response) renderBot(d.response, true);
       } else finishAction(id, 'warn', '未识别', esc(d.error) + shot(d) + actionSuggestions('gesture'));
