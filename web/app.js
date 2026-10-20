@@ -6,6 +6,7 @@ let pageSize = 8, lastQuery = null;   // null = 首页货架；字符串 = 最�
 let liveTimer = null, liveItem = null, liveEventId = 0, liveBusy = false;
 let currentLimit = 8, loadingMore = false, hasMore = true;
 let focusItemId = null;   // 手势反馈默认目标：最近打开的商品，否则货架 Top1
+let detailItemId = null;
 const pendingItems = new Set();
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
@@ -24,6 +25,14 @@ const MODE_ZH = {offline_snapshot:'内置离线快照', local_artifacts:'推荐�
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const humanize = s => String(s ?? '')
+  .replace(/\bhistorical_mode\b/g, '历史成交价')
+  .replace(/\bcategory_median\b/g, '类目参考价')
+  .replace(/\bcatalog_default\b/g, '默认参考价')
+  .replace(/\boffline_snapshot\b/g, '内置离线快照')
+  .replace(/\blocal_artifacts\b/g, '推荐系统发布制品')
+  .replace(/\boffline_stub\b/g, '离线场景桩');
+const escHuman = s => esc(humanize(s));
 const zh = (map, k, d) => map[k] || d || k || '';
 const money = v => v == null ? '—' : '£' + v;
 /* 匹配度：把模型原始分映射成用户可读刻度（表 3-3） */
@@ -231,7 +240,7 @@ function renderBot(resp, updateShelf){
   if (resp.error && (!resp.clarification || resp.error.message !== resp.clarification))
     h += '<div class="errline">' + esc(resp.error.message) + '</div>';
   if (resp.clarification) h += '<div>' + esc(resp.clarification) + '</div>';
-  if (resp.answer) h += '<div style="margin-top:6px;line-height:1.65">' + esc(resp.answer) + '</div>';
+  if (resp.answer) h += '<div style="margin-top:6px;line-height:1.65">' + escHuman(resp.answer) + '</div>';
   const ws = resp.web_search || null;
   if (ws && ws.sources && ws.sources.length){
     h += '<div style="margin-top:8px;padding:8px 10px;border:1px solid #e5e8f0;border-radius:8px;background:#fafbff;font-size:12.5px">' +
@@ -368,15 +377,25 @@ function syncRatingUI(itemId){
   });
 }
 
+function setDetailPending(itemId, on){
+  if (String(detailItemId) !== String(itemId)) return;
+  const sheet = $('sheet');
+  if (!sheet) return;
+  sheet.classList.toggle('pending', on);
+  sheet.querySelectorAll('[data-rate],[data-cmp2]').forEach(b => { b.disabled = on; });
+}
+
 async function rate(itemId, polarity, forceCancel){
   const key = String(itemId);
   if (busy || pendingItems.has(key)) return;
   const cancel = !!forceCancel || ratings.get(key) === polarity;
   focusItemId = key;
   setCardPending(key, true);
+  setDetailPending(key, true);
   const previous = ratings.get(key);
   if (cancel) ratings.delete(key); else ratings.set(key, polarity);
   syncRatingUI(key);
+  if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
   const id = addAction(polarity === 'up' ? '👍' : '👎',
                        cancel ? '取消反馈' : (polarity === 'up' ? '点赞' : '倒赞'),
                        cancel ? '正在撤销该商品的反馈并重新排序…' : '正在写入会话偏好并重新排序…');
@@ -395,20 +414,24 @@ async function rate(itemId, polarity, forceCancel){
         ratings.set(key, fb.polarity === 'negative' ? 'down' : polarity);
       }
       syncRatingUI(key);
+      if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
       renderBot(r, true);
     } else {
       const msg = (r.error && r.error.message) || r.clarification || d.error || '反馈未生效';
       finishAction(id, 'warn', '未生效', esc(msg) + actionSuggestions('feedback'));
       if (previous) ratings.set(key, previous); else ratings.delete(key);
       syncRatingUI(key);
+      if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
     }
   }catch(e){
     if (previous) ratings.set(key, previous); else ratings.delete(key);
     syncRatingUI(key);
+    if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
     finishAction(id, 'err', '失败', esc(e.message) + actionSuggestions('feedback'));
     toast('反馈失败：' + e.message);
   }finally{
     setCardPending(key, false);
+    setDetailPending(key, false);
   }
 }
 
@@ -674,8 +697,37 @@ async function modalGesture(itemId){
   box.dataset.busy = '0';
 }
 
+function detailEvidence(local){
+  const ev = (local || {}).evidence || {};
+  const sources = (local || {}).sources || [];
+  const matched = ev.matched_constraints || [];
+  const rows = [];
+  if (sources.length){
+    rows.push('<li><span>推荐来源</span><b>' + sources.map(esc).join(' · ') + '</b></li>');
+  }
+  if (matched.length){
+    const labels = matched.map(m => typeof m === 'string' ? m :
+      (m.constraint || m.reason || m.field || '')).filter(Boolean);
+    if (labels.length) rows.push('<li><span>命中条件</span><b>' + labels.map(esc).join(' · ') + '</b></li>');
+  }
+  if (local && local.evidence_count){
+    rows.push('<li><span>可核验依据</span><b>' + Number(local.evidence_count) + ' 条</b></li>');
+  }
+  if (local && local.explanation_confidence != null){
+    rows.push('<li><span>解释置信度</span><b>' + Math.round(Number(local.explanation_confidence) * 100) + '%</b></li>');
+  }
+  if (local && local.explanation_source){
+    rows.push('<li><span>解释生成</span><b>' +
+      (local.explanation_source === 'llm' ? '在线模型 + 证据门控' : '模板逐句有据') + '</b></li>');
+  }
+  return rows.length
+    ? '<ul class="evidence-list">' + rows.join('') + '</ul>'
+    : '<div class="evidence-empty">当前商品没有额外证据字段。</div>';
+}
+
 async function openDetail(itemId){
-  focusItemId = String(itemId);
+  detailItemId = String(itemId);
+  focusItemId = detailItemId;
   $('modal').classList.add('show');
   $('sheet').innerHTML = '<button class="x" data-close="#modal" aria-label="关闭">✕</button>' +
     '<div class="sec"><span class="spin"></span> 正在读取商品详情…</div>';
@@ -689,35 +741,44 @@ async function openDetail(itemId){
     }
     const p = d.product;
     const local = currentItems.find(x => String(x.item_id) === String(itemId));
-    const reason = local && local.explanation
-      ? '<div class="sec"><h3>推荐理由</h3><div class="reason">' + esc(local.explanation) + '</div></div>' : '';
-    const sim = (d.similar || []).map(s =>
-      '<div class="m" data-item="' + esc(s.item_id) + '">' + media(s, 'mi') +
-      '<p>' + esc(s.title) + '</p><span>' + money(s.price) + '</span></div>').join('');
+    const reasonText = (local && (local.explanation || local.reason)) || p.reason || '';
+    const pickedNow = picked.has(p.item_id);
     $('sheet').innerHTML =
       '<button class="x" data-close="#modal" aria-label="关闭">✕</button>' +
-      '<div class="top">' + media({img_url:p.img_url, emoji:p.emoji}, 'big', true) +
-        '<div class="meta"><h2>' + esc(p.title) + '</h2>' +
-        '<div class="en">' + esc(p.english_title || '') + '</div>' +
-        '<dl class="kv">' +
-          '<dt>参考价</dt><dd class="p">' + money(p.price) + ' <span style="font-size:12px;color:#8b91a6">' + esc(p.currency || '') + '</span></dd>' +
-          '<dt>商品编号</dt><dd>' + esc(p.item_id) + '</dd>' +
-          '<dt>类目</dt><dd>' + esc(p.emoji + ' ' + p.category) + '</dd>' +
-          '<dt>价格来源</dt><dd>' + esc(zh(SRC_ZH, p.price_source, p.price_source || '—')) + '</dd>' +
-          '<dt>历史成交</dt><dd>' + (p.transactions ?? '—') + ' 笔</dd>' +
-          '<dt>我的评价</dt><dd>' +
-            '<button data-rate="up" style="border:none;border-radius:8px;padding:6px 12px;background:#eef0fe;color:#3730a3;margin-right:6px">👍 喜欢</button>' +
-            '<button data-rate="down" style="border:none;border-radius:8px;padding:6px 12px;background:#f1f2f7;color:#5c6379">👎 不喜欢</button>' +
-            '<button data-cmp2="' + esc(p.item_id) + '" style="border:1px solid #e8eaf2;border-radius:8px;padding:6px 12px;background:#fff;color:#5c6379;margin-left:6px">' +
-              (picked.has(p.item_id) ? '✓ 已加入对比' : '▦ 加入对比') + '</button>' +
-          '</dd>' +
-        '</dl><div id="modalGesture" class="mgesture"></div></div></div>' + reason +
-      '<div class="sec"><h3>相似商品（点开继续看）</h3><div class="mini">' + sim + '</div></div>';
-    $('sheet').querySelectorAll('[data-item]').forEach(el => {
-      el.onclick = ev => { ev.stopPropagation(); openDetail(el.dataset.item); };
-    });
+      '<div class="detail">' +
+        '<div class="detail-media">' + media({img_url:p.img_url, emoji:p.emoji}, 'big', true) + '</div>' +
+        '<div class="detail-info">' +
+          '<div class="detail-kicker">商品详情 · 推荐依据可核验</div>' +
+          '<h2>' + esc(p.title) + '</h2>' +
+          '<div class="en">' + esc(p.english_title || '') + '</div>' +
+          '<div class="detail-price">' + money(p.price) +
+            ' <span>' + esc(p.currency || '') + '</span></div>' +
+          '<section class="detail-reason"><h3>推荐理由</h3>' +
+            '<div class="reason" data-reason>' +
+              escHuman(reasonText || '当前商品暂无推荐理由。') + '</div>' +
+          '</section>' +
+          '<section class="detail-evidence"><h3>证据与来源</h3>' +
+            detailEvidence(local) +
+          '</section>' +
+          '<div class="detail-actions">' +
+            '<button class="dact" data-rate="up">👍 喜欢</button>' +
+            '<button class="dact" data-rate="down">👎 不喜欢</button>' +
+            '<button class="dact" data-cmp2="' + esc(p.item_id) + '">' +
+              (pickedNow ? '✓ 已加入对比' : '▦ 加入对比') + '</button>' +
+            '<button class="dact primary" data-ask-product>💬 追问此商品</button>' +
+          '</div>' +
+          '<dl class="kv">' +
+            '<dt>类目</dt><dd>' + esc(p.emoji + ' ' + p.category) + '</dd>' +
+            '<dt>价格来源</dt><dd>' + esc(zh(SRC_ZH, p.price_source, p.price_source || '—')) + '</dd>' +
+            '<dt>历史成交</dt><dd>' + (p.transactions ?? '—') + ' 笔</dd>' +
+            '<dt>商品编号</dt><dd>' + esc(p.item_id) + '</dd>' +
+          '</dl>' +
+          '<div class="gesture-wrap"><h3>手势快捷操作</h3>' +
+            '<div id="modalGesture" class="mgesture"></div></div>' +
+        '</div>' +
+      '</div>';
     $('sheet').querySelectorAll('[data-rate]').forEach(el => {
-      el.onclick = ev => { ev.stopPropagation(); closeAll(); rate(itemId, el.dataset.rate); };
+      el.onclick = ev => { ev.stopPropagation(); rate(itemId, el.dataset.rate); };
     });
     setModalRating(ratings.get(String(itemId)) || null);
     const c2 = $('sheet').querySelector('[data-cmp2]');
@@ -728,6 +789,20 @@ async function openDetail(itemId){
         toast('已更新对比栏');
       }
     };
+    const askProduct = $('sheet').querySelector('[data-ask-product]');
+    if (askProduct) askProduct.onclick = ev => {
+      ev.stopPropagation();
+      focusItemId = String(itemId);
+      closeAll();
+      if (window.innerWidth <= 1023){
+        $('assistant').classList.add('show');
+        $('fab').textContent = '✕';
+      }
+      setTimeout(() => {
+        $('q2').focus();
+        toast('已选中当前商品，可以继续追问');
+      }, 0);
+    };
     await startLiveGesture(itemId);   // 进入商品详情自动开启摄像头直播
   }catch(e){
     $('sheet').innerHTML = '<button class="x" data-close="#modal">✕</button>' +
@@ -736,6 +811,7 @@ async function openDetail(itemId){
 }
 function closeAll(){
   stopLiveGesture();
+  detailItemId = null;
   $('modal').classList.remove('show');
   $('cmpModal').classList.remove('show');
 }

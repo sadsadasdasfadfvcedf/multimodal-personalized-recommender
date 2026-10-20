@@ -260,6 +260,32 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 f"证据标签 {evd or 0} 个，关键组件齐全={keep}",
             )
 
+            await ev("document.querySelector('.pcard [data-open]').click()")
+            for _ in range(40):
+                if await ev("!!document.querySelector('#modal [data-reason]')"):
+                    break
+                await asyncio.sleep(0.25)
+            detail = await ev("document.getElementById('modal').classList.contains('show')")
+            has_reason = await ev("!!document.querySelector('#modal [data-reason]')")
+            has_evidence = await ev("!!document.querySelector('#modal .evidence-list')")
+            has_actions = await ev(
+                "document.querySelectorAll('#modal [data-rate]').length===2 && "
+                "!!document.querySelector('#modal [data-cmp2]') && "
+                "!!document.querySelector('#modal [data-ask-product]') && "
+                "!document.querySelector('#modal .mini')"
+            )
+            humanized = await ev(
+                "!/(historical_mode|category_median|catalog_default|offline_snapshot|offline_stub)/"
+                ".test(document.getElementById('modal').innerText)"
+            )
+            add(
+                14,
+                "商品详情含推荐理由、证据、对比与继续追问",
+                bool(detail) and bool(has_reason) and bool(has_evidence) and bool(has_actions) and bool(humanized),
+                f"详情={detail}，理由={has_reason}，证据={has_evidence}，操作={has_actions}，术语已翻译={humanized}",
+            )
+            await ev("document.querySelector('#modal [data-close]').click()")
+
             src = Path(settings.PROJECT_ROOT / "webui.py").read_text(encoding="utf-8")
             external = [u for u in ("cdn.", "unpkg", "jsdelivr", "googleapis") if u in src]
             add(
