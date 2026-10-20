@@ -22,6 +22,11 @@
   button{cursor:pointer}
   :focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
   .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,12px);
+         z-index:120;max-width:min(520px,calc(100vw - 32px));padding:10px 16px;
+         border-radius:10px;background:#1b1f30;color:#fff;box-shadow:0 12px 30px rgba(15,20,45,.22);
+         font-size:13px;opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
 
   /* ============ 顶栏 AppBar（单行 56px） ============ */
   .appbar{position:sticky;top:0;z-index:40;height:var(--appbar-h);

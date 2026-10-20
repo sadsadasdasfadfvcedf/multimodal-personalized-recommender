@@ -43,8 +43,15 @@ function badge(status, extra){
          (extra ? ' ' + esc(extra) : '') + '</span>';
 }
 function toast(msg){
-  const t = $('toast'); t.textContent = msg;
-  clearTimeout(window.__tt); window.__tt = setTimeout(() => { t.textContent = ''; }, 2600);
+  const t = $('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window.__tt);
+  window.__tt = setTimeout(() => {
+    t.classList.remove('show');
+    t.textContent = '';
+  }, 2600);
 }
 
 /* ============ 筛选口径 → 可移除 chip（P1-5） ============ */
@@ -410,7 +417,12 @@ function toggleCompare(itemId, fallback){
   return true;
 }
 async function openCompare(){
-  if (picked.size < 2){ toast('至少选择 2 件商品才能对比'); return; }
+  if (picked.size < 2){
+    const need = picked.size === 0 ? '还没有选择商品' : '还需再选 1 件商品';
+    toast('至少选择 2 件商品才能对比：' + need + '，请先点「加入对比」');
+    addBot('<div class="slots">要对比商品，请先在商品卡上点「加入对比」，至少选择 2 件。</div>');
+    return;
+  }
   $('cmpModal').classList.add('show');
   $('cmpSheet').innerHTML = '<button class="x" data-close="#cmpModal" aria-label="关闭">✕</button>' +
     '<div class="sec"><span class="spin"></span> 正在读取商品字段…</div>';

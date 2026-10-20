@@ -197,6 +197,17 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 f"残留 {residual}" if residual else "页面可见文本无内部枚举",
             )
 
+            await ev("document.getElementById('trayClear').click()")
+            await ev("document.querySelector('[data-act=\"compare\"]').click()")
+            await asyncio.sleep(0.2)
+            toast_text = await ev("document.querySelector('.toast.show')?.textContent || ''")
+            add(
+                11,
+                "对比不足 2 件时可见提示",
+                "至少选择 2 件" in str(toast_text),
+                f"toast={toast_text}",
+            )
+
             sugg = await ev("actionSuggestions('voice')")
             add(
                 7,
