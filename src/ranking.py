@@ -100,6 +100,7 @@ def hard_filter(
     exclude: set[str] | None = None,
     relax_category: bool = False,
     relax_title_type: bool = False,
+    relax_color: bool = False,
 ) -> tuple[list[Candidate], list[dict], list[dict]]:
     """执行硬约束过滤。返回 (通过, 被淘汰明细, 生效的硬约束)。"""
     exclude = exclude or set()
@@ -109,6 +110,8 @@ def hard_filter(
         if c.field == "category" and relax_category:
             continue
         if c.field == "title_type" and relax_title_type:
+            continue
+        if c.field == "color" and relax_color:
             continue
         applicable.append(c.to_dict())
 
@@ -230,23 +233,40 @@ def rank(
         exclude |= session.blocked_item_ids()
 
     kept, dropped, applied = hard_filter(candidates, request, catalog, exclude=exclude)
+    exact_ids = {c.item_id for c in kept}
+    strict_dropped = len(dropped)
     degraded = False
     degrade_reason = None
     has_title_type = any(c.field == "title_type" for c in request.constraints)
+    has_hard_color = any(c.field == "color" and c.kind == "hard" for c in request.constraints)
 
     if not kept:
+        if has_hard_color:
+            relaxed_color, dropped_color, applied_color = hard_filter(
+                candidates,
+                request,
+                catalog,
+                exclude=exclude,
+                relax_color=True,
+            )
+            if relaxed_color:
+                kept, dropped, applied = relaxed_color, dropped_color, applied_color
+                degraded = True
+                degrade_reason = "颜色无精确匹配，已保留商品类型并放宽颜色"
+
         # 降级 1：具体商品类型没有命中时，先退回同类目，保留预算/颜色。
-        relaxed_type, dropped_type, applied_type = hard_filter(
-            candidates,
-            request,
-            catalog,
-            exclude=exclude,
-            relax_title_type=True,
-        )
-        if relaxed_type:
-            kept, dropped, applied = relaxed_type, dropped_type, applied_type
-            degraded = True
-            degrade_reason = "具体商品类型无匹配，已放宽为同类目推荐并保留预算/颜色约束"
+        if not kept:
+            relaxed_type, dropped_type, applied_type = hard_filter(
+                candidates,
+                request,
+                catalog,
+                exclude=exclude,
+                relax_title_type=True,
+            )
+            if relaxed_type:
+                kept, dropped, applied = relaxed_type, dropped_type, applied_type
+                degraded = True
+                degrade_reason = "具体商品类型无匹配，已放宽为同类目推荐并保留预算/颜色约束"
 
         # 降级 2：类目也无匹配时，再放宽类目，仅保留预算/颜色。
         if not kept:
@@ -283,6 +303,58 @@ def rank(
                 degraded=True,
             )
 
+    broadened_reasons: dict[str, list[str]] = {}
+    if not exact_ids and degrade_reason:
+        broadened_reasons = {c.item_id: [degrade_reason] for c in kept}
+
+    target = min(top_k, max(int(RANK.get("min_results", top_k)), len(kept)))
+    if len(kept) < target:
+        seen = {c.item_id for c in kept}
+
+        def add_candidates(rows: list[Candidate], reason: str) -> None:
+            for cand in rows:
+                if len(kept) >= target:
+                    return
+                if cand.item_id in seen or cand.item_id in exclude:
+                    continue
+                kept.append(cand)
+                seen.add(cand.item_id)
+                broadened_reasons[cand.item_id] = [reason]
+
+        def add_relaxed(reason: str, **flags: bool) -> None:
+            relaxed, _, _ = hard_filter(candidates, request, catalog, exclude=exclude, **flags)
+            add_candidates(relaxed, reason)
+
+        item_type = request.slot_value("item_type")
+        type_cfg = LEX.get("product_types", {}).get(str(item_type), {}) if item_type else {}
+        related_terms = [str(term).lower() for term in type_cfg.get("related_terms", [])]
+        if related_terms:
+            related_rows = []
+            for cand in candidates:
+                product = catalog.product(cand.item_id) or {}
+                title = f"{product.get('title', '')} {product.get('english_title', '')}".lower()
+                if any(term in title for term in related_terms):
+                    related_rows.append(cand)
+            add_candidates(related_rows, "同类商品补充")
+
+        # 优先补同大类，避免“黑色背包”不足时混入蜡烛、贺卡等无关商品。
+        category = request.slot_value("category")
+        if category:
+            same_category = [cand for cand in candidates if catalog.category_of(cand.item_id) == str(category)]
+            add_candidates(same_category, "同品类补充")
+
+        if has_title_type:
+            add_relaxed("放宽商品类型", relax_title_type=True)
+        add_relaxed("放宽颜色", relax_title_type=True, relax_color=True)
+        add_relaxed(
+            "放宽类目",
+            relax_title_type=True,
+            relax_color=True,
+            relax_category=True,
+        )
+        if len(kept) < target:
+            add_candidates(candidates, "热门补充")
+
     scored: list[ScoredCandidate] = []
     for cand in kept:
         # 值类型不齐（score 是 float，reasons 是 list），显式标注避免推断成联合类型
@@ -292,6 +364,7 @@ def rank(
             else {"score": 0.0, "reasons": []}
         )
         ratio, matched, missed = _constraint_match(cand, request, catalog, session)
+        type_matched = any(item.get("field") == "商品类型" for item in matched)
         trust = max((trust_table.get(label, 0.5) for label in cand.sources), default=0.5)
         base = cand.raw_scores.get("personalized")
         if base is None:
@@ -309,6 +382,12 @@ def rank(
             + weights["source_trust"] * trust
             + weights["session_preference"] * pref_norm
         )
+        match_scope = "broadened" if cand.item_id in broadened_reasons else "exact"
+        evidence = dict(cand.evidence)
+        evidence["match_scope"] = match_scope
+        evidence["type_matched"] = type_matched
+        if match_scope == "broadened":
+            evidence["broadened_reasons"] = broadened_reasons[cand.item_id]
         scored.append(
             ScoredCandidate(
                 item_id=cand.item_id,
@@ -323,22 +402,50 @@ def rank(
                 matched_constraints=matched,
                 missed_constraints=missed,
                 raw_scores=dict(cand.raw_scores),
-                evidence=dict(cand.evidence),
+                evidence=evidence,
             )
         )
 
     # 稳定排序：final 降序 → base 降序 → item_id 升序（保证可复现）
-    scored.sort(key=lambda s: (-s.final_score, -s.base_score, s.item_id))
+    scored.sort(
+        key=lambda s: (
+            s.evidence.get("match_scope") == "broadened",
+            not bool(s.evidence.get("type_matched")),
+            -s.final_score,
+            -s.base_score,
+            s.item_id,
+        )
+    )
     for idx, item in enumerate(scored[:top_k], start=1):
         item.rank = idx
 
+    top_items = scored[:top_k]
+    exact_in_output = sum(item.evidence.get("match_scope") == "exact" for item in top_items)
+    type_matched_in_output = sum(bool(item.evidence.get("type_matched")) for item in top_items)
+    broadened_in_output = len(top_items) - exact_in_output
     trace = {
         "input_candidates": len(candidates),
-        "after_hard_filter": len(kept),
-        "hard_dropped": len(dropped),
+        "after_hard_filter": len(exact_ids),
+        "hard_dropped": strict_dropped,
         "hard_constraints_applied": applied,
-        "hard_constraint_violation_rate": round(len(dropped) / len(candidates), 6) if candidates else None,
+        "hard_constraint_violation_rate": round(strict_dropped / len(candidates), 6) if candidates else None,
         "dropped_sample": dropped[:5],
+        "strict_count": exact_in_output,
+        "supplemented_count": broadened_in_output,
+        "supplement_note": (
+            (
+                f"严格匹配 {exact_in_output} 件，另补充 {broadened_in_output} 件同类好物"
+                if exact_in_output
+                else (
+                    f"{type_matched_in_output} 件符合商品类型，"
+                    f"另补充 {broadened_in_output - type_matched_in_output} 件同类好物"
+                    if type_matched_in_output
+                    else f"当前条件较窄，为你补充 {broadened_in_output} 件同类好物"
+                )
+            )
+            if broadened_in_output
+            else None
+        ),
         "weights": weights,
         "top_k": top_k,
         "degraded": degraded,
@@ -346,4 +453,4 @@ def rank(
         "empty_result_hint": RANK["empty_result_hint"] if degraded else None,
         "ordering_key": "final_score desc → base_score desc → item_id asc",
     }
-    return ok({"ranked": scored[:top_k], "all_scored": scored, "trace": trace})
+    return ok({"ranked": top_items, "all_scored": scored, "trace": trace})

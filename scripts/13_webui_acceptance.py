@@ -2,7 +2,7 @@
 scripts/13_webui_acceptance.py
 ==============================
 
-网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 21 项）。
+网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 22 项）。
 
 实现方式：用 Edge 的 CDP（Chrome DevTools Protocol）驱动无头浏览器，
 在真实页面上**测量**而不是靠肉眼判断：
@@ -28,6 +28,7 @@ scripts/13_webui_acceptance.py
   19. 用文字或语音询问“手上物品”时自动触发识图并融合推荐
   20. 相似推荐分组分层；点赞后自动出现“你可能也喜欢”
   21. 首页加载更多仍保持当前账号品类
+  22. 严格匹配不足时补足数量，并明确标注“同类补充”
 
 前置条件（缺一即跳过，不影响离线可复现性）：
     · 本机装有 Microsoft Edge
@@ -566,7 +567,7 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 await asyncio.sleep(0.25)
             await ev(
                 "(function(){focusItemId=currentItems[0].item_id;"
-                "document.getElementById('q').value='和这个商品相似的商品';"
+                "document.getElementById('q').value='找和“'+currentItems[0].title+'”相似的商品';"
                 "document.getElementById('searchForm').requestSubmit();})()"
             )
             for _ in range(120):
@@ -646,6 +647,33 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 str(home_more),
             )
 
+            await ev(
+                "(function(){document.getElementById('q').value='推荐一些黑色背包';"
+                "document.getElementById('searchForm').requestSubmit();})()"
+            )
+            for _ in range(160):
+                if await ev(
+                    "!busy && !document.querySelector('#stream .spin') && "
+                    "document.getElementById('shelfTitle').textContent.includes('背包')"
+                ):
+                    break
+                await asyncio.sleep(0.25)
+            fallback_state = await ev(
+                "(function(){const note=document.querySelector('#stream .scope-note');"
+                "return {cards:document.querySelectorAll('.pcard').length,"
+                "broadened:document.querySelectorAll('.pcard[data-match-scope=\"broadened\"]').length,"
+                "note:note?.textContent||'',titles:Array.from(document.querySelectorAll('.pcard h3'))"
+                ".slice(0,3).map(x=>x.textContent)}})()"
+            )
+            add(
+                22,
+                "严格匹配不足时补足数量，并明确标注“同类补充”",
+                (fallback_state or {}).get("cards", 0) >= 6
+                and (fallback_state or {}).get("broadened", 0) > 0
+                and "补充" in str((fallback_state or {}).get("note", "")),
+                str(fallback_state),
+            )
+
             root = settings.PROJECT_ROOT
             src = (root / "webui.py").read_text(encoding="utf-8")
             src += "\n".join(
@@ -669,7 +697,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=9455, help="CDP 调试端口")
     args = parser.parse_args()
 
-    banner("网页改版验收核验（设计文档表 6-1，21 项）")
+    banner("网页改版验收核验（设计文档表 6-1，22 项）")
     report = {"checked_at": now_iso(), "url": args.url, "checks": [], "verdict": "SKIP"}
 
     edge = _edge()

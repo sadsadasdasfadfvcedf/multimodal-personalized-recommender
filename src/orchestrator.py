@@ -286,7 +286,14 @@ class Orchestrator:
 
         request: RecommendationRequest = intent_result.data["request"]
         intent_dict = intent_result.data["intent_result"]
+        context_reset = self._should_reset_context(event, request)
+        if context_reset:
+            session.slot_state.clear()
+            session.constraints.clear()
+            session.focus_item_id = None
+            session.pending_clarification = None
         merge_report = session.merge_slots(request.slots, request.constraints, source=f"turn:{intent_dict['intent']}")
+        merge_report["context_reset"] = context_reset
         session.set_clarification(None)
 
         # 3.5) 会话合并后的有效请求：多轮约束（如先「推荐礼物」再「500以内」）在此生效
@@ -716,6 +723,8 @@ class Orchestrator:
                     "score_breakdown": scored.to_dict(self.catalog)["score_breakdown"],
                     "matched_constraints": scored.matched_constraints,
                     "source_detail": scored.evidence.get("source_detail", {}),
+                    "match_scope": scored.evidence.get("match_scope", "exact"),
+                    "broadened_reasons": scored.evidence.get("broadened_reasons", []),
                 },
             ).to_dict()
 
@@ -791,6 +800,22 @@ class Orchestrator:
             mode=request.mode,
             meta={"derived_from_intent": request.intent},
         )
+
+    @staticmethod
+    def _should_reset_context(event, request: RecommendationRequest) -> bool:
+        """通用“物品/商品”新需求不应继承上一轮的窄类目、颜色或商品焦点。"""
+        if event.source not in ("text", "voice") or request.intent not in ("discover", "filter"):
+            return False
+        text = event.text or ""
+        if not contains_any(text, ["物品", "商品", "东西", "好物"]):
+            return False
+        if contains_any(text, ["这个", "这件", "它", "刚才", "上一", "之前", "还有", "再推荐", "类似", "相似"]):
+            return False
+        allowed = {"budget_min", "budget_max", "budget_raw"}
+        for name, slot in request.slots.items():
+            if name not in allowed and slot.value not in (None, "", []):
+                return False
+        return True
 
     def _item_payload(self, item_id: str, *, sources: list[str], matched: list[dict]) -> dict:
         product = self.catalog.product(item_id) or {}

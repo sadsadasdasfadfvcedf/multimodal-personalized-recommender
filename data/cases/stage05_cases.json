@@ -32,7 +32,7 @@
   },
   {
     "id": "F-03",
-    "desc": "无变化案例：唯一候选被点赞，TopK 顺序不变",
+    "desc": "低结果补全后，点赞会改变扩展推荐顺序",
     "user_id": "15547",
     "query": {
       "source": "text",
@@ -43,7 +43,7 @@
       "target": "top1",
       "text": "这个不错"
     },
-    "expect": "no_change"
+    "expect": "changed"
   },
   {
     "id": "F-04",

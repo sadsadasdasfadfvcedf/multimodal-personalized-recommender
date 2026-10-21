@@ -73,9 +73,10 @@ function media(item, cls, eager){
     (item.img_url ? '<img' + load + ' src="' + esc(item.img_url) + '" alt="" onerror="this.remove()">' : '') +
     '</div>';
 }
-function badge(status, extra){
+function badge(status, extra, label){
   const s = status || 'ok';
-  return '<span class="st ' + s + '"><i></i>' + (STATUS_IC[s] || '·') + ' ' + esc(statusZh({status:s})) +
+  return '<span class="st ' + s + '"><i></i>' + (STATUS_IC[s] || '·') + ' ' +
+         esc(label || statusZh({status:s})) +
          (extra ? ' ' + esc(extra) : '') + '</span>';
 }
 function toast(msg){
@@ -224,10 +225,12 @@ function renderShelf(items, title, subtitle, resp, append){
     const rank = it.rank || (i + 1);
     const pct = matchPct(it.score);
     const hits = ((it.evidence || {}).matched_constraints || []).length;
+    const broadened = ((it.evidence || {}).match_scope === 'broadened');
     // 推荐层级要稀缺：相似结果只强调前两名；普通结果只强调首选。
     const similarRank = shelfSimilarMode && rank <= 2 ? rank : 0;
     const bestPick = !shelfSimilarMode && rank === 1;
     const tags = [];
+    if (broadened) tags.push('<span class="t broad">同类补充</span>');
     if (similarRank === 1) tags.push('<span class="t sim">✦ 最相似</span>');
     else if (similarRank === 2) tags.push('<span class="t sim">☆ 相似备选</span>');
     else if (bestPick) tags.push('<span class="t best">✓ 首选</span>');
@@ -241,6 +244,8 @@ function renderShelf(items, title, subtitle, resp, append){
       (similarRank ? ' similar-hit' : '') +
       (similarRank === 1 ? ' similar-top' : '') +
       (bestPick ? ' best-pick' : '') +
+      (broadened ? ' broadened' : '') +
+      '" data-match-scope="' + (broadened ? 'broadened' : 'exact') +
       '" data-recommendation-role="' +
       (similarRank === 1 ? 'most-similar' : similarRank === 2 ? 'similar-alternative' :
         bestPick ? 'best-pick' : 'normal') +
@@ -486,8 +491,10 @@ function actionSuggestions(kind){
 }
 function renderBot(resp, updateShelf){
   const st = resp.status || 'ok';
+  const rankingTrace = ((resp.trace || {}).ranking || {});
   if (resp.event && resp.event.text) lastQuery = resp.event.text;
-  let h = '<div class="rh">' + badge(st) +
+  const supplementStatus = st === 'degraded' && Number(rankingTrace.supplemented_count || 0) > 0;
+  let h = '<div class="rh">' + badge(st, '', supplementStatus ? '已补充同类' : '') +
           '<span class="k">意图 <b>' + esc(intentZh(resp)) + '</b></span></div>';
   if (resp.error && (!resp.clarification || resp.error.message !== resp.clarification))
     h += '<div class="errline">' + esc(resp.error.message) + '</div>';
@@ -524,6 +531,9 @@ function renderBot(resp, updateShelf){
         Number(explainItem.evidence_count) + ' 条</div>' : '') + '</div>';
   } else if (n && intent !== 'feedback'){
     h += '<div style="margin-top:6px">为你找到 <b>' + n + '</b> 件商品，已更新左侧货架。</div>';
+    if (rankingTrace.supplement_note){
+      h += '<div class="scope-note">' + esc(rankingTrace.supplement_note) + '</div>';
+    }
   }
   if (resp.browse) h += '<div style="margin-top:4px">已记录浏览：<b>' + esc(resp.browse.title || '') +
     '</b>（弱反馈，仅轻微上浮）</div>';

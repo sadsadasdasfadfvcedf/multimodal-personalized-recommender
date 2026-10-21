@@ -51,6 +51,7 @@ class _RecommenderLike(Protocol):
 
 CFG = settings.RECALL_CONFIG
 SOURCE_LABELS = settings.RECOMMENDER_ADAPTER["sources"]
+LEX = settings.SLOT_LEXICON
 
 
 @dataclass
@@ -155,6 +156,16 @@ def recall(
                 )
                 if item_id not in exclude
             ][: CFG["recall_k"]]
+            item_type = request.slot_value("item_type")
+            type_cfg = LEX.get("product_types", {}).get(str(item_type), {}) if item_type else {}
+            related_terms = [str(term) for term in type_cfg.get("related_terms", [])]
+            if related_terms:
+                related_ids = [
+                    item_id
+                    for item_id in catalog.title_matches(related_terms, category=None, k=CFG["recall_k"] * 2)
+                    if item_id not in exclude and item_id not in ids
+                ]
+                ids = list(dict.fromkeys([*ids, *related_ids]))[: CFG["recall_k"]]
             if ids:
                 peak = max(catalog.popularity(item_id) for item_id in ids) or 1
                 per_source["item_type"] = [
@@ -266,7 +277,12 @@ def recall(
 
     ranked = sorted(
         merged.values(),
-        key=lambda c: (-max(c.norm_scores.values() or [0.0]), -len(c.source_keys), c.item_id),
+        key=lambda c: (
+            -(2 if "item_type" in c.source_keys else 1 if "session_focus" in c.source_keys else 0),
+            -max(c.norm_scores.values() or [0.0]),
+            -len(c.source_keys),
+            c.item_id,
+        ),
     )
     top = ranked[: CFG["merge_top_k"]]
 

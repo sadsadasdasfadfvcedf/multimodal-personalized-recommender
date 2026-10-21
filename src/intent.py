@@ -597,13 +597,22 @@ def build_constraints(slots: dict[str, Slot], text: str, intent: str | None = No
     """
     constraints: list[Constraint] = []
     explicit_filter = contains_any(text, FILTER_MARKERS) is not None
+    explicit_color = bool(_match_colors(text))
 
     if "budget_max" in slots:
         constraints.append(Constraint("price", "lte", slots["budget_max"].value, kind="hard", source="slot:budget_max"))
     if "budget_min" in slots:
         constraints.append(Constraint("price", "gte", slots["budget_min"].value, kind="hard", source="slot:budget_min"))
     if "colors" in slots:
-        constraints.append(Constraint("color", "in", slots["colors"].value, kind="hard", source="slot:colors"))
+        constraints.append(
+            Constraint(
+                "color",
+                "in",
+                slots["colors"].value,
+                kind="hard" if explicit_color else "soft",
+                source="slot:colors",
+            )
+        )
     if "category" in slots:
         kind = "hard" if explicit_filter else "soft"
         constraints.append(Constraint("category", "eq", slots["category"].value, kind=kind, source="slot:category"))

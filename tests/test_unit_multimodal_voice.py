@@ -29,7 +29,10 @@ def test_teapot_query_recalls_exact_product_type():
     data = result.data
     assert data["intent_result"]["slots"]["item_type"]["value"] == "茶壶"
     assert data["recommendations"]
-    assert all("茶壶" in item["title"] for item in data["recommendations"])
+    assert len(data["recommendations"]) == 8
+    assert "茶壶" in data["recommendations"][0]["title"]
+    assert data["trace"]["ranking"]["strict_count"] > 0
+    assert data["trace"]["ranking"]["supplemented_count"] > 0
     assert "茶壶推荐" in data["presentation"]["text"]
 
 
@@ -113,7 +116,8 @@ def test_more_padding_preserves_category_and_product_type():
     by_type = app.more("推荐一些茶壶", 24)
     assert by_type["ok"] is True
     assert by_type["items"]
-    assert all("茶壶" in item["title"] for item in by_type["items"])
+    assert "茶壶" in by_type["items"][0]["title"]
+    assert any(item["evidence"].get("match_scope") == "broadened" for item in by_type["items"])
 
 
 def test_similar_preview_is_automatic_and_does_not_pollute_main_session():
@@ -132,3 +136,46 @@ def test_similar_preview_is_automatic_and_does_not_pollute_main_session():
     assert all(item["img_url"].startswith("/api/img/") for item in result["items"])
     current = app.orch.store.get_or_create(app.session_id, app.user_id)
     assert current.focus_item_id == main.focus_item_id
+
+
+def test_visual_backpack_fills_results_with_related_products():
+    orch = Orchestrator(mode="offline", with_voice=False)
+    data = orch.handle(
+        {
+            "source": "vision",
+            "text": "我手上推荐一下我手上的物品",
+            "visual_tags": [{"tag": "黑色背包", "confidence": 0.9}],
+        },
+        user_id="15547",
+        session_id="visual-backpack-fill",
+    ).data
+
+    assert data["intent_result"]["slots"]["item_type"]["value"] == "背包"
+    assert len(data["recommendations"]) == 8
+    assert "背包" in data["recommendations"][0]["title"]
+    assert data["trace"]["ranking"]["supplemented_count"] > 0
+    assert "补充" in data["trace"]["ranking"]["supplement_note"]
+
+
+def test_generic_budget_request_resets_previous_visual_filters():
+    orch = Orchestrator(mode="offline", with_voice=False)
+    session_id = "generic-budget-reset"
+    orch.handle(
+        {
+            "source": "vision",
+            "text": "我手上推荐一下我手上的物品",
+            "visual_tags": [{"tag": "黑色背包", "confidence": 0.9}],
+        },
+        user_id="15547",
+        session_id=session_id,
+    )
+    data = orch.handle(
+        {"source": "voice", "text": "推荐一下五百以内的物品"},
+        user_id="15547",
+        session_id=session_id,
+    ).data
+
+    assert data["merge_report"]["context_reset"] is True
+    assert set(data["effective_request"]["slots"]) == {"budget_max", "budget_raw"}
+    assert len(data["recommendations"]) == 8
+    assert len({item["category"] for item in data["recommendations"]}) > 1

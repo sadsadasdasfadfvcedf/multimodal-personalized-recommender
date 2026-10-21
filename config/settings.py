@@ -716,6 +716,14 @@ SLOT_LEXICON: dict = {
         "面包箱": {"terms": ["面包箱"], "category": "厨房用品"},
         "餐具": {"terms": ["餐具", "刀叉", "茶匙"], "category": "厨房用品"},
         "杯子": {"terms": ["马克杯", "水杯", "杯子", "杯"], "category": "厨房用品"},
+        "背包": {
+            "terms": ["背包", "双肩包", "书包"],
+            "related_terms": ["手提包", "单肩包", "钱包", "购物袋", "大号袋", "双肩包", "背包"],
+            "category": "生活用品",
+        },
+        "单肩包": {"terms": ["单肩包", "斜挎包"], "category": "生活用品"},
+        "手提包": {"terms": ["手提包", "手袋"], "category": "购物袋"},
+        "钱包": {"terms": ["钱包", "零钱包"], "category": "生活用品"},
         "碗": {"terms": ["碗"], "category": "厨房用品"},
         "盘子": {"terms": ["盘子"], "category": "厨房用品"},
         "相框": {"terms": ["相框", "木框"], "category": "家居装饰"},
@@ -902,6 +910,8 @@ RECALL_CONFIG: dict = {
 
 RANKING_CONFIG: dict = {
     "top_k": 8,
+    # 严格匹配不足时补足到该数量；补充项必须明确标记，不能冒充严格命中。
+    "min_results": 8,
     "weights": {
         "base_score": 0.55,  # 推荐系统原始分数（归一化后）
         "constraint_match": 0.20,  # 命中硬约束的加权
