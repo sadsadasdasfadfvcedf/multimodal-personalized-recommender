@@ -338,7 +338,7 @@ python -m ruff check .
 python -m ruff format --check .
 python -m mypy
 python scripts/18_contract_check.py       # 16/16
-python scripts/13_webui_acceptance.py     # 16/16（对比、反馈、两栏、详情、识图不锁页、追问理由）
+python scripts/13_webui_acceptance.py     # 17/17（对比、反馈位置稳定、详情、识图、追问理由）
 ```
 
 ### 8.2 手工验收

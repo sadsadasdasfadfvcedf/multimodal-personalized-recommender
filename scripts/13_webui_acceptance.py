@@ -2,7 +2,7 @@
 scripts/13_webui_acceptance.py
 ==============================
 
-网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 16 项）。
+网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 17 项）。
 
 实现方式：用 Edge 的 CDP（Chrome DevTools Protocol）驱动无头浏览器，
 在真实页面上**测量**而不是靠肉眼判断：
@@ -23,6 +23,7 @@ scripts/13_webui_acceptance.py
   14. 商品详情含推荐理由、证据、对比与继续追问
   15. 识图请求不锁整页，失败原因可见
   16. 追问携带焦点商品并直接展示推荐理由，不覆盖当前货架
+  17. 点赞不改位置；倒赞移除后撤销恢复原位，再次点赞仍不改位置
 
 前置条件（缺一即跳过，不影响离线可复现性）：
     · 本机装有 Microsoft Edge
@@ -121,8 +122,15 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 raise TimeoutError(method)
 
             async def ev(expr):
-                r = await cmd("Runtime.evaluate", {"expression": expr, "returnByValue": True})
-                return r["result"]["result"].get("value")
+                r = await cmd(
+                    "Runtime.evaluate",
+                    {"expression": expr, "returnByValue": True, "awaitPromise": True},
+                )
+                payload = r.get("result") or {}
+                if payload.get("exceptionDetails"):
+                    detail = payload["exceptionDetails"]
+                    raise RuntimeError(f"JS evaluation failed: {detail}")
+                return payload.get("result", {}).get("value")
 
             await cmd("Page.enable")
             await cmd("Runtime.enable")
@@ -380,6 +388,36 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 f"货架卡片 {(explain_state or {}).get('before')}→{(explain_state or {}).get('after')}",
             )
 
+            position_state = await ev(
+                "(async function(){"
+                "const sleep=ms=>new Promise(r=>setTimeout(r,ms));"
+                "const order=()=>Array.from(document.querySelectorAll('.pcard')).map(x=>x.dataset.item);"
+                "const wait=async()=>{for(let i=0;i<200;i++){if(pendingItems.size===0&&!busy)return;await sleep(25);}};"
+                "const card=Array.from(document.querySelectorAll('.pcard')).find(c=>"
+                "!ratings.has(c.dataset.item)&&!document.querySelector('[data-undo-feedback=\"'+c.dataset.item+'\"]'));"
+                "if(!card)return {ok:false,reason:'no unrated card'};"
+                "const id=card.dataset.item;const initialIndex=order().indexOf(id);"
+                "card.querySelector('[data-like=\"up\"]').click();await wait();"
+                "const afterLike=order().indexOf(id);"
+                "document.querySelector('.pcard[data-item=\"'+id+'\"] [data-like=\"down\"]').click();await wait();"
+                "const afterDown=order().indexOf(id);"
+                "document.querySelector('[data-undo-feedback=\"'+id+'\"][data-feedback-polarity=\"down\"]').click();await wait();"
+                "const afterUndo=order().indexOf(id);"
+                "document.querySelector('.pcard[data-item=\"'+id+'\"] [data-like=\"up\"]').click();await wait();"
+                "const afterLikeAgain=order().indexOf(id);"
+                "return {ok:true,id,initialIndex,afterLike,afterDown,afterUndo,afterLikeAgain};})()"
+            )
+            add(
+                17,
+                "点赞不改位置；倒赞撤销恢复原位",
+                bool((position_state or {}).get("ok"))
+                and (position_state or {}).get("afterLike") == (position_state or {}).get("initialIndex")
+                and (position_state or {}).get("afterDown") == -1
+                and (position_state or {}).get("afterUndo") == (position_state or {}).get("initialIndex")
+                and (position_state or {}).get("afterLikeAgain") == (position_state or {}).get("initialIndex"),
+                str(position_state),
+            )
+
             root = settings.PROJECT_ROOT
             src = (root / "webui.py").read_text(encoding="utf-8")
             src += "\n".join(
@@ -403,7 +441,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=9455, help="CDP 调试端口")
     args = parser.parse_args()
 
-    banner("网页改版验收核验（设计文档表 6-1，16 项）")
+    banner("网页改版验收核验（设计文档表 6-1，17 项）")
     report = {"checked_at": now_iso(), "url": args.url, "checks": [], "verdict": "SKIP"}
 
     edge = _edge()

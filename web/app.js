@@ -11,6 +11,7 @@ let visionBusy = false;
 let visionOnline = false;
 let deviceAllowed = false;
 const pendingItems = new Set();
+const removedFeedback = new Map();
 const DEVICE_CONSENT_KEY = 'integrated_device_consent';
 const shelfTopK = () => Math.max(pageSize, Math.min(120, currentItems.length || pageSize));
 
@@ -249,6 +250,30 @@ async function loadMore(){
   loadingMore = false;
 }
 
+function detachShelfItemForFeedback(itemId){
+  const key = String(itemId);
+  if (removedFeedback.has(key)) return false;
+  const index = currentItems.findIndex(x => String(x.item_id) === key);
+  if (index < 0) return false;
+  removedFeedback.set(key, {item: {...currentItems[index]}, index});
+  currentItems = currentItems.filter(x => String(x.item_id) !== key);
+  if (focusItemId === key) focusItemId = currentItems[0] ? String(currentItems[0].item_id) : null;
+  renderShelf(currentItems, $('shelfTitle').textContent, '', null);
+  return true;
+}
+
+function restoreShelfItemFromFeedback(itemId){
+  const key = String(itemId);
+  const saved = removedFeedback.get(key);
+  if (!saved) return false;
+  if (!currentItems.some(x => String(x.item_id) === key)){
+    currentItems.splice(Math.min(saved.index, currentItems.length), 0, saved.item);
+    renderShelf(currentItems, $('shelfTitle').textContent, '', null);
+  }
+  removedFeedback.delete(key);
+  return true;
+}
+
 /* ============ 助手对话 ============ */
 function addUser(text){
   userSaid.push(text);
@@ -335,7 +360,7 @@ function renderBot(resp, updateShelf){
       esc(explainItem.title || '当前商品') + '</div><div>' + escHuman(explainText) + '</div>' +
       (explainItem.evidence_count ? '<div class="explain-meta">可核验依据 ' +
         Number(explainItem.evidence_count) + ' 条</div>' : '') + '</div>';
-  } else if (n){
+  } else if (n && intent !== 'feedback'){
     h += '<div style="margin-top:6px">为你找到 <b>' + n + '</b> 件商品，已更新左侧货架。</div>';
   }
   if (resp.browse) h += '<div style="margin-top:4px">已记录浏览：<b>' + esc(resp.browse.title || '') +
@@ -416,6 +441,7 @@ function setBusy(b){
 async function ask(text, opt){
   opt = opt || {};
   if (!text || busy) return;
+  removedFeedback.clear();
   lastQuery = text;
   if (!opt.silent) addUser(text);
   setBusy(true); addSkeleton();
@@ -467,15 +493,16 @@ async function rate(itemId, polarity, forceCancel){
   if (busy || pendingItems.has(key)) return;
   const cancel = !!forceCancel || ratings.get(key) === polarity;
   focusItemId = key;
+  const previous = ratings.get(key);
+  const removedNow = !cancel && polarity === 'down' && detachShelfItemForFeedback(key);
   setCardPending(key, true);
   setDetailPending(key, true);
-  const previous = ratings.get(key);
   if (cancel) ratings.delete(key); else ratings.set(key, polarity);
   syncRatingUI(key);
   if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
   const id = addAction(polarity === 'up' ? '👍' : '👎',
                        cancel ? '取消反馈' : (polarity === 'up' ? '点赞' : '倒赞'),
-                       cancel ? '正在撤销该商品的反馈并重新排序…' : '正在写入会话偏好并重新排序…');
+                       cancel ? '正在撤销该商品的反馈…' : '正在更新商品反馈…');
   try{
     const d = await post('/api/feedback', {item_id: key, polarity: cancel ? 'none' : polarity, top_k: shelfTopK()});
     const r = d.response || {};
@@ -484,26 +511,29 @@ async function rate(itemId, polarity, forceCancel){
       const fb = r.feedback || {};
       finishAction(id, 'ok', cancel ? '已取消' : '已记录', esc(cancel ? '反馈' : fb.polarity === 'positive' ? '点赞' : '倒赞') +
         '：<b>' + esc(fb.target_title || key) + '</b>');
+      document.querySelectorAll('[data-undo-feedback="' + key + '"]').forEach(b => b.remove());
       if (cancel){
         ratings.delete(key);
-        document.querySelectorAll('[data-undo-feedback="' + key + '"]').forEach(b => b.remove());
+        restoreShelfItemFromFeedback(key);
       } else {
         ratings.set(key, fb.polarity === 'negative' ? 'down' : polarity);
       }
       syncRatingUI(key);
       if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
-      renderBot(r, true);
+      renderBot(r, false);
     } else {
       const msg = (r.error && r.error.message) || r.clarification || d.error || '反馈未生效';
       finishAction(id, 'warn', '未生效', esc(msg) + actionSuggestions('feedback'));
       if (previous) ratings.set(key, previous); else ratings.delete(key);
       syncRatingUI(key);
       if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
+      if (removedNow) restoreShelfItemFromFeedback(key);
     }
   }catch(e){
     if (previous) ratings.set(key, previous); else ratings.delete(key);
     syncRatingUI(key);
     if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
+    if (removedNow) restoreShelfItemFromFeedback(key);
     finishAction(id, 'err', '失败', esc(e.message) + actionSuggestions('feedback'));
     toast('反馈失败：' + e.message);
   }finally{
@@ -633,21 +663,26 @@ async function handleLiveEvent(g){
     if (!target) return;
     const dir = g === 'thumbs_up' ? 'up' : 'down';
     const cancel = ratings.get(String(target)) === dir;
+    const removedNow = !cancel && dir === 'down' && detachShelfItemForFeedback(target);
     const r = await post('/api/feedback', {item_id: target, polarity: cancel ? 'none' : dir, top_k: shelfTopK()});
     if (r.ok){
+      document.querySelectorAll('[data-undo-feedback="' + target + '"]').forEach(b => b.remove());
       if (cancel){
         ratings.delete(String(target));
-        document.querySelectorAll('[data-undo-feedback="' + target + '"]').forEach(b => b.remove());
+        restoreShelfItemFromFeedback(target);
       } else {
         ratings.set(String(target), dir);
       }
       setModalRating(cancel ? null : dir);
-      if (r.response) renderBot(r.response, true);
+      if (r.response) renderBot(r.response, false);
       const card = document.querySelector('.pcard[data-item="' + target + '"]');
       if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on',
         !cancel && b.dataset.like === dir));
       if (stat) stat.textContent = cancel ? '已取消反馈，商品已恢复' : '已识别 ' + g + '，已更新当前商品';
-    } else if (stat) stat.textContent = '识别到 ' + g + '，但反馈失败：' + (r.error || '');
+    } else {
+      if (removedNow) restoreShelfItemFromFeedback(target);
+      if (stat) stat.textContent = '识别到 ' + g + '，但反馈失败：' + (r.error || '');
+    }
   } else if (g){
     if (stat) stat.textContent = '已识别 ' + g + '，当前仅支持 👍/👎，已忽略';
   }
@@ -769,13 +804,15 @@ async function modalGesture(itemId){
                   (d.gesture === 'thumbs_up' ? 'positive' : 'negative');
       const dir = pol === 'positive' ? 'up' : 'down';
       const cancel = ratings.get(String(itemId)) === dir;
+      if (!cancel && dir === 'down') detachShelfItemForFeedback(itemId);
       if (cancel){
         const c = await post('/api/feedback', {item_id: itemId, polarity: 'none', top_k: shelfTopK()});
         if (c.ok){
           ratings.delete(String(itemId));
           document.querySelectorAll('[data-undo-feedback="' + itemId + '"]').forEach(b => b.remove());
+          restoreShelfItemFromFeedback(itemId);
           setModalRating(null);
-          if (c.response) renderBot(c.response, true);
+          if (c.response) renderBot(c.response, false);
           box.innerHTML = '<div class="mstatus ok">已识别 ' + esc(d.gesture) + '，已取消该商品反馈</div>' + shot;
         } else {
           box.innerHTML = '<div class="mstatus err">取消反馈失败：' + esc(c.error || '') + '</div>' + shot;
@@ -783,11 +820,12 @@ async function modalGesture(itemId){
         box.dataset.busy = '0';
         return;
       }
+      document.querySelectorAll('[data-undo-feedback="' + itemId + '"]').forEach(b => b.remove());
       ratings.set(String(itemId), dir);
       setModalRating(dir);
       const card = document.querySelector('.pcard[data-item="' + itemId + '"]');
       if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', b.dataset.like === dir));
-      if (d.response) renderBot(d.response, true);
+      if (d.response) renderBot(d.response, false);
       box.innerHTML = '<div class="mstatus ok">已识别 ' + esc(d.gesture) + '，已更新该商品评价</div>' + shot;
     } else if (d.ok){
       box.innerHTML = '<div class="mstatus ok">已识别 ' + esc(d.gesture) +
@@ -961,7 +999,7 @@ async function act(kind){
       else finishAction(id, 'err', '失败', esc(d.error));
       if (d.ok && kind === 'reset'){
         picked.clear(); renderTray(); syncPickUI();
-        ratings.clear();
+        ratings.clear(); removedFeedback.clear();
         activeFilters = []; renderFilters();
         await loadHomeShelf(true);
       }
@@ -1223,6 +1261,7 @@ $('tabbar').addEventListener('click', ev => {
 
 async function loadHomeShelf(force){
   if (!force && userSaid.length) return;   // 用户已经提问，别用首页结果覆盖
+  if (force) removedFeedback.clear();
   lastQuery = null;
   try{
     const h = await (await fetch('/api/home?limit=' + pageSize)).json();
