@@ -189,7 +189,12 @@ function renderShelf(items, title, subtitle, resp, append){
       focusItemId = currentItems.length ? String(currentItems[0].item_id) : null;
     }
   }
-  if (resp) shelfSimilarMode = ((resp.intent_result || {}).intent === 'similar');
+  if (resp){
+    const nextIntent = (resp.intent_result || {}).intent;
+    if (nextIntent === 'similar') shelfSimilarMode = true;
+    else if (['discover', 'filter', 'browse'].includes(nextIntent)) shelfSimilarMode = false;
+    // feedback / explain / compare 不会替换当前相似货架，不能清掉相似模式。
+  }
   // 反馈响应只带 polarity/target，不含当前生效条件；不能因此把货架筛选 chip 清空。
   if (resp && ['discover', 'similar', 'filter', 'browse'].includes((resp.intent_result || {}).intent)){
     activeFilters = filtersFrom(resp);
@@ -264,13 +269,15 @@ function renderLikedShelf(){
   $('likedCnt').textContent = items.length ? items.length + ' 件' : '';
   $('likedGrid').innerHTML = items.map(it => {
     const key = String(it.item_id);
+    const wasSimilar = (it.sources || []).some(s => String(s).includes('相似商品召回'));
     return '<article class="liked-card" data-liked-item="' + esc(key) + '">' +
       '<div class="limg">' + (it.img_url ? '<img src="' + esc(it.img_url) +
         '" alt="" onerror="this.remove()">' : '') +
       '<span class="lph">' + esc(it.emoji || '🛍️') + '</span></div>' +
       '<div class="lbody" data-liked-open="' + esc(key) + '">' +
       '<div class="lname" title="' + esc(it.title) + '">' + esc(it.title) + '</div>' +
-      '<div class="lprice">' + money(it.price) + '</div></div>' +
+      '<div class="lprice">' + money(it.price) + (wasSimilar ? ' · ✦ 相似推荐' : '') + '</div></div>' +
+      '<button class="lfind" data-liked-similar="' + esc(key) + '">找相似</button>' +
       '<button class="lremove" data-liked-remove="' + esc(key) + '" aria-label="取消喜欢">取消</button>' +
       '</article>';
   }).join('');
@@ -458,6 +465,10 @@ function renderBot(resp, updateShelf){
       const p = fb.polarity === 'positive' ? 'up' : 'down';
       h += '<button class="cmpbtn" style="margin-top:5px" data-undo-feedback="' + esc(fb.item_id) +
         '" data-feedback-polarity="' + p + '">撤销' + (p === 'up' ? '点赞' : '倒赞') + '</button>';
+      if (p === 'up'){
+        h += '<button class="cmpbtn" style="margin-top:5px" data-find-similar="' + esc(fb.item_id) +
+          '">查看与这件相似的商品</button>';
+      }
     }
   }
   if (resp.before_after) h += '<div style="margin-top:4px;font-size:12.5px;color:#8b91a6">排序变化：<b style="color:#1b1f30">' +
@@ -1303,6 +1314,13 @@ grid.addEventListener('click', ev => {
   if (ev.target.closest('[data-open]')) openDetail(id);
 });
 $('likedGrid').addEventListener('click', ev => {
+  const similar = ev.target.closest('[data-liked-similar]');
+  if (similar){
+    ev.stopPropagation();
+    focusItemId = similar.dataset.likedSimilar;
+    ask('和这个商品相似的商品');
+    return;
+  }
   const remove = ev.target.closest('[data-liked-remove]');
   if (remove){
     ev.stopPropagation();
@@ -1313,6 +1331,12 @@ $('likedGrid').addEventListener('click', ev => {
   if (open) openDetail(open.dataset.likedOpen, likedSnapshots.get(open.dataset.likedOpen));
 });
 stream.addEventListener('click', ev => {
+  const findSimilar = ev.target.closest('[data-find-similar]');
+  if (findSimilar){
+    focusItemId = findSimilar.dataset.findSimilar;
+    ask('和这个商品相似的商品');
+    return;
+  }
   const uf = ev.target.closest('[data-undo-feedback]');
   if (uf){ rate(uf.dataset.undoFeedback, uf.dataset.feedbackPolarity, true); return; }
   const fold = ev.target.closest('[data-fold]');

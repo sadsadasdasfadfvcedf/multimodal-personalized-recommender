@@ -26,7 +26,7 @@ scripts/13_webui_acceptance.py
   17. 点赞不改位置；倒赞移除后撤销恢复原位，再次点赞仍不改位置
   18. 打开商品详情启动摄像头，关闭详情后摄像头停止
   19. 用文字或语音询问“手上物品”时自动触发识图并融合推荐
-  20. 相似推荐商品有可见高光标记
+  20. 相似推荐商品有高光，点赞其它商品后仍保留相似推荐
   21. 首页加载更多仍保持当前账号品类
 
 前置条件（缺一即跳过，不影响离线可复现性）：
@@ -573,13 +573,31 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                     break
                 await asyncio.sleep(0.25)
             await asyncio.sleep(0.3)
-            similar_cards = await ev("document.querySelectorAll('.pcard.similar-hit').length")
-            similar_badges = await ev("document.querySelectorAll('.pcard .t.sim').length")
+            similar_before = await ev("document.querySelectorAll('.pcard.similar-hit').length")
+            similar_state = await ev(
+                "(async function(){"
+                "const sleep=ms=>new Promise(r=>setTimeout(r,ms));"
+                "const card=Array.from(document.querySelectorAll('.pcard.similar-hit'))"
+                ".find(x=>!ratings.has(x.dataset.item));"
+                "if(!card)return {ok:false,reason:'no unrated similar card'};"
+                "const id=card.dataset.item;card.querySelector('[data-like=\"up\"]').click();"
+                "for(let i=0;i<160;i++){if(!busy&&pendingItems.size===0)break;await sleep(50);}"
+                "return {ok:true,id,cards:document.querySelectorAll('.pcard.similar-hit').length,"
+                "tags:document.querySelectorAll('.pcard .t.sim').length,"
+                "likedFind:!!document.querySelector('[data-liked-similar=\"'+id+'\"]'),"
+                "messageFind:!!document.querySelector('[data-find-similar=\"'+id+'\"]')};"
+                "})()"
+            )
             add(
                 20,
-                "相似推荐商品有可见高光标记",
-                (similar_cards or 0) > 0 and (similar_badges or 0) > 0,
-                f"高光卡片 {similar_cards or 0}，相似标签 {similar_badges or 0}",
+                "相似推荐有高光，点赞其它商品后仍保留相似推荐",
+                (similar_before or 0) > 0
+                and bool((similar_state or {}).get("ok"))
+                and (similar_state or {}).get("cards", 0) > 0
+                and (similar_state or {}).get("tags", 0) > 0
+                and bool((similar_state or {}).get("likedFind"))
+                and bool((similar_state or {}).get("messageFind")),
+                f"点赞前高光 {similar_before or 0}；点赞后 {similar_state}",
             )
 
             await cmd("Page.navigate", {"url": url})

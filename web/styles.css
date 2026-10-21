@@ -160,8 +160,11 @@
   .liked-card .lname{font-size:12.5px;font-weight:600;line-height:1.35;white-space:nowrap;
          overflow:hidden;text-overflow:ellipsis}
   .liked-card .lprice{margin-top:3px;font-size:12px;color:var(--bad);font-weight:700}
-  .liked-card .lremove{border:none;background:#fff1f4;color:#b42355;border-radius:7px;
-         padding:4px 6px;font-size:11px;cursor:pointer}
+  .liked-card .lfind,.liked-card .lremove{border:none;border-radius:7px;
+         padding:4px 6px;font-size:11px;cursor:pointer;white-space:nowrap}
+  .liked-card .lfind{background:#eef2ff;color:#5146b8}
+  .liked-card .lfind:hover{background:#e3e7ff}
+  .liked-card .lremove{background:#fff1f4;color:#b42355}
   .liked-card .lremove:hover{background:#ffe3ea}
   .pcard{position:relative;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;
          background:#fff;display:flex;flex-direction:column;
