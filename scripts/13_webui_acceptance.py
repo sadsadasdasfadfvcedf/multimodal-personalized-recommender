@@ -589,12 +589,14 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 "const id=card.dataset.item;card.querySelector('[data-like=\"up\"]').click();"
                 "for(let i=0;i<200;i++){if(!busy&&pendingItems.size===0&&"
                 "document.querySelectorAll('.auto-card').length>0)break;await sleep(50);}"
+                "await sleep(450);const box=document.getElementById('autoRelated');"
+                "const rect=box.getBoundingClientRect();"
                 "return {ok:true,id,comparable,cards:document.querySelectorAll('.pcard.similar-hit').length,"
                 "tags:document.querySelectorAll('.pcard .t.sim').length,"
                 "most:document.querySelectorAll('[data-recommendation-role=\"most-similar\"]').length,"
                 "alternative:document.querySelectorAll('[data-recommendation-role=\"similar-alternative\"]').length,"
                 "auto:document.querySelectorAll('.auto-card').length,"
-                "autoVisible:!document.getElementById('autoRelated').hidden,"
+                "autoVisible:!box.hidden,autoInView:rect.top>=0&&rect.bottom<=window.innerHeight,"
                 "manualButtons:document.querySelectorAll('[data-liked-similar],[data-find-similar]').length};"
                 "})()"
             )
@@ -611,6 +613,7 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 and (similar_state or {}).get("alternative") == 1
                 and (similar_state or {}).get("auto", 0) > 0
                 and bool((similar_state or {}).get("autoVisible"))
+                and bool((similar_state or {}).get("autoInView"))
                 and (similar_state or {}).get("manualButtons") == 0,
                 f"点赞前高光 {similar_before or 0}；点赞后 {similar_state}",
             )

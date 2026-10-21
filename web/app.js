@@ -299,6 +299,17 @@ function hideAutoRelated(){
   $('autoGrid').innerHTML = '';
 }
 
+function revealAutoRelated(){
+  requestAnimationFrame(() => {
+    const box = $('autoRelated');
+    if (!box || box.hidden) return;
+    const rect = box.getBoundingClientRect();
+    if (rect.top < 76 || rect.bottom > window.innerHeight - 12){
+      box.scrollIntoView({behavior:'smooth', block:'center'});
+    }
+  });
+}
+
 function renderAutoRelated(items){
   $('autoGrid').innerHTML = items.map(it =>
     '<button type="button" class="auto-card" data-auto-open="' + esc(it.item_id) + '">' +
@@ -321,9 +332,11 @@ async function loadAutoSimilar(itemId, title){
   const cached = similarPreviewCache.get(key);
   if (cached){
     renderAutoRelated(cached);
+    revealAutoRelated();
     return;
   }
   $('autoGrid').innerHTML = '<div class="auto-loading">正在找相似好物…</div>';
+  revealAutoRelated();
   try{
     const d = await post('/api/similar-preview', {item_id:key, top_k:4});
     if (requestId !== autoSimilarRequestId || ratings.get(key) !== 'up') return;
@@ -332,9 +345,13 @@ async function loadAutoSimilar(itemId, title){
       renderAutoRelated(d.items);
     } else {
       hideAutoRelated();
+      toast('暂时没有找到相似好物，换个商品试试');
     }
   }catch(e){
-    if (requestId === autoSimilarRequestId) hideAutoRelated();
+    if (requestId === autoSimilarRequestId){
+      hideAutoRelated();
+      toast('相似好物加载失败，请稍后再试');
+    }
   }
 }
 
@@ -1389,6 +1406,7 @@ $('autoGrid').addEventListener('click', ev => {
   const open = ev.target.closest('[data-auto-open]');
   if (open) openDetail(open.dataset.autoOpen);
 });
+$('autoClose').addEventListener('click', hideAutoRelated);
 stream.addEventListener('click', ev => {
   const uf = ev.target.closest('[data-undo-feedback]');
   if (uf){ rate(uf.dataset.undoFeedback, uf.dataset.feedbackPolarity, true); return; }

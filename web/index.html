@@ -84,6 +84,16 @@
         <span class="sp"></span>
       </div>
     </div>
+    <section class="auto-related" id="autoRelated" hidden aria-label="相似商品推荐">
+      <div class="auto-head">
+        <span>因为喜欢「<b id="autoSeedTitle"></b>」</span>
+        <span class="auto-actions">
+          <strong>你可能也喜欢</strong>
+          <button id="autoClose" type="button">收起</button>
+        </span>
+      </div>
+      <div class="auto-grid" id="autoGrid"></div>
+    </section>
     <div class="pgrid" id="pgrid"></div>
     <section class="liked-shelf" id="likedShelf" hidden aria-label="已点赞商品">
       <div class="liked-head">
@@ -91,13 +101,6 @@
         <span id="likedCnt"></span>
       </div>
       <div class="liked-grid" id="likedGrid"></div>
-      <div class="auto-related" id="autoRelated" hidden>
-        <div class="auto-head">
-          <span>因为喜欢「<b id="autoSeedTitle"></b>」</span>
-          <strong>你可能也喜欢</strong>
-        </div>
-        <div class="auto-grid" id="autoGrid"></div>
-      </div>
     </section>
     <button class="loadmore" id="loadMore" hidden>加载更多商品</button>
     <div class="empty" id="empty" style="display:none"></div>
