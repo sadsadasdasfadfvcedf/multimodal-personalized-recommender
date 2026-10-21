@@ -375,9 +375,27 @@ INTENT_CONFIG: dict = {
 # 领域词表（词汇属于配置，不属于商品 ID）
 # 演示账号（网页右上角可直接切换；没有对应账号时前端只显示当前 user_id）
 DEMO_ACCOUNTS: list[dict] = [
-    {"user_id": "15547", "name": "林先生", "persona": "家居复购型", "color": "#6d5dfc"},
-    {"user_id": "14156", "name": "陈小姐", "persona": "厨房好物型", "color": "#ff7a59"},
-    {"user_id": "17231", "name": "王女士", "persona": "装饰礼品型", "color": "#0aa38f"},
+    {
+        "user_id": "15547",
+        "name": "林先生",
+        "persona": "家居复购型",
+        "home_query": "只看家居装饰",
+        "color": "#6d5dfc",
+    },
+    {
+        "user_id": "14156",
+        "name": "陈小姐",
+        "persona": "厨房好物型",
+        "home_query": "只看厨房用品",
+        "color": "#ff7a59",
+    },
+    {
+        "user_id": "17231",
+        "name": "王女士",
+        "persona": "装饰礼品型",
+        "home_query": "只看礼品",
+        "color": "#0aa38f",
+    },
 ]
 
 # 寒暄 / 身份问答：不进推荐链路。

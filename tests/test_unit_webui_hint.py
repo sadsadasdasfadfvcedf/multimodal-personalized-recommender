@@ -728,6 +728,23 @@ def test_home_and_more_do_not_call_llm_explain():
     assert time.time() - t0 < 5
 
 
+def test_home_shelf_is_persona_specific():
+    cases = {
+        "15547": "家居装饰",
+        "14156": "厨房用品",
+        "17231": "装饰品",
+    }
+    w = _webui()
+    for user_id, expected_category in cases.items():
+        app = w.App(user_id, "offline", False, False, None)
+        home = app.home(8)
+        assert home["ok"] is True
+        assert home["items"], user_id
+        assert {item["category"] for item in home["items"]} == {expected_category}, user_id
+        assert app.account()["persona"] in home["title"]
+        assert expected_category in home["subtitle"]
+
+
 def test_pick_gesture_uses_votes_then_confidence():
     """连拍结果按票数优先、同票数看最高置信度。"""
     rows = [

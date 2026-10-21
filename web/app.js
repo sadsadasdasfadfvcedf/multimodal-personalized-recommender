@@ -11,6 +11,7 @@ let visionBusy = false;
 let visionOnline = false;
 let deviceAllowed = false;
 let dislikeConfirmItemId = null;
+let shelfSimilarMode = false;
 const pendingItems = new Set();
 const removedFeedback = new Map();
 const DEVICE_CONSENT_KEY = 'integrated_device_consent';
@@ -178,12 +179,14 @@ function renderShelf(items, title, subtitle, resp, append){
       focusItemId = currentItems.length ? String(currentItems[0].item_id) : null;
     }
   }
+  if (resp) shelfSimilarMode = ((resp.intent_result || {}).intent === 'similar');
   // 反馈响应只带 polarity/target，不含当前生效条件；不能因此把货架筛选 chip 清空。
   if (resp && ['discover', 'similar', 'filter', 'browse'].includes((resp.intent_result || {}).intent)){
     activeFilters = filtersFrom(resp);
   }
   renderFilters();
   $('shelfTitle').textContent = title || '推荐结果';
+  $('shelfSub').textContent = subtitle || '';
   $('shelfCnt').textContent = currentItems.length ? ('共 ' + currentItems.length + ' 件') : '';
   grid.className = 'pgrid' + (viewMode === 'list' ? ' list' : '');
   const lm = $('loadMore');
@@ -202,14 +205,20 @@ function renderShelf(items, title, subtitle, resp, append){
     const rank = it.rank || (i + 1);
     const pct = matchPct(it.score);
     const hits = ((it.evidence || {}).matched_constraints || []).length;
+    const sourceText = (it.sources || []).join(' ');
+    const similarHit = shelfSimilarMode
+      || sourceText.includes('相似商品召回')
+      || !!((it.evidence || {}).source_detail || {}).similar;
     const tags = [];
+    if (similarHit) tags.push('<span class="t sim">✦ 相似推荐</span>');
     if (it.evidence_count) tags.push('<span class="t ev">' + it.evidence_count + ' 条依据</span>');
     if (hits) tags.push('<span class="t hit">命中 ' + hits + ' 项条件</span>');
     else if (it.category) tags.push('<span class="t">' + esc(it.category) + '</span>');
     const extra = tags.length > 2 ? tags.slice(0,2).join('') +
       '<span class="t more">+' + (tags.length - 2) + '</span>' : tags.join('');
     const isPicked = picked.has(it.item_id);
-    return '<article class="pcard' + (isPicked ? ' picked' : '') + '" data-item="' + esc(it.item_id) + '">' +
+    return '<article class="pcard' + (isPicked ? ' picked' : '') +
+      (similarHit ? ' similar-hit' : '') + '" data-item="' + esc(it.item_id) + '">' +
       '<div class="rank' + (rank > 3 ? ' plain' : '') + '">TOP ' + rank + '</div>' +
       media(it, 'pimg', rank <= 2).replace('class="pimg"', 'class="pimg" data-open') +
       '<div class="pacts">' +
@@ -1314,11 +1323,12 @@ $('tabbar').addEventListener('click', ev => {
 async function loadHomeShelf(force){
   if (!force && userSaid.length) return;   // 用户已经提问，别用首页结果覆盖
   if (force) removedFeedback.clear();
+  shelfSimilarMode = false;
   lastQuery = null;
   try{
     const h = await (await fetch('/api/home?limit=' + pageSize)).json();
     if (h.ok && h.items && h.items.length){
-      renderShelf(h.items, '猜你喜欢', '基于 v146 个性化精排的默认推荐');
+      renderShelf(h.items, h.title || '猜你喜欢', h.subtitle || '基于 v146 个性化精排的默认推荐');
     } else {
       renderShelf([], '开始逛逛');
     }

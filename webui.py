@@ -56,6 +56,7 @@ from src.vision_api import DEFAULT_VISION_QUESTION, DashScopeVisionClient  # noq
 # ------------------------------------------------------------
 _MIME_EXT = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 _EXT_MIME = {v: k for k, v in _MIME_EXT.items()}
+_PLACEHOLDER_IMAGE = b'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>'
 
 
 def _recsys_image_base() -> str:
@@ -758,7 +759,9 @@ class App:
 
         这样打开页面就有货可看（电商首页观感），而对话面板保持干净。
         """
-        spec = {"source": "text", "text": "推荐一些热门商品"}
+        account = self.account()
+        home_query = str(account.get("home_query") or "推荐一些热门商品")
+        spec = {"source": "text", "text": home_query}
         limit = max(1, min(40, int(limit)))
         with self.lock:
             # 首页只需要文本货架；合成语音会让 /api/home 从 ~5ms 涨到 ~3.3s，
@@ -777,16 +780,25 @@ class App:
         if not res.ok:
             return _from_app_error(res.error)
         resp = res.data
-        for item in resp.get("recommendations", []):
+        items = resp.get("recommendations", [])
+        for item in items:
             iid = str(item.get("item_id") or "")
             if iid:
                 item["img_url"] = "/api/img/" + urllib.parse.quote(iid)
                 item["emoji"] = category_emoji(item.get("category", ""))
+        categories = sorted(
+            {
+                str(item.get("category")).strip()
+                for item in items
+                if item.get("category") and str(item.get("category")).strip()
+            }
+        )
+        category_text = "、".join(categories) if categories else "个性化商品"
         return {
             "ok": True,
-            "items": resp.get("recommendations", []),
-            "title": "猜你喜欢",
-            "subtitle": "基于 v146 个性化精排的默认推荐",
+            "items": items,
+            "title": f"{account.get('persona', '')} · 猜你喜欢",
+            "subtitle": f"当前分类：{category_text} · 按{account.get('persona', '你的偏好')}排序",
         }
 
     def more(self, text: str, top_k: int = 16) -> dict:
@@ -1075,7 +1087,8 @@ def make_handler(app: App):
                 item_id = urllib.parse.unquote(self.path[len("/api/img/") :].split("?")[0])
                 got = fetch_product_image(item_id)
                 if got is None:
-                    self._json(_err(ErrorCode.ITEM_NOT_FOUND, "图片不存在", field="item_id"), 404)
+                    # 缺图时返回透明占位图，让前端类目 emoji 兜底层继续显示，避免 404 噪音。
+                    self._send(200, _PLACEHOLDER_IMAGE, "image/svg+xml; charset=utf-8")
                 else:
                     data, ctype = got
                     self._send(200, data, ctype)

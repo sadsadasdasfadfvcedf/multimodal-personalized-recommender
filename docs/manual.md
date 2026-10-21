@@ -429,7 +429,7 @@ integrated_ai_project/
 │  ├─ 17_browser_qa.py                         浏览器运行时 QA（console/CWV/无障碍）
 │  ├─ 18_contract_check.py                     网页 API 契约核验（14 项）
 │  ├─ 19_security_check.py                     网页服务安全基线（8 项）
-│  ├─ 13_webui_acceptance.py                   网页改版验收（19 项，需 Edge）
+│  ├─ 13_webui_acceptance.py                   网页改版验收（20 项，需 Edge）
 │  ├─ run_all_offline.py                       一键跑完整离线套件（汇总表）
 ```
 

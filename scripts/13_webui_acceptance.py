@@ -2,7 +2,7 @@
 scripts/13_webui_acceptance.py
 ==============================
 
-网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 19 项）。
+网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 20 项）。
 
 实现方式：用 Edge 的 CDP（Chrome DevTools Protocol）驱动无头浏览器，
 在真实页面上**测量**而不是靠肉眼判断：
@@ -26,6 +26,7 @@ scripts/13_webui_acceptance.py
   17. 点赞不改位置；倒赞移除后撤销恢复原位，再次点赞仍不改位置
   18. 打开商品详情启动摄像头，关闭详情后摄像头停止
   19. 在对话框询问“手上物品”时自动触发识图并进入对话
+  20. 相似推荐商品有可见高光标记
 
 前置条件（缺一即跳过，不影响离线可复现性）：
     · 本机装有 Microsoft Edge
@@ -394,7 +395,7 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 "(async function(){"
                 "const sleep=ms=>new Promise(r=>setTimeout(r,ms));"
                 "const order=()=>Array.from(document.querySelectorAll('.pcard')).map(x=>x.dataset.item);"
-                "const wait=async()=>{for(let i=0;i<200;i++){if(pendingItems.size===0&&!busy)return;await sleep(25);}};"
+                "const wait=async()=>{for(let i=0;i<200;i++){if(pendingItems.size===0&&!busy&&!document.querySelector('.pcard.pending'))return;await sleep(25);}};"
                 "const card=Array.from(document.querySelectorAll('.pcard')).find(c=>"
                 "!ratings.has(c.dataset.item)&&!document.querySelector('[data-undo-feedback=\"'+c.dataset.item+'\"]'));"
                 "if(!card)return {ok:false,reason:'no unrated card'};"
@@ -498,6 +499,35 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 str(visual_chat),
             )
 
+            await ev(
+                "(function(){document.getElementById('q').value='推荐一些厨房用品';"
+                "document.getElementById('searchForm').requestSubmit();})()"
+            )
+            for _ in range(120):
+                if await ev("!busy && !document.querySelector('#stream .spin')"):
+                    break
+                await asyncio.sleep(0.25)
+            await ev(
+                "(function(){document.getElementById('q').value='和第一个相似的商品';"
+                "document.getElementById('searchForm').requestSubmit();})()"
+            )
+            for _ in range(120):
+                if await ev(
+                    "!busy && !document.querySelector('#stream .spin') && "
+                    "document.getElementById('shelfTitle').textContent==='相似商品'"
+                ):
+                    break
+                await asyncio.sleep(0.25)
+            await asyncio.sleep(0.3)
+            similar_cards = await ev("document.querySelectorAll('.pcard.similar-hit').length")
+            similar_badges = await ev("document.querySelectorAll('.pcard .t.sim').length")
+            add(
+                20,
+                "相似推荐商品有可见高光标记",
+                (similar_cards or 0) > 0 and (similar_badges or 0) > 0,
+                f"高光卡片 {similar_cards or 0}，相似标签 {similar_badges or 0}",
+            )
+
             root = settings.PROJECT_ROOT
             src = (root / "webui.py").read_text(encoding="utf-8")
             src += "\n".join(
@@ -521,7 +551,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=9455, help="CDP 调试端口")
     args = parser.parse_args()
 
-    banner("网页改版验收核验（设计文档表 6-1，19 项）")
+    banner("网页改版验收核验（设计文档表 6-1，20 项）")
     report = {"checked_at": now_iso(), "url": args.url, "checks": [], "verdict": "SKIP"}
 
     edge = _edge()
