@@ -264,8 +264,8 @@ python -c "from modelscope import snapshot_download; snapshot_download('Qwen/Qwe
 打开商品详情会自动 `POST /api/camera/start` 拉起常驻 `scripts/camera_worker.py`，摄像头只打开一次；
 worker 持续写 `latest.jpg` / `state.json`，网页用 `<img src="/camera/stream">` 看 MJPEG 实时预览，
 每 300ms 轮询 `/api/camera/state`。检测到稳定 👍/👎（连续 3 帧）后自动对当前商品写入反馈；
-换手势（👍 → 👎）会立即重新武装，不需要先把手移出画面。页面打开后会后台预热摄像头，
-关闭详情只暂停识别，离开整个页面时才释放摄像头。
+换手势（👍 → 👎）会立即重新武装，不需要先把手移出画面。摄像头只在商品详情打开期间运行，
+关闭详情会立即停止摄像头并释放设备。
 摄像头序号/帧率可用 `INTEGRATED_CAMERA_INDEX` / `INTEGRATED_CAMERA_FPS` 调整。
 
 ### 5.8 性能与模型加载策略

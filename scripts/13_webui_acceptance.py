@@ -2,7 +2,7 @@
 scripts/13_webui_acceptance.py
 ==============================
 
-网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 17 项）。
+网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 18 项）。
 
 实现方式：用 Edge 的 CDP（Chrome DevTools Protocol）驱动无头浏览器，
 在真实页面上**测量**而不是靠肉眼判断：
@@ -24,6 +24,7 @@ scripts/13_webui_acceptance.py
   15. 识图请求不锁整页，失败原因可见
   16. 追问携带焦点商品并直接展示推荐理由，不覆盖当前货架
   17. 点赞不改位置；倒赞移除后撤销恢复原位，再次点赞仍不改位置
+  18. 打开商品详情启动摄像头，关闭详情后摄像头停止
 
 前置条件（缺一即跳过，不影响离线可复现性）：
     · 本机装有 Microsoft Edge
@@ -400,22 +401,60 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 "card.querySelector('[data-like=\"up\"]').click();await wait();"
                 "const afterLike=order().indexOf(id);"
                 "document.querySelector('.pcard[data-item=\"'+id+'\"] [data-like=\"down\"]').click();await wait();"
+                "const confirmShown=document.getElementById('feedbackModal').classList.contains('show');"
+                "const beforeConfirm=order().indexOf(id);"
+                "const confirmButton=document.querySelector('#feedbackModal [data-feedback-confirm]');"
+                "if(!confirmButton)return {ok:false,reason:'confirm missing',id,initialIndex,afterLike,"
+                "confirmShown,beforeConfirm,cards:order().length,ratings:[...ratings.entries()]};"
+                "confirmButton.click();await wait();"
                 "const afterDown=order().indexOf(id);"
                 "document.querySelector('[data-undo-feedback=\"'+id+'\"][data-feedback-polarity=\"down\"]').click();await wait();"
                 "const afterUndo=order().indexOf(id);"
                 "document.querySelector('.pcard[data-item=\"'+id+'\"] [data-like=\"up\"]').click();await wait();"
                 "const afterLikeAgain=order().indexOf(id);"
-                "return {ok:true,id,initialIndex,afterLike,afterDown,afterUndo,afterLikeAgain};})()"
+                "return {ok:true,id,initialIndex,afterLike,confirmShown,beforeConfirm,afterDown,afterUndo,afterLikeAgain};})()"
             )
             add(
                 17,
-                "点赞不改位置；倒赞撤销恢复原位",
+                "点赞不改位置；倒赞先确认，撤销恢复原位",
                 bool((position_state or {}).get("ok"))
                 and (position_state or {}).get("afterLike") == (position_state or {}).get("initialIndex")
+                and bool((position_state or {}).get("confirmShown"))
+                and (position_state or {}).get("beforeConfirm") == (position_state or {}).get("initialIndex")
                 and (position_state or {}).get("afterDown") == -1
                 and (position_state or {}).get("afterUndo") == (position_state or {}).get("initialIndex")
                 and (position_state or {}).get("afterLikeAgain") == (position_state or {}).get("initialIndex"),
                 str(position_state),
+            )
+
+            camera_state = await ev(
+                "(async function(){"
+                "const sleep=ms=>new Promise(r=>setTimeout(r,ms));"
+                "const card=document.querySelector('.pcard [data-open]');"
+                "if(!card)return {ok:false,reason:'no card'};"
+                "card.click();"
+                "for(let i=0;i<120;i++){if(document.querySelector('#modal.show .livecam'))break;await sleep(250);}"
+                "const modalOpen=document.getElementById('modal').classList.contains('show');"
+                "const live=!!document.querySelector('#modal.show .livecam');"
+                "const before=await (await fetch('/api/camera/state')).json();"
+                "document.querySelector('#modal [data-close]')?.click();"
+                "for(let i=0;i<80;i++){const s=await (await fetch('/api/camera/state')).json();"
+                "if(s.state&&s.state.running===false)break;await sleep(100);}"
+                "const after=await (await fetch('/api/camera/state')).json();"
+                "return {ok:true,modalOpen,live,runningBefore:!!(before.state&&before.state.running),"
+                "modalClosed:!document.getElementById('modal').classList.contains('show'),"
+                "runningAfter:!!(after.state&&after.state.running)};})()"
+            )
+            add(
+                18,
+                "关闭商品详情后摄像头停止",
+                bool((camera_state or {}).get("ok"))
+                and bool((camera_state or {}).get("modalOpen"))
+                and bool((camera_state or {}).get("live"))
+                and bool((camera_state or {}).get("runningBefore"))
+                and bool((camera_state or {}).get("modalClosed"))
+                and not bool((camera_state or {}).get("runningAfter")),
+                str(camera_state),
             )
 
             root = settings.PROJECT_ROOT
@@ -441,7 +480,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=9455, help="CDP 调试端口")
     args = parser.parse_args()
 
-    banner("网页改版验收核验（设计文档表 6-1，17 项）")
+    banner("网页改版验收核验（设计文档表 6-1，18 项）")
     report = {"checked_at": now_iso(), "url": args.url, "checks": [], "verdict": "SKIP"}
 
     edge = _edge()

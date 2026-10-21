@@ -138,6 +138,44 @@ def test_thumbs_up_still_writes_feedback():
     assert called and called[0]["source"] == "gesture"
 
 
+def test_gesture_recognition_only_does_not_write_feedback():
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    app.orch.multimodal.capture_burst = lambda *args, **kwargs: ok({"dir": "burst"})
+    app.orch.multimodal.recognize_gesture_batch = lambda *args, **kwargs: ok(
+        {
+            "results": [
+                {
+                    "image": "frame.jpg",
+                    "hands_detected": 1,
+                    "gestures": [{"name": "thumbs_down", "confidence": 0.99}],
+                },
+                {
+                    "image": "frame2.jpg",
+                    "hands_detected": 1,
+                    "gestures": [{"name": "thumbs_down", "confidence": 0.97}],
+                },
+                {
+                    "image": "frame3.jpg",
+                    "hands_detected": 1,
+                    "gestures": [{"name": "thumbs_down", "confidence": 0.96}],
+                },
+            ]
+        }
+    )
+    called: list[dict] = []
+    app.handle_spec = lambda spec, **kwargs: called.append(spec) or {"ok": True, "status": "ok"}
+
+    result = app.gesture("20829", 8, apply_feedback=False)
+
+    assert result["ok"] is True
+    assert result["gesture"] == "thumbs_down"
+    assert result["feedback_applied"] is False
+    assert result["requires_confirmation"] is True
+    assert called == []
+
+
 def test_two_of_five_votes_do_not_write_feedback():
     w = _webui()
     app = w.App("15547", "offline", False, False, None)

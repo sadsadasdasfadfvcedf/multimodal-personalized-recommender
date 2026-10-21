@@ -10,6 +10,7 @@ let detailItemId = null;
 let visionBusy = false;
 let visionOnline = false;
 let deviceAllowed = false;
+let dislikeConfirmItemId = null;
 const pendingItems = new Set();
 const removedFeedback = new Map();
 const DEVICE_CONSENT_KEY = 'integrated_device_consent';
@@ -87,8 +88,8 @@ function readDeviceConsent(){
 function syncDeviceButtons(){
   const btn = $('deviceBtn');
   if (btn){
-    btn.textContent = deviceAllowed ? '🔐 设备已开' : '🔐 设备授权';
-    btn.title = deviceAllowed ? '设备已启用，点击暂停' : '启用摄像头和麦克风';
+    btn.textContent = deviceAllowed ? '🔐 设备已允许' : '🔐 设备授权';
+    btn.title = deviceAllowed ? '设备已允许，点击暂停' : '允许使用摄像头和麦克风';
   }
   document.querySelectorAll('[data-act="voice"],[data-act="vision"]').forEach(b => {
     b.disabled = needReal || !deviceAllowed || busy;
@@ -102,11 +103,6 @@ function showPrivacyNotice(show){
   if (show) setTimeout(() => $('privacyAllow')?.focus(), 0);
 }
 
-function prewarmCamera(){
-  if (needReal || !deviceAllowed) return;
-  fetch('/api/camera/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}).catch(() => {});
-}
-
 function setDeviceAllowed(on, persist){
   deviceAllowed = !!on;
   if (persist !== false){
@@ -115,7 +111,6 @@ function setDeviceAllowed(on, persist){
   showPrivacyNotice(false);
   syncDeviceButtons();
   if (deviceAllowed){
-    prewarmCamera();
     if (detailItemId && $('modal').classList.contains('show')) startLiveGesture(detailItemId);
   } else {
     pauseLiveGesture();
@@ -272,6 +267,41 @@ function restoreShelfItemFromFeedback(itemId){
   }
   removedFeedback.delete(key);
   return true;
+}
+
+function closeDislikeConfirm(){
+  dislikeConfirmItemId = null;
+  $('feedbackModal')?.classList.remove('show');
+  $('feedbackSheet').innerHTML = '';
+}
+
+function openDislikeConfirm(itemId){
+  const key = String(itemId);
+  if (dislikeConfirmItemId === key && $('feedbackModal').classList.contains('show')) return;
+  const item = currentItems.find(x => String(x.item_id) === key);
+  const title = item?.title || '当前商品';
+  dislikeConfirmItemId = key;
+  $('feedbackSheet').innerHTML =
+    '<button class="x" data-feedback-close aria-label="关闭">✕</button>' +
+    '<div class="confirm-icon">👎</div>' +
+    '<h3>确定不喜欢这件商品吗？</h3>' +
+    '<p>确认后才记录倒赞，并把「' + esc(title) + '」从当前货架移除；现在点倒赞不会立即删除。</p>' +
+    '<div class="confirm-actions">' +
+      '<button data-feedback-cancel>再想想</button>' +
+      '<button class="danger" data-feedback-confirm>确定不喜欢</button>' +
+    '</div>';
+  $('feedbackModal').classList.add('show');
+  const close = $('feedbackSheet').querySelector('[data-feedback-close]');
+  if (close) close.onclick = closeDislikeConfirm;
+  const cancel = $('feedbackSheet').querySelector('[data-feedback-cancel]');
+  if (cancel) cancel.onclick = closeDislikeConfirm;
+  const confirm = $('feedbackSheet').querySelector('[data-feedback-confirm]');
+  if (confirm) confirm.onclick = () => {
+    const target = dislikeConfirmItemId;
+    closeDislikeConfirm();
+    if (target) rate(target, 'down', false, {skipConfirm:true});
+  };
+  setTimeout(() => $('feedbackSheet').querySelector('[data-feedback-cancel]')?.focus(), 0);
 }
 
 /* ============ 助手对话 ============ */
@@ -488,9 +518,18 @@ function setDetailPending(itemId, on){
   sheet.querySelectorAll('[data-rate],[data-cmp2]').forEach(b => { b.disabled = on; });
 }
 
-async function rate(itemId, polarity, forceCancel){
+async function rate(itemId, polarity, forceCancel, options){
   const key = String(itemId);
   if (busy || pendingItems.has(key)) return;
+  if (
+    !forceCancel
+    && polarity === 'down'
+    && ratings.get(key) !== 'down'
+    && !(options && options.skipConfirm)
+  ){
+    openDislikeConfirm(key);
+    return;
+  }
   const cancel = !!forceCancel || ratings.get(key) === polarity;
   focusItemId = key;
   const previous = ratings.get(key);
@@ -629,9 +668,9 @@ function pauseLiveGesture(){
   liveBusy = false;
 }
 
-async function stopLiveGesture(){
+async function stopLiveGesture(flush){
   // 停止前先处理一次最后的状态，避免「刚比完手势就点停止」丢掉最后一次事件
-  if (liveItem !== null){
+  if (flush && liveItem !== null){
     try { await pollLiveGesture(true); } catch(e){}
   }
   const hadLiveItem = liveItem !== null;
@@ -663,6 +702,11 @@ async function handleLiveEvent(g){
     if (!target) return;
     const dir = g === 'thumbs_up' ? 'up' : 'down';
     const cancel = ratings.get(String(target)) === dir;
+    if (dir === 'down' && !cancel && ratings.get(String(target)) !== 'down'){
+      openDislikeConfirm(target);
+      if (stat) stat.textContent = '已识别倒赞，请确认后再移除商品';
+      return;
+    }
     const removedNow = !cancel && dir === 'down' && detachShelfItemForFeedback(target);
     const r = await post('/api/feedback', {item_id: target, polarity: cancel ? 'none' : dir, top_k: shelfTopK()});
     if (r.ok){
@@ -795,38 +839,19 @@ async function modalGesture(itemId){
   }
   status('正在连拍并识别…');
   try{
-    const d = await post('/api/gesture', {item_id: itemId, top_k: shelfTopK()});
+    const d = await post('/api/gesture', {item_id: itemId, top_k: shelfTopK(), apply_feedback:false});
     const shot = d.preview_url ? '<a class="shotwrap" href="' + esc(d.preview_url) +
       '" target="_blank" rel="noopener"><img class="shot" src="' + esc(d.preview_url) +
       '" alt="手势抓拍画面"></a><div class="shotcap">抓拍画面 · 点击查看大图</div>' : '';
     if (d.ok && (d.gesture === 'thumbs_up' || d.gesture === 'thumbs_down')){
-      const pol = (((d.response || {}).feedback) || {}).polarity ||
-                  (d.gesture === 'thumbs_up' ? 'positive' : 'negative');
-      const dir = pol === 'positive' ? 'up' : 'down';
-      const cancel = ratings.get(String(itemId)) === dir;
-      if (!cancel && dir === 'down') detachShelfItemForFeedback(itemId);
-      if (cancel){
-        const c = await post('/api/feedback', {item_id: itemId, polarity: 'none', top_k: shelfTopK()});
-        if (c.ok){
-          ratings.delete(String(itemId));
-          document.querySelectorAll('[data-undo-feedback="' + itemId + '"]').forEach(b => b.remove());
-          restoreShelfItemFromFeedback(itemId);
-          setModalRating(null);
-          if (c.response) renderBot(c.response, false);
-          box.innerHTML = '<div class="mstatus ok">已识别 ' + esc(d.gesture) + '，已取消该商品反馈</div>' + shot;
-        } else {
-          box.innerHTML = '<div class="mstatus err">取消反馈失败：' + esc(c.error || '') + '</div>' + shot;
-        }
-        box.dataset.busy = '0';
-        return;
+      const dir = d.gesture === 'thumbs_up' ? 'up' : 'down';
+      if (dir === 'down' && ratings.get(String(itemId)) !== 'down'){
+        openDislikeConfirm(itemId);
+        box.innerHTML = '<div class="mstatus ok">已识别倒赞，请确认后再移除商品</div>' + shot;
+      } else {
+        await rate(itemId, dir, false, {skipConfirm:true});
+        box.innerHTML = '<div class="mstatus ok">已识别 ' + esc(d.gesture) + '，已更新该商品评价</div>' + shot;
       }
-      document.querySelectorAll('[data-undo-feedback="' + itemId + '"]').forEach(b => b.remove());
-      ratings.set(String(itemId), dir);
-      setModalRating(dir);
-      const card = document.querySelector('.pcard[data-item="' + itemId + '"]');
-      if (card) card.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', b.dataset.like === dir));
-      if (d.response) renderBot(d.response, false);
-      box.innerHTML = '<div class="mstatus ok">已识别 ' + esc(d.gesture) + '，已更新该商品评价</div>' + shot;
     } else if (d.ok){
       box.innerHTML = '<div class="mstatus ok">已识别 ' + esc(d.gesture) +
         (d.message ? ' · ' + esc(d.message) : '') + '</div>' + shot;
@@ -954,10 +979,11 @@ async function openDetail(itemId){
   }
 }
 function closeAll(){
-  pauseLiveGesture();
+  stopLiveGesture();
   detailItemId = null;
   $('modal').classList.remove('show');
   $('cmpModal').classList.remove('show');
+  closeDislikeConfirm();
 }
 
 /* ============ 工具动作 ============ */
@@ -1132,7 +1158,7 @@ document.addEventListener('click', ev => {
 $('clearChat').addEventListener('click', () => { stream.innerHTML = ''; toast('对话已清空（会话状态不受影响）'); });
 $('privacyAllow').addEventListener('click', () => {
   setDeviceAllowed(true, true);
-  toast('摄像头和麦克风已启用；可随时点击「设备已开」暂停');
+  toast('设备已允许；只有打开商品详情时摄像头才启动，可随时暂停');
 });
 $('privacyDeny').addEventListener('click', () => {
   setDeviceAllowed(false, true);
@@ -1227,11 +1253,12 @@ document.addEventListener('click', async ev => {
   if (c){
     ev.stopPropagation();
     document.querySelector(c.dataset.close).classList.remove('show');
-    if (c.dataset.close === '#modal') pauseLiveGesture();
+    if (c.dataset.close === '#modal') stopLiveGesture();
   }
 });
 $('modal').addEventListener('click', ev => { if (ev.target === $('modal')) closeAll(); });
 $('cmpModal').addEventListener('click', ev => { if (ev.target === $('cmpModal')) closeAll(); });
+$('feedbackModal').addEventListener('click', ev => { if (ev.target === $('feedbackModal')) closeDislikeConfirm(); });
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape'){ closeAll(); closeStatus(); toggleUserMenu(false); } });
 $('toBottom').addEventListener('click', bottom);
 stream.addEventListener('scroll', () => {
@@ -1295,7 +1322,6 @@ async function loadHomeShelf(force){
   deviceAllowed = consent === 'granted';
   syncDeviceButtons();
   showPrivacyNotice(consent === null);
-  if (deviceAllowed) prewarmCamera();
   $('chips').innerHTML = ['推荐 ' + zh(MODE_ZH, m.recommender), '多模态 ' + zh(MODE_ZH, m.multimodal),
                           '识图 ' + (visionOnline ? '在线' : '本地'),
                           '对话 ' + (m.llm_provider === 'online' ? '在线' : m.llm_provider === 'local' ? '本地' : '关'),

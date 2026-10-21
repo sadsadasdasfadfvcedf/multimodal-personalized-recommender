@@ -462,7 +462,12 @@ class App:
             return True, ""
         return False, str(cap.error or "摄像头抓帧失败")
 
-    def gesture(self, item_id: str | None = None, top_k: int | None = None) -> dict:
+    def gesture(
+        self,
+        item_id: str | None = None,
+        top_k: int | None = None,
+        apply_feedback: bool = True,
+    ) -> dict:
         ad = self.orch.multimodal
         if ad.active_mode != "real":
             return _err(ErrorCode.MODALITY_UNAVAILABLE, "手势识别需要 --real 模式")
@@ -532,6 +537,17 @@ class App:
                 gesture_votes=votes,
                 preview_url=preview_url,
             )
+        if not apply_feedback:
+            return {
+                "ok": True,
+                "gesture": name,
+                "gesture_confidence": round(confidence, 4),
+                "gesture_frames": len(rows),
+                "gesture_votes": votes,
+                "preview_url": preview_url,
+                "feedback_applied": False,
+                "requires_confirmation": name == "thumbs_down",
+            }
         out = self._handle_spec_fast(
             {"source": "gesture", "gesture": {"name": name, "confidence": confidence}},
             top_k=top_k,
@@ -1084,7 +1100,13 @@ def make_handler(app: App):
                     self._json(app.voice(float(body.get("seconds", 4)), int(raw_k) if raw_k else None))
                 elif self.path == "/api/gesture":
                     raw_k = body.get("top_k")
-                    self._json(app.gesture(str(body.get("item_id") or "") or None, int(raw_k) if raw_k else None))
+                    self._json(
+                        app.gesture(
+                            str(body.get("item_id") or "") or None,
+                            int(raw_k) if raw_k else None,
+                            bool(body.get("apply_feedback", True)),
+                        )
+                    )
                 elif self.path == "/api/vision":
                     raw_k = body.get("top_k")
                     self._json(app.vision(str(body.get("question", "")), int(raw_k) if raw_k else None))

@@ -27,6 +27,7 @@ def test_static_page_assets_are_served():
         assert "text/html" in ctype
         assert b'id="pgrid"' in body
         assert "识图推荐".encode() in body
+        assert b'id="feedbackModal"' in body
 
         status, ctype, body = _get(port, "/styles.css")
         assert status == 200
@@ -42,6 +43,8 @@ def test_static_page_assets_are_served():
         assert b"visionOnline" in body
         assert b"privacyNotice" in body
         assert b"setDeviceAllowed" in body
+        assert b"openDislikeConfirm" in body
+        assert b"apply_feedback:false" in body
         assert b"speechSynthesis" in body
         assert b"pauseLiveGesture" in body
         assert b"payload.focus_item_id = String(focusItemId)" in body
