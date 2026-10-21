@@ -114,3 +114,21 @@ def test_more_padding_preserves_category_and_product_type():
     assert by_type["ok"] is True
     assert by_type["items"]
     assert all("茶壶" in item["title"] for item in by_type["items"])
+
+
+def test_similar_preview_is_automatic_and_does_not_pollute_main_session():
+    w = _webui()
+    app = w.App("14156", "offline", False, False, None)
+    main = app.orch.store.get_or_create(app.session_id, app.user_id)
+    assert main.focus_item_id is None
+    seed = app.home(8)["items"][0]["item_id"]
+
+    result = app.similar_preview(seed, top_k=4)
+
+    assert result["ok"] is True
+    assert result["seed_id"] == seed
+    assert result["items"]
+    assert len(result["items"]) <= 4
+    assert all(item["img_url"].startswith("/api/img/") for item in result["items"])
+    current = app.orch.store.get_or_create(app.session_id, app.user_id)
+    assert current.focus_item_id == main.focus_item_id

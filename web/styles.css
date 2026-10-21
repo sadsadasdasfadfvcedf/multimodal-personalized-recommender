@@ -160,12 +160,29 @@
   .liked-card .lname{font-size:12.5px;font-weight:600;line-height:1.35;white-space:nowrap;
          overflow:hidden;text-overflow:ellipsis}
   .liked-card .lprice{margin-top:3px;font-size:12px;color:var(--bad);font-weight:700}
-  .liked-card .lfind,.liked-card .lremove{border:none;border-radius:7px;
+  .liked-card .lremove{border:none;background:#fff1f4;color:#b42355;border-radius:7px;
          padding:4px 6px;font-size:11px;cursor:pointer;white-space:nowrap}
-  .liked-card .lfind{background:#eef2ff;color:#5146b8}
-  .liked-card .lfind:hover{background:#e3e7ff}
-  .liked-card .lremove{background:#fff1f4;color:#b42355}
   .liked-card .lremove:hover{background:#ffe3ea}
+  .auto-related{margin-top:11px;padding-top:10px;border-top:1px solid #f0dbe3}
+  .auto-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;
+         font-size:12px;color:var(--muted)}
+  .auto-head b{color:#a61e4d;font-weight:650}
+  .auto-head strong{color:#5b4bcf;font-size:12px;font-weight:650;white-space:nowrap}
+  .auto-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  .auto-card{display:flex;gap:8px;min-width:0;padding:7px;border:1px solid #e5e2fa;
+         border-radius:9px;background:#fbfaff;cursor:pointer;font:inherit;color:inherit;text-align:left;
+         transition:border-color .15s,box-shadow .15s}
+  .auto-card:hover{border-color:#b9b0f4;box-shadow:0 5px 14px rgba(91,75,207,.09)}
+  .auto-card .aimg{position:relative;width:44px;height:44px;flex:none;border-radius:7px;
+         overflow:hidden;background:#f4f3fb}
+  .auto-card .aimg img{width:100%;height:100%;object-fit:cover;display:block}
+  .auto-card .aph{position:absolute;inset:0;display:grid;place-items:center;font-size:19px}
+  .auto-card .abody{min-width:0;flex:1}
+  .auto-card .aname{font-size:12px;font-weight:600;line-height:1.35;color:var(--ink);
+         display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .auto-card .aprice{margin-top:3px;font-size:11.5px;color:var(--bad);font-weight:700}
+  .auto-loading{grid-column:1/-1;padding:8px 2px;font-size:12px;color:var(--muted)}
+  @media (max-width:760px){.auto-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
   .pcard{position:relative;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;
          background:#fff;display:flex;flex-direction:column;
          transition:box-shadow .16s,border-color .16s,transform .1s}

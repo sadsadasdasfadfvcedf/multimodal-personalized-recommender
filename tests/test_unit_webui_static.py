@@ -29,6 +29,7 @@ def test_static_page_assets_are_served():
         assert "识图推荐".encode() in body
         assert b'id="feedbackModal"' in body
         assert b'id="likedShelf"' in body
+        assert b'id="autoRelated"' in body
 
         status, ctype, body = _get(port, "/styles.css")
         assert status == 200
@@ -53,7 +54,10 @@ def test_static_page_assets_are_served():
         assert b"payload.focus_item_id = String(focusItemId)" in body
         assert b"shelfTopK" in body
         assert b"renderLikedShelf" in body
+        assert b"loadAutoSimilar" in body
         assert "语音 + 识图完成".encode() in body
+        assert "查看与这件相似的商品".encode() not in body
+        assert b"data-liked-similar" not in body
     finally:
         server.shutdown()
         server.server_close()

@@ -15,6 +15,9 @@ let shelfSimilarMode = false;
 const pendingItems = new Set();
 const removedFeedback = new Map();
 const likedSnapshots = new Map();
+const similarPreviewCache = new Map();
+let autoSimilarSeedId = null;
+let autoSimilarRequestId = 0;
 const DEVICE_CONSENT_KEY = 'integrated_device_consent';
 const shelfTopK = () => Math.max(pageSize, Math.min(120, currentItems.length || pageSize));
 
@@ -284,10 +287,55 @@ function renderLikedShelf(){
       '<div class="lbody" data-liked-open="' + esc(key) + '">' +
       '<div class="lname" title="' + esc(it.title) + '">' + esc(it.title) + '</div>' +
       '<div class="lprice">' + money(it.price) + (wasSimilar ? ' · ✦ 相似推荐' : '') + '</div></div>' +
-      '<button class="lfind" data-liked-similar="' + esc(key) + '">找相似</button>' +
       '<button class="lremove" data-liked-remove="' + esc(key) + '" aria-label="取消喜欢">取消</button>' +
       '</article>';
   }).join('');
+}
+
+function hideAutoRelated(){
+  autoSimilarSeedId = null;
+  autoSimilarRequestId += 1;
+  $('autoRelated').hidden = true;
+  $('autoGrid').innerHTML = '';
+}
+
+function renderAutoRelated(items){
+  $('autoGrid').innerHTML = items.map(it =>
+    '<button type="button" class="auto-card" data-auto-open="' + esc(it.item_id) + '">' +
+      '<span class="aimg">' + (it.img_url ? '<img src="' + esc(it.img_url) +
+        '" alt="" onerror="this.remove()">' : '') +
+      '<span class="aph">' + esc(it.emoji || '🛍️') + '</span></span>' +
+      '<span class="abody"><span class="aname">' + esc(it.title) + '</span>' +
+      '<span class="aprice">' + money(it.price) + '</span></span>' +
+    '</button>'
+  ).join('');
+}
+
+async function loadAutoSimilar(itemId, title){
+  const key = String(itemId);
+  if (ratings.get(key) !== 'up') return;
+  const requestId = ++autoSimilarRequestId;
+  autoSimilarSeedId = key;
+  $('autoRelated').hidden = false;
+  $('autoSeedTitle').textContent = title || key;
+  const cached = similarPreviewCache.get(key);
+  if (cached){
+    renderAutoRelated(cached);
+    return;
+  }
+  $('autoGrid').innerHTML = '<div class="auto-loading">正在找相似好物…</div>';
+  try{
+    const d = await post('/api/similar-preview', {item_id:key, top_k:4});
+    if (requestId !== autoSimilarRequestId || ratings.get(key) !== 'up') return;
+    if (d.ok && Array.isArray(d.items) && d.items.length){
+      similarPreviewCache.set(key, d.items);
+      renderAutoRelated(d.items);
+    } else {
+      hideAutoRelated();
+    }
+  }catch(e){
+    if (requestId === autoSimilarRequestId) hideAutoRelated();
+  }
 }
 
 async function loadMore(){
@@ -472,10 +520,6 @@ function renderBot(resp, updateShelf){
       const p = fb.polarity === 'positive' ? 'up' : 'down';
       h += '<button class="cmpbtn" style="margin-top:5px" data-undo-feedback="' + esc(fb.item_id) +
         '" data-feedback-polarity="' + p + '">撤销' + (p === 'up' ? '点赞' : '倒赞') + '</button>';
-      if (p === 'up'){
-        h += '<button class="cmpbtn" style="margin-top:5px" data-find-similar="' + esc(fb.item_id) +
-          '">查看与这件相似的商品</button>';
-      }
     }
   }
   if (resp.before_after) h += '<div style="margin-top:4px;font-size:12.5px;color:#8b91a6">排序变化：<b style="color:#1b1f30">' +
@@ -636,14 +680,19 @@ async function rate(itemId, polarity, forceCancel, options){
       if (cancel){
         ratings.delete(key);
         likedSnapshots.delete(key);
+        if (autoSimilarSeedId === key) hideAutoRelated();
         restoreShelfItemFromFeedback(key);
       } else {
         ratings.set(key, fb.polarity === 'negative' ? 'down' : polarity);
         if (fb.polarity === 'positive') rememberLikedItem(key);
-        else likedSnapshots.delete(key);
+        else {
+          likedSnapshots.delete(key);
+          if (autoSimilarSeedId === key) hideAutoRelated();
+        }
       }
       syncRatingUI(key);
       renderLikedShelf();
+      if (fb.polarity === 'positive') loadAutoSimilar(key, fb.target_title || key);
       if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
       renderBot(r, false);
     } else {
@@ -651,6 +700,7 @@ async function rate(itemId, polarity, forceCancel, options){
       finishAction(id, 'warn', '未生效', esc(msg) + actionSuggestions('feedback'));
       if (previous) ratings.set(key, previous); else ratings.delete(key);
       if (previous === 'up') rememberLikedItem(key); else likedSnapshots.delete(key);
+      if (previous !== 'up' && autoSimilarSeedId === key) hideAutoRelated();
       syncRatingUI(key);
       renderLikedShelf();
       if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
@@ -659,6 +709,7 @@ async function rate(itemId, polarity, forceCancel, options){
   }catch(e){
     if (previous) ratings.set(key, previous); else ratings.delete(key);
     if (previous === 'up') rememberLikedItem(key); else likedSnapshots.delete(key);
+    if (previous !== 'up' && autoSimilarSeedId === key) hideAutoRelated();
     syncRatingUI(key);
     renderLikedShelf();
     if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
@@ -1116,6 +1167,7 @@ async function act(kind, extra){
       if (d.ok && kind === 'reset'){
         picked.clear(); renderTray(); syncPickUI();
         ratings.clear(); removedFeedback.clear(); likedSnapshots.clear();
+        similarPreviewCache.clear(); hideAutoRelated();
         renderLikedShelf();
         activeFilters = []; renderFilters();
         await loadHomeShelf(true);
@@ -1324,13 +1376,6 @@ grid.addEventListener('click', ev => {
   if (ev.target.closest('[data-open]')) openDetail(id);
 });
 $('likedGrid').addEventListener('click', ev => {
-  const similar = ev.target.closest('[data-liked-similar]');
-  if (similar){
-    ev.stopPropagation();
-    focusItemId = similar.dataset.likedSimilar;
-    ask('和这个商品相似的商品');
-    return;
-  }
   const remove = ev.target.closest('[data-liked-remove]');
   if (remove){
     ev.stopPropagation();
@@ -1340,13 +1385,11 @@ $('likedGrid').addEventListener('click', ev => {
   const open = ev.target.closest('[data-liked-open]');
   if (open) openDetail(open.dataset.likedOpen, likedSnapshots.get(open.dataset.likedOpen));
 });
+$('autoGrid').addEventListener('click', ev => {
+  const open = ev.target.closest('[data-auto-open]');
+  if (open) openDetail(open.dataset.autoOpen);
+});
 stream.addEventListener('click', ev => {
-  const findSimilar = ev.target.closest('[data-find-similar]');
-  if (findSimilar){
-    focusItemId = findSimilar.dataset.findSimilar;
-    ask('和这个商品相似的商品');
-    return;
-  }
   const uf = ev.target.closest('[data-undo-feedback]');
   if (uf){ rate(uf.dataset.undoFeedback, uf.dataset.feedbackPolarity, true); return; }
   const fold = ev.target.closest('[data-fold]');

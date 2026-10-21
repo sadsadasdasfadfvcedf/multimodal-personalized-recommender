@@ -26,7 +26,7 @@ scripts/13_webui_acceptance.py
   17. 点赞不改位置；倒赞移除后撤销恢复原位，再次点赞仍不改位置
   18. 打开商品详情启动摄像头，关闭详情后摄像头停止
   19. 用文字或语音询问“手上物品”时自动触发识图并融合推荐
-  20. 相似推荐商品有高光，点赞其它商品后仍保留相似推荐
+  20. 相似推荐分组分层；点赞后自动出现“你可能也喜欢”
   21. 首页加载更多仍保持当前账号品类
 
 前置条件（缺一即跳过，不影响离线可复现性）：
@@ -558,17 +558,22 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 "document.getElementById('searchForm').requestSubmit();})()"
             )
             for _ in range(120):
-                if await ev("!busy && !document.querySelector('#stream .spin')"):
+                if await ev(
+                    "!busy && !document.querySelector('#stream .spin') && "
+                    "document.getElementById('shelfTitle').textContent==='为你推荐'"
+                ):
                     break
                 await asyncio.sleep(0.25)
             await ev(
-                "(function(){document.getElementById('q').value='和第一个相似的商品';"
+                "(function(){focusItemId=currentItems[0].item_id;"
+                "document.getElementById('q').value='和这个商品相似的商品';"
                 "document.getElementById('searchForm').requestSubmit();})()"
             )
             for _ in range(120):
                 if await ev(
                     "!busy && !document.querySelector('#stream .spin') && "
-                    "document.getElementById('shelfTitle').textContent==='相似商品'"
+                    "document.getElementById('shelfTitle').textContent==='相似商品' && "
+                    "shelfSimilarMode===true"
                 ):
                     break
                 await asyncio.sleep(0.25)
@@ -582,18 +587,20 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 ".find(x=>!ratings.has(x.dataset.item));"
                 "if(!card)return {ok:false,reason:'no unrated similar card'};"
                 "const id=card.dataset.item;card.querySelector('[data-like=\"up\"]').click();"
-                "for(let i=0;i<160;i++){if(!busy&&pendingItems.size===0)break;await sleep(50);}"
+                "for(let i=0;i<200;i++){if(!busy&&pendingItems.size===0&&"
+                "document.querySelectorAll('.auto-card').length>0)break;await sleep(50);}"
                 "return {ok:true,id,comparable,cards:document.querySelectorAll('.pcard.similar-hit').length,"
                 "tags:document.querySelectorAll('.pcard .t.sim').length,"
                 "most:document.querySelectorAll('[data-recommendation-role=\"most-similar\"]').length,"
                 "alternative:document.querySelectorAll('[data-recommendation-role=\"similar-alternative\"]').length,"
-                "likedFind:!!document.querySelector('[data-liked-similar=\"'+id+'\"]'),"
-                "messageFind:!!document.querySelector('[data-find-similar=\"'+id+'\"]')};"
+                "auto:document.querySelectorAll('.auto-card').length,"
+                "autoVisible:!document.getElementById('autoRelated').hidden,"
+                "manualButtons:document.querySelectorAll('[data-liked-similar],[data-find-similar]').length};"
                 "})()"
             )
             add(
                 20,
-                "相似推荐有高光，点赞其它商品后仍保留相似推荐",
+                "相似推荐分层；点赞后自动出现“你可能也喜欢”",
                 (similar_before or 0) > 0
                 and (similar_before or 0) <= 2
                 and bool((similar_state or {}).get("ok"))
@@ -602,8 +609,9 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 and (similar_state or {}).get("comparable", 0) > 0
                 and (similar_state or {}).get("most") == 1
                 and (similar_state or {}).get("alternative") == 1
-                and bool((similar_state or {}).get("likedFind"))
-                and bool((similar_state or {}).get("messageFind")),
+                and (similar_state or {}).get("auto", 0) > 0
+                and bool((similar_state or {}).get("autoVisible"))
+                and (similar_state or {}).get("manualButtons") == 0,
                 f"点赞前高光 {similar_before or 0}；点赞后 {similar_state}",
             )
 

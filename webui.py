@@ -898,6 +898,42 @@ class App:
                 item["emoji"] = category_emoji(item.get("category", ""))
         return {"ok": True, "items": items, "top_k": top_k}
 
+    def similar_preview(self, item_id: str, top_k: int = 4) -> dict:
+        """点赞后自动生成相似好物，使用独立会话，不改动当前货架与会话约束。"""
+        item_id = str(item_id).strip()
+        if not self.orch.catalog.exists(item_id):
+            return _err(ErrorCode.ITEM_NOT_FOUND, "商品不在目录中", field="item_id")
+        top_k = max(1, min(8, int(top_k)))
+        sid = f"{self.session_id}-similar-preview-{item_id}-{time.monotonic_ns()}"
+        with self.lock:
+            session = self.orch.store.get_or_create(sid, self.user_id)
+            session.focus_item_id = item_id
+            session.last_item_ids = [item_id]
+            prev_dry_run = self.orch.dry_run_voice
+            prev_llm = self.orch.llm_explainer.enabled
+            self.orch.dry_run_voice = True
+            self.orch.llm_explainer.enabled = False
+            try:
+                res = self.orch.handle(
+                    {"source": "text", "text": "和这个商品相似的商品"},
+                    user_id=self.user_id,
+                    session_id=sid,
+                    top_k=top_k,
+                )
+            finally:
+                self.orch.dry_run_voice = prev_dry_run
+                self.orch.llm_explainer.enabled = prev_llm
+                self.orch.store.end(sid)
+        if not res.ok:
+            return _from_app_error(res.error)
+        items = list((res.data or {}).get("recommendations", []))[:top_k]
+        for item in items:
+            iid = str(item.get("item_id") or "")
+            if iid:
+                item["img_url"] = "/api/img/" + urllib.parse.quote(iid)
+                item["emoji"] = category_emoji(item.get("category", ""))
+        return {"ok": True, "seed_id": item_id, "items": items}
+
     def view(self, item_id: str) -> dict:
         """「继续浏览」弱反馈：用户打开商品详情即上报一次。
 
@@ -1159,6 +1195,14 @@ def make_handler(app: App):
                 elif self.path == "/api/more":
                     raw_k = body.get("top_k")
                     self._json(app.more(str(body.get("text", "")), int(raw_k) if raw_k else 16))
+                elif self.path == "/api/similar-preview":
+                    raw_k = body.get("top_k")
+                    self._json(
+                        app.similar_preview(
+                            str(body.get("item_id", "")),
+                            int(raw_k) if raw_k else 4,
+                        )
+                    )
                 elif self.path == "/api/tts":
                     self._json(app.tts(str(body.get("text", ""))))
                 elif self.path == "/api/camera/start":
