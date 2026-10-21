@@ -221,12 +221,13 @@ function renderShelf(items, title, subtitle, resp, append){
     const rank = it.rank || (i + 1);
     const pct = matchPct(it.score);
     const hits = ((it.evidence || {}).matched_constraints || []).length;
-    const sourceText = (it.sources || []).join(' ');
-    const similarHit = shelfSimilarMode
-      || sourceText.includes('相似商品召回')
-      || !!((it.evidence || {}).source_detail || {}).similar;
+    // 推荐层级要稀缺：相似结果只强调前两名；普通结果只强调首选。
+    const similarRank = shelfSimilarMode && rank <= 2 ? rank : 0;
+    const bestPick = !shelfSimilarMode && rank === 1;
     const tags = [];
-    if (similarHit) tags.push('<span class="t sim">✦ 相似推荐</span>');
+    if (similarRank === 1) tags.push('<span class="t sim">✦ 最相似</span>');
+    else if (similarRank === 2) tags.push('<span class="t sim">☆ 相似备选</span>');
+    else if (bestPick) tags.push('<span class="t best">✓ 首选</span>');
     if (it.evidence_count) tags.push('<span class="t ev">' + it.evidence_count + ' 条依据</span>');
     if (hits) tags.push('<span class="t hit">命中 ' + hits + ' 项条件</span>');
     else if (it.category) tags.push('<span class="t">' + esc(it.category) + '</span>');
@@ -234,7 +235,13 @@ function renderShelf(items, title, subtitle, resp, append){
       '<span class="t more">+' + (tags.length - 2) + '</span>' : tags.join('');
     const isPicked = picked.has(it.item_id);
     return '<article class="pcard' + (isPicked ? ' picked' : '') +
-      (similarHit ? ' similar-hit' : '') + '" data-item="' + esc(it.item_id) + '">' +
+      (similarRank ? ' similar-hit' : '') +
+      (similarRank === 1 ? ' similar-top' : '') +
+      (bestPick ? ' best-pick' : '') +
+      '" data-recommendation-role="' +
+      (similarRank === 1 ? 'most-similar' : similarRank === 2 ? 'similar-alternative' :
+        bestPick ? 'best-pick' : 'normal') +
+      '" data-item="' + esc(it.item_id) + '">' +
       '<div class="rank' + (rank > 3 ? ' plain' : '') + '">TOP ' + rank + '</div>' +
       media(it, 'pimg', rank <= 2).replace('class="pimg"', 'class="pimg" data-open') +
       '<div class="pacts">' +
@@ -510,6 +517,9 @@ function shelfTitle(resp){
 }
 function shelfSub(resp){
   const s = ((resp.intent_result || {}).slots) || {};
+  if ((resp.intent_result || {}).intent === 'similar'){
+    return '按相似度排序 · 前 2 件优先展示';
+  }
   const p = [];
   if (s.scene && s.scene.value) p.push(s.scene.value);
   if (s.category && s.category.value) p.push(s.category.value);

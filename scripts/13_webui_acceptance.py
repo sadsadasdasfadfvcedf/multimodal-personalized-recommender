@@ -577,13 +577,16 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
             similar_state = await ev(
                 "(async function(){"
                 "const sleep=ms=>new Promise(r=>setTimeout(r,ms));"
-                "const card=Array.from(document.querySelectorAll('.pcard.similar-hit'))"
+                "const comparable=document.querySelectorAll('.pcard:not(.similar-hit)').length;"
+                "const card=Array.from(document.querySelectorAll('.pcard:not(.similar-hit)'))"
                 ".find(x=>!ratings.has(x.dataset.item));"
                 "if(!card)return {ok:false,reason:'no unrated similar card'};"
                 "const id=card.dataset.item;card.querySelector('[data-like=\"up\"]').click();"
                 "for(let i=0;i<160;i++){if(!busy&&pendingItems.size===0)break;await sleep(50);}"
-                "return {ok:true,id,cards:document.querySelectorAll('.pcard.similar-hit').length,"
+                "return {ok:true,id,comparable,cards:document.querySelectorAll('.pcard.similar-hit').length,"
                 "tags:document.querySelectorAll('.pcard .t.sim').length,"
+                "most:document.querySelectorAll('[data-recommendation-role=\"most-similar\"]').length,"
+                "alternative:document.querySelectorAll('[data-recommendation-role=\"similar-alternative\"]').length,"
                 "likedFind:!!document.querySelector('[data-liked-similar=\"'+id+'\"]'),"
                 "messageFind:!!document.querySelector('[data-find-similar=\"'+id+'\"]')};"
                 "})()"
@@ -592,9 +595,13 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 20,
                 "相似推荐有高光，点赞其它商品后仍保留相似推荐",
                 (similar_before or 0) > 0
+                and (similar_before or 0) <= 2
                 and bool((similar_state or {}).get("ok"))
-                and (similar_state or {}).get("cards", 0) > 0
-                and (similar_state or {}).get("tags", 0) > 0
+                and (similar_state or {}).get("cards") == similar_before
+                and (similar_state or {}).get("tags") == similar_before
+                and (similar_state or {}).get("comparable", 0) > 0
+                and (similar_state or {}).get("most") == 1
+                and (similar_state or {}).get("alternative") == 1
                 and bool((similar_state or {}).get("likedFind"))
                 and bool((similar_state or {}).get("messageFind")),
                 f"点赞前高光 {similar_before or 0}；点赞后 {similar_state}",
