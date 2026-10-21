@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import json
 import os
 import shutil
@@ -214,6 +215,8 @@ class App:
         # 之后再 os.environ[...]="1" 不会生效（这是实测踩到的坑）。
         self.orch = Orchestrator(mode=mode, allow_real=allow_real, with_voice=with_voice, use_llm=use_llm)
         self.vision_api = DashScopeVisionClient.from_env()
+        self._vision_cache: dict[str, tuple[float, dict]] = {}
+        self._vision_calls: list[float] = []
         _asr = getattr(self.orch, "asr", None)
         if _asr is not None:
             _asr.prewarm()
@@ -240,6 +243,86 @@ class App:
             return self.handle_spec(spec, top_k=top_k)
         finally:
             self.orch.llm_explainer.enabled = previous
+
+    def _vision_cache_get(self, key: str) -> dict | None:
+        now = time.monotonic()
+        with self.lock:
+            expired = [cache_key for cache_key, (until, _) in self._vision_cache.items() if until <= now]
+            for cache_key in expired:
+                self._vision_cache.pop(cache_key, None)
+            cached = self._vision_cache.get(key)
+            return dict(cached[1]) if cached is not None else None
+
+    def _vision_cache_put(self, key: str, data: dict) -> None:
+        ttl = max(0.0, float(settings.VISION_API_CONFIG["cache_ttl_s"]))
+        limit = max(1, int(settings.VISION_API_CONFIG["cache_max_entries"]))
+        if ttl <= 0:
+            return
+        with self.lock:
+            self._vision_cache[key] = (time.monotonic() + ttl, dict(data))
+            while len(self._vision_cache) > limit:
+                oldest = next(iter(self._vision_cache))
+                self._vision_cache.pop(oldest, None)
+
+    def _vision_rate_allow(self) -> tuple[bool, int]:
+        now = time.monotonic()
+        window = max(1.0, float(settings.VISION_API_CONFIG["rate_window_s"]))
+        limit = max(1, int(settings.VISION_API_CONFIG["rate_limit_per_minute"]))
+        with self.lock:
+            self._vision_calls = [stamp for stamp in self._vision_calls if now - stamp < window]
+            if len(self._vision_calls) >= limit:
+                retry_after = max(1, int(window - (now - self._vision_calls[0])))
+                return False, retry_after
+            self._vision_calls.append(now)
+        return True, 0
+
+    @staticmethod
+    def _attach_vision_trace(
+        out: dict,
+        vision_meta: dict,
+        *,
+        cache_key: str,
+        fallback: bool,
+    ) -> None:
+        response = out.get("response")
+        if not isinstance(response, dict):
+            return
+        trace = response.setdefault("trace", {})
+        if not isinstance(trace, dict):
+            trace = {}
+            response["trace"] = trace
+        modes = trace.setdefault("modes", {})
+        if not isinstance(modes, dict):
+            modes = {}
+            trace["modes"] = modes
+        latency_ms = trace.setdefault("latency_ms", {})
+        if not isinstance(latency_ms, dict):
+            latency_ms = {}
+            trace["latency_ms"] = latency_ms
+        modes["vision"] = vision_meta.get("vision_provider") or "local"
+        modes["vision_model"] = vision_meta.get("vision_model") or ""
+        latency_ms["vision_ms"] = vision_meta.get("vision_latency_ms")
+        trace["vision"] = {
+            "provider": vision_meta.get("vision_provider") or "local",
+            "model": vision_meta.get("vision_model") or "",
+            "latency_ms": vision_meta.get("vision_latency_ms"),
+            "cache_hit": bool(vision_meta.get("vision_cache_hit")),
+            "cache_key": cache_key[:12],
+            "fallback": fallback,
+            "online_error": vision_meta.get("vision_online_error"),
+        }
+        if fallback:
+            degradations = trace.setdefault("degradations", {})
+            if not isinstance(degradations, dict):
+                degradations = {}
+                trace["degradations"] = degradations
+            degradations["vision"] = {
+                "adapter": "vision",
+                "level": "L1",
+                "from": "online",
+                "to": "local",
+                "reason": f"在线识图失败，已回退本地 Qwen2-VL: {vision_meta.get('vision_online_error') or ''}",
+            }
 
     def camera_start(self) -> dict:
         camera = getattr(self.orch, "camera", None)
@@ -465,37 +548,71 @@ class App:
         if not captured:
             return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {capture_error}")
         vision_question = (question or "").strip() or _OBJECT_VISION_QUESTION
+        try:
+            image_bytes = frame.read_bytes()
+        except OSError as exc:
+            return _err(ErrorCode.INTERNAL_ERROR, f"读取抓帧文件失败: {exc}", field="image")
+        cache_key = hashlib.sha256(image_bytes + b"\x1f" + vision_question.encode("utf-8")).hexdigest()
+        cached = self._vision_cache_get(cache_key)
         online_error: str | None = None
-        vl = None
-        if self.vision_api is not None:
-            vl = self.vision_api.describe_image(str(frame), vision_question)
+        fallback = False
+        if cached is not None:
+            source_latency = cached.get("latency_ms")
+            vision_data = dict(cached)
+            vision_data["source_latency_ms"] = source_latency
+            vision_data["latency_ms"] = 0.0
+            vision_data["cache_hit"] = True
+            fallback = bool(vision_data.get("fallback"))
+            online_error = str(vision_data.get("online_error") or "") or None
+        else:
+            allowed, retry_after = self._vision_rate_allow()
+            if not allowed:
+                return _err(
+                    ErrorCode.INVALID_INPUT,
+                    f"识图请求过于频繁，请约 {retry_after} 秒后再试",
+                    field="vision",
+                    retry_after_s=retry_after,
+                )
+            vl = None
+            if self.vision_api is not None:
+                vl = self.vision_api.describe_image(str(frame), vision_question)
+                if not vl.ok:
+                    online_error = str(vl.error or "在线识图失败")
+                    if not settings.VISION_API_CONFIG["fallback_to_local"]:
+                        return _err(ErrorCode.MODALITY_UNAVAILABLE, f"在线识图失败: {online_error}")
+            if vl is None or not vl.ok:
+                fallback = bool(online_error)
+                local_started = time.perf_counter()
+                vl = ad.describe_image(str(frame), vision_question)
+                if vl.ok and isinstance(vl.data, dict):
+                    vl.data["provider"] = "local"
+                    vl.data["latency_ms"] = round((time.perf_counter() - local_started) * 1000, 1)
             if not vl.ok:
-                online_error = str(vl.error or "在线识图失败")
-                if not settings.VISION_API_CONFIG["fallback_to_local"]:
-                    return _err(ErrorCode.MODALITY_UNAVAILABLE, f"在线识图失败: {online_error}")
-        if vl is None or not vl.ok:
-            local_started = time.perf_counter()
-            vl = ad.describe_image(str(frame), vision_question)
-            if vl.ok and isinstance(vl.data, dict):
-                vl.data["provider"] = "local"
-                vl.data["latency_ms"] = round((time.perf_counter() - local_started) * 1000, 1)
-        if not vl.ok:
-            msg = f"视觉理解失败: {vl.error}"
-            hint = _dep_hint(msg)
-            if online_error:
-                msg += f"；在线识图失败并已尝试本地回退: {online_error}"
-            return _err(
-                ErrorCode.MODALITY_UNAVAILABLE,
-                msg + (f"（{hint}）" if hint else ""),
-                hint=hint,
-                online_error=online_error,
-            )
-        vision_data = vl.data or {}
+                msg = f"视觉理解失败: {vl.error}"
+                hint = _dep_hint(msg)
+                if online_error:
+                    msg += f"；在线识图失败并已尝试本地回退: {online_error}"
+                return _err(
+                    ErrorCode.MODALITY_UNAVAILABLE,
+                    msg + (f"（{hint}）" if hint else ""),
+                    hint=hint,
+                    online_error=online_error,
+                )
+            vision_data = dict(vl.data or {})
+            vision_data.setdefault("provider", "local")
+            vision_data.setdefault("model", "")
+            vision_data["cache_hit"] = False
+            vision_data["fallback"] = fallback
+            vision_data["online_error"] = online_error
+            if str(vision_data.get("response") or "").strip():
+                self._vision_cache_put(cache_key, vision_data)
+
         desc = vision_data.get("response") or ""
         vision_meta = {
             "vision_provider": vision_data.get("provider") or "local",
             "vision_model": vision_data.get("model") or "",
             "vision_latency_ms": vision_data.get("latency_ms"),
+            "vision_cache_hit": bool(vision_data.get("cache_hit")),
             "vision_online_error": online_error,
         }
         if not str(desc).strip():
@@ -504,7 +621,11 @@ class App:
                 "没有识别出画面中的主要物品。请把物品举到画面中央并保持清晰后重试。",
                 description=desc,
                 vision_question=vision_question,
-                **vision_meta,
+                vision_provider=vision_meta["vision_provider"],
+                vision_model=vision_meta["vision_model"],
+                vision_latency_ms=vision_meta["vision_latency_ms"],
+                vision_cache_hit=vision_meta["vision_cache_hit"],
+                vision_online_error=vision_meta["vision_online_error"],
             )
         out = self._handle_spec_fast(
             # 没有提问时 text 必须传 None：传空串会被 parse_event 当成「空 ASR 文本」
@@ -519,6 +640,7 @@ class App:
         out["description"] = desc
         out["vision_question"] = vision_question
         out.update(vision_meta)
+        self._attach_vision_trace(out, vision_meta, cache_key=cache_key, fallback=fallback)
         slots = ((out.get("response") or {}).get("intent_result") or {}).get("slots") or {}
         if not slots.get("category"):
             return _err(
@@ -526,7 +648,11 @@ class App:
                 f"识别到「{desc}」，但未能确定商品品类。请把物品放近、避免遮挡后重试。",
                 description=desc,
                 vision_question=vision_question,
-                **vision_meta,
+                vision_provider=vision_meta["vision_provider"],
+                vision_model=vision_meta["vision_model"],
+                vision_latency_ms=vision_meta["vision_latency_ms"],
+                vision_cache_hit=vision_meta["vision_cache_hit"],
+                vision_online_error=vision_meta["vision_online_error"],
             )
         return out
 

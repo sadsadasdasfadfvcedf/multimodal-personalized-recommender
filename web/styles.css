@@ -88,6 +88,21 @@
         color:#fff;font-size:11px;display:none;place-items:center}
   .pill.show{display:inline-grid}
 
+  /* ============ 设备与隐私 ============ */
+  .privacy-banner{position:fixed;top:calc(var(--appbar-h) + 8px);left:50%;z-index:90;
+         width:min(760px,calc(100vw - 24px));transform:translateX(-50%);
+         padding:11px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+         border:1px solid #dce2fb;border-radius:var(--r-md);background:#f7f8ff;color:#3d4560;
+         box-shadow:0 14px 38px rgba(20,24,45,.18)}
+  .privacy-banner[hidden]{display:none}
+  .privacy-copy{display:flex;align-items:baseline;gap:9px;flex:1 1 520px;min-width:0}
+  .privacy-copy b{white-space:nowrap;color:var(--brand-ink)}
+  .privacy-copy span{font-size:12.5px;line-height:1.55;color:#666f88}
+  .privacy-actions{display:flex;gap:8px;flex:none}
+  .privacy-actions button{padding:6px 12px;border-radius:8px;border:1px solid var(--line);
+         background:#fff;color:#5c6379;font-size:12.5px}
+  .privacy-actions .primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+
   /* ============ 主体两栏 ============ */
   .commerce{max-width:1520px;margin:0 auto;padding:18px 20px 96px;
           display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,390px);
@@ -443,6 +458,11 @@
     .commerce{padding:12px 12px 132px}
     .toolbar{padding:8px 12px}
     .toolbar .ghost{display:none}
+    .privacy-banner{top:calc(var(--appbar-h) + 6px);padding:10px 12px}
+    .privacy-copy{display:block}
+    .privacy-copy b{display:block;margin-bottom:3px}
+    .privacy-actions{width:100%}
+    .privacy-actions button{flex:1}
     .pgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px;padding:12px}
     .tabbar.is-on{display:flex}
     .pgrid{padding-bottom:12px}

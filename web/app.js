@@ -9,7 +9,9 @@ let focusItemId = null;   // 手势反馈默认目标：最近打开的商品，
 let detailItemId = null;
 let visionBusy = false;
 let visionOnline = false;
+let deviceAllowed = false;
 const pendingItems = new Set();
+const DEVICE_CONSENT_KEY = 'integrated_device_consent';
 const shelfTopK = () => Math.max(pageSize, Math.min(120, currentItems.length || pageSize));
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
@@ -75,6 +77,56 @@ function speakInBrowser(text){
   u.pitch = 1;
   window.speechSynthesis.speak(u);
   return true;
+}
+
+function readDeviceConsent(){
+  try { return localStorage.getItem(DEVICE_CONSENT_KEY); } catch(e){ return null; }
+}
+
+function syncDeviceButtons(){
+  const btn = $('deviceBtn');
+  if (btn){
+    btn.textContent = deviceAllowed ? '🔐 设备已开' : '🔐 设备授权';
+    btn.title = deviceAllowed ? '设备已启用，点击暂停' : '启用摄像头和麦克风';
+  }
+  document.querySelectorAll('[data-act="voice"],[data-act="vision"]').forEach(b => {
+    b.disabled = needReal || !deviceAllowed || busy;
+  });
+}
+
+function showPrivacyNotice(show){
+  const box = $('privacyNotice');
+  if (!box) return;
+  box.hidden = !show;
+  if (show) setTimeout(() => $('privacyAllow')?.focus(), 0);
+}
+
+function prewarmCamera(){
+  if (needReal || !deviceAllowed) return;
+  fetch('/api/camera/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}).catch(() => {});
+}
+
+function setDeviceAllowed(on, persist){
+  deviceAllowed = !!on;
+  if (persist !== false){
+    try { localStorage.setItem(DEVICE_CONSENT_KEY, deviceAllowed ? 'granted' : 'denied'); } catch(e){}
+  }
+  showPrivacyNotice(false);
+  syncDeviceButtons();
+  if (deviceAllowed){
+    prewarmCamera();
+    if (detailItemId && $('modal').classList.contains('show')) startLiveGesture(detailItemId);
+  } else {
+    pauseLiveGesture();
+    fetch('/api/camera/stop', {method:'POST'}).catch(() => {});
+    const box = $('modalGesture');
+    if (box){
+      box.innerHTML = '<div class="mstatus">设备已暂停</div>' +
+        '<button class="cmpbtn" data-enable-device="1">重新启用摄像头</button>';
+      const enable = box.querySelector('[data-enable-device]');
+      if (enable) enable.onclick = () => setDeviceAllowed(true, true);
+    }
+  }
 }
 
 /* ============ 筛选口径 → 可移除 chip（P1-5） ============ */
@@ -354,7 +406,7 @@ async function post(path, body){
 function setBusy(b){
   busy = b;
   document.querySelectorAll('button').forEach(x => {
-    if (['voice','gesture','vision'].includes(x.dataset.act)) x.disabled = b || needReal;
+    if (['voice','gesture','vision'].includes(x.dataset.act)) x.disabled = b || needReal || !deviceAllowed;
     else if (x.dataset.act || x.dataset.view || x.dataset.like || x.dataset.cmp || x.dataset.retry || x.dataset.drop ||
              ['sendbtn','sendbtn2','trayGo','trayClear','userBtn','gearBtn','clearChat'].includes(x.id)) x.disabled = b;
   });
@@ -645,6 +697,13 @@ function renderLivePanel(itemId){
 
 async function startLiveGesture(itemId){
   const box = $('modalGesture'); if (!box) return;
+  if (!deviceAllowed){
+    box.innerHTML = '<div class="mstatus">设备尚未授权</div>' +
+      '<button class="cmpbtn" data-enable-device="1">启用摄像头与手势</button>';
+    const enable = box.querySelector('[data-enable-device]');
+    if (enable) enable.onclick = () => { setDeviceAllowed(true); startLiveGesture(itemId); };
+    return;
+  }
   liveItem = String(itemId);
   if (liveTimer !== null){
     // 摄像头已经在直播：只切换目标商品，不重新打开设备
@@ -867,6 +926,11 @@ function closeAll(){
 async function act(kind){
   if (busy) return;
   if (kind === 'compare'){ openCompare(); return; }
+  if (['voice','vision'].includes(kind) && !deviceAllowed){
+    showPrivacyNotice(true);
+    toast('请先阅读并允许使用摄像头/麦克风');
+    return;
+  }
   if (needReal && ['voice','vision'].includes(kind)){
     addBot('<div class="slots">该功能需要真实设备，请以 <code>python webui.py --real</code> 启动。</div>');
     return;
@@ -1028,6 +1092,22 @@ document.addEventListener('click', ev => {
   if (!ev.target.closest('#userMenu') && !ev.target.closest('#userBtn')) toggleUserMenu(false);
 });
 $('clearChat').addEventListener('click', () => { stream.innerHTML = ''; toast('对话已清空（会话状态不受影响）'); });
+$('privacyAllow').addEventListener('click', () => {
+  setDeviceAllowed(true, true);
+  toast('摄像头和麦克风已启用；可随时点击「设备已开」暂停');
+});
+$('privacyDeny').addEventListener('click', () => {
+  setDeviceAllowed(false, true);
+  toast('已切换为仅文本浏览，设备保持关闭');
+});
+$('deviceBtn').addEventListener('click', () => {
+  if (deviceAllowed){
+    setDeviceAllowed(false, true);
+    toast('摄像头和麦克风已暂停');
+  } else {
+    showPrivacyNotice(true);
+  }
+});
 $('fchips').addEventListener('click', ev => {
   const b = ev.target.closest('[data-drop]'); if (b) dropFilter(b.dataset.drop);
 });
@@ -1172,9 +1252,11 @@ async function loadHomeShelf(force){
   const m = info.modes || {};
   needReal = m.multimodal !== 'real';
   visionOnline = !!((info.vision || {}).configured);
-  if (!needReal){
-    fetch('/api/camera/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}).catch(() => {});
-  }
+  const consent = readDeviceConsent();
+  deviceAllowed = consent === 'granted';
+  syncDeviceButtons();
+  showPrivacyNotice(consent === null);
+  if (deviceAllowed) prewarmCamera();
   $('chips').innerHTML = ['推荐 ' + zh(MODE_ZH, m.recommender), '多模态 ' + zh(MODE_ZH, m.multimodal),
                           '识图 ' + (visionOnline ? '在线' : '本地'),
                           '对话 ' + (m.llm_provider === 'online' ? '在线' : m.llm_provider === 'local' ? '本地' : '关'),
@@ -1196,7 +1278,7 @@ async function loadHomeShelf(force){
     '推荐结果在左侧货架：<b>点商品看详情</b>、<b>卡片右上角点赞 / 倒赞</b>、<b>点「加入对比」做字段对照</b>。' +
     (needReal ? '<br>当前为<b>离线模式</b>；用 <code>python webui.py --real</code> 可启用麦克风与摄像头。' : '') +
     '</div>');
-  $('q').focus();
+  if (consent !== null) $('q').focus();
 })();
 
 window.addEventListener('pagehide', () => {

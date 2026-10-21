@@ -99,6 +99,10 @@ python scripts/clean_workspace.py
 | `INTEGRATED_VL_MODEL` | 模型 ID | `qwen3-vl-plus` | 在线视觉模型 |
 | `INTEGRATED_VL_TIMEOUT_S` | 秒 | `15` | 在线识图超时 |
 | `INTEGRATED_VL_FALLBACK_LOCAL` | `0` / `1` | `1` | 在线失败时是否回退本地 Qwen2-VL |
+| `INTEGRATED_VL_CACHE_TTL_S` | 秒 | `300` | 相同画面识图缓存时长 |
+| `INTEGRATED_VL_CACHE_MAX` | 条 | `32` | 识图缓存上限 |
+| `INTEGRATED_VL_RATE_LIMIT` | 次数 | `8` | 每个窗口最多识图次数 |
+| `INTEGRATED_VL_RATE_WINDOW_S` | 秒 | `60` | 识图限流窗口 |
 
 示例（启用推荐系统 HTTP 模式）：
 
@@ -242,7 +246,8 @@ python -c "from modelscope import snapshot_download; snapshot_download('Qwen/Qwe
 网页「📷 识图推荐」默认把当前画面交给在线 `qwen3-vl-plus`，默认提示词只关注画面中央的
 主要物品；识别文本会作为视觉标签进入意图理解，从中抽取品类与颜色后复用现有推荐链路。
 在线接口失败时自动回退本地 Qwen2-VL。未识别到可映射品类时返回可操作的失败提示，
-不生成无关推荐。
+不生成无关推荐。首次启用设备前显示摄像头/麦克风与在线图片上传提示；识图结果支持
+短期缓存和请求限流，并在 `trace.vision` 中记录模型、延迟、缓存命中与回退原因。
 
 主页面不提供手势按钮，手势只在商品详情内使用。默认流程是常驻摄像头直播；
 直播不可用时，详情内可点「改用单次识别」：前端 3 秒倒计时 → `capture_burst` 一次抓 5 帧

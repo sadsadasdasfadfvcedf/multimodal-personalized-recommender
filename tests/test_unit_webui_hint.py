@@ -422,6 +422,114 @@ def test_vision_falls_back_to_local_when_online_fails():
     assert result["ok"] is True
     assert result["vision_provider"] == "local"
     assert "online timeout" in str(result["vision_online_error"])
+    trace = result["response"]["trace"]
+    assert trace["modes"]["vision"] == "local"
+    assert trace["vision"]["fallback"] is True
+    assert trace["degradations"]["vision"]["to"] == "local"
+
+
+def test_vision_cache_hit_skips_second_online_call(monkeypatch):
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+
+    class FakeCamera:
+        def start(self):
+            return ok({"running": True})
+
+        def frame(self):
+            return b"\xff\xd8same-frame\xff\xd9"
+
+    app.orch.camera = FakeCamera()
+    calls = {"count": 0}
+
+    class FakeVisionAPI:
+        def describe_image(self, image, question):
+            calls["count"] += 1
+            return ok(
+                {
+                    "response": "粉色花卉图案杯子",
+                    "provider": "dashscope",
+                    "model": "qwen3-vl-plus",
+                    "latency_ms": 900.0,
+                }
+            )
+
+    app.vision_api = FakeVisionAPI()
+    app.handle_spec = lambda *args, **kwargs: {
+        "ok": True,
+        "response": {
+            "status": "ok",
+            "recommendations": [],
+            "intent_result": {"slots": {"category": {"value": "厨房用品"}}},
+            "trace": {},
+        },
+    }
+    monkeypatch.setitem(w.settings.VISION_API_CONFIG, "cache_ttl_s", 300)
+    monkeypatch.setitem(w.settings.VISION_API_CONFIG, "cache_max_entries", 8)
+    monkeypatch.setitem(w.settings.VISION_API_CONFIG, "rate_limit_per_minute", 8)
+
+    first = app.vision("", 8)
+    second = app.vision("", 8)
+
+    assert calls["count"] == 1
+    assert first["vision_cache_hit"] is False
+    assert second["vision_cache_hit"] is True
+    assert second["vision_latency_ms"] == 0.0
+    assert second["response"]["trace"]["vision"]["cache_hit"] is True
+    assert second["response"]["trace"]["modes"]["vision"] == "dashscope"
+
+
+def test_vision_rate_limit_returns_actionable_error(monkeypatch):
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+
+    class FakeCamera:
+        def __init__(self):
+            self.index = 0
+
+        def start(self):
+            return ok({"running": True})
+
+        def frame(self):
+            self.index += 1
+            return b"\xff\xd8frame-" + str(self.index).encode() + b"\xff\xd9"
+
+    app.orch.camera = FakeCamera()
+
+    class FakeVisionAPI:
+        def describe_image(self, image, question):
+            return ok(
+                {
+                    "response": "白色杯子",
+                    "provider": "dashscope",
+                    "model": "qwen3-vl-plus",
+                    "latency_ms": 500.0,
+                }
+            )
+
+    app.vision_api = FakeVisionAPI()
+    app.handle_spec = lambda *args, **kwargs: {
+        "ok": True,
+        "response": {
+            "status": "ok",
+            "recommendations": [],
+            "intent_result": {"slots": {"category": {"value": "厨房用品"}}},
+            "trace": {},
+        },
+    }
+    monkeypatch.setitem(w.settings.VISION_API_CONFIG, "cache_ttl_s", 0)
+    monkeypatch.setitem(w.settings.VISION_API_CONFIG, "rate_limit_per_minute", 2)
+    monkeypatch.setitem(w.settings.VISION_API_CONFIG, "rate_window_s", 60)
+
+    assert app.vision("", 8)["ok"] is True
+    assert app.vision("", 8)["ok"] is True
+    limited = app.vision("", 8)
+
+    assert limited["ok"] is False
+    assert limited["code"] == str(ErrorCode.INVALID_INPUT)
+    assert limited["retry_after_s"] >= 1
 
 
 def test_vision_unmapped_object_returns_actionable_error():

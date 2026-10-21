@@ -175,9 +175,12 @@ python webui.py --port 8030        # 换端口
   INTEGRATED_VL_MODEL=qwen3-vl-plus
   INTEGRATED_VL_TIMEOUT_S=15
   INTEGRATED_VL_FALLBACK_LOCAL=1
+  INTEGRATED_VL_CACHE_TTL_S=300
+  INTEGRATED_VL_RATE_LIMIT=8
   ```
 
-  Key 只在服务端读取，不会暴露给前端。
+  Key 只在服务端读取，不会暴露给前端。首次使用设备前会显示摄像头/麦克风与在线图片上传提示；
+  相同画面会短期缓存，识图默认每分钟最多 8 次，并把模型、耗时、缓存命中与回退原因写入 trace。
 
   模型选择、接口地址和超时集中在 `config/settings.py` 的 `CHAT_CONFIG["online"]`；
   Key 只从环境变量读取，不写入仓库、日志或证据文件。页面 ⚙ 状态面板会显示

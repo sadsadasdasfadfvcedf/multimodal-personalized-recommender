@@ -36,8 +36,21 @@
   <button data-act="compare">▦ 对比<span class="pill" id="cmpPill">0</span></button>
   <span class="sep"></span>
   <button data-act="llm" id="llmbtn">LLM 解释：关</button>
+  <button id="deviceBtn" title="设备与隐私设置">🔐 设备授权</button>
   <button class="ghost" id="statusBtn">运行状态 →</button>
 </div>
+
+<section class="privacy-banner" id="privacyNotice" role="region" aria-label="设备与隐私" hidden>
+  <div class="privacy-copy">
+    <b>设备与隐私</b>
+    <span>启用摄像头和麦克风后，识图会把当前画面发送给阿里云百炼；语音只在点击后录音，
+      手势画面在本地处理。可随时在工具栏暂停设备。</span>
+  </div>
+  <div class="privacy-actions">
+    <button id="privacyAllow" class="primary">允许使用</button>
+    <button id="privacyDeny">仅文本浏览</button>
+  </div>
+</section>
 
 <main class="commerce">
   <section class="shelf" id="shelf">

@@ -296,6 +296,10 @@ VISION_API_CONFIG: dict = {
     "timeout_s": float(os.getenv("INTEGRATED_VL_TIMEOUT_S", "15")),
     "max_tokens": int(os.getenv("INTEGRATED_VL_MAX_TOKENS", "32")),
     "max_image_bytes": 4 * 1024 * 1024,
+    "cache_ttl_s": float(os.getenv("INTEGRATED_VL_CACHE_TTL_S", "300")),
+    "cache_max_entries": int(os.getenv("INTEGRATED_VL_CACHE_MAX", "32")),
+    "rate_limit_per_minute": int(os.getenv("INTEGRATED_VL_RATE_LIMIT", "8")),
+    "rate_window_s": float(os.getenv("INTEGRATED_VL_RATE_WINDOW_S", "60")),
     "fallback_to_local": os.getenv("INTEGRATED_VL_FALLBACK_LOCAL", "1").strip().lower()
     in {"1", "true", "yes", "on", "y"},
 }

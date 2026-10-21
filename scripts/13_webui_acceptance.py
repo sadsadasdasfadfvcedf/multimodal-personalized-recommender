@@ -314,6 +314,7 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
             if await ev("document.getElementById('modal').classList.contains('show')"):
                 await ev("document.querySelector('#modal [data-close]').click()")
 
+            await ev("setDeviceAllowed(true, false)")
             await ev(
                 "(function(){window.__visionOrigFetch=window.fetch;"
                 "window.fetch=async function(url,opts){"
