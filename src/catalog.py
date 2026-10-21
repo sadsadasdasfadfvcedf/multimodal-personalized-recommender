@@ -258,6 +258,21 @@ class Catalog:
         # 调用方 recommender_adapter 拿它当 ID 用时抛 TypeError: unhashable type: 'dict'。
         return [i for i, p in self.catalog.items() if p["category"] == category][:k]
 
+    def title_matches(self, terms: list[str], category: str | None = None, k: int = 80) -> list[str]:
+        """按标题词召回具体商品类型，并按热门度稳定排序。"""
+        wanted = [str(term).lower() for term in terms if str(term).strip()]
+        if not wanted:
+            return []
+        matched: list[str] = []
+        for item_id, product in self.catalog.items():
+            if category and product.get("category") != category:
+                continue
+            title = f"{product.get('title', '')} {product.get('english_title', '')}".lower()
+            if any(term in title for term in wanted):
+                matched.append(item_id)
+        matched.sort(key=lambda item_id: (-self.popularity(item_id), item_id))
+        return matched[:k]
+
     def purchased(self, user_id: str) -> set[str]:
         payload = self.history.get(str(user_id), {}) or {}
         out: set[str] = set()

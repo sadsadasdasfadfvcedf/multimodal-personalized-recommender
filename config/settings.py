@@ -241,6 +241,7 @@ RECOMMENDER_ADAPTER: dict = {
     "sources": {
         "personalized": "推荐系统 v146 个性化精排",
         "similar": "相似商品召回",
+        "item_type": "商品类型召回",
         "popular": "全局热门兜底",
         "category_hot": "品类热门召回",
         "history": "历史购买相似召回",
@@ -281,6 +282,21 @@ MULTIMODAL_ADAPTER: dict = {
         "capture_frames": int(os.getenv("INTEGRATED_GESTURE_FRAMES", "5")),
         "capture_interval_ms": int(os.getenv("INTEGRATED_GESTURE_INTERVAL_MS", "250")),
     },
+    # 语音里出现这些词时，在同一次请求中自动抓取摄像头画面并融合推荐。
+    "voice_visual_markers": [
+        "手上",
+        "手里",
+        "手中",
+        "拿着",
+        "拿的",
+        "举着",
+        "我拿的",
+        "我举的",
+        "画面里",
+        "镜头里",
+        "这个物品",
+        "这个东西",
+    ],
 }
 
 # 在线视觉理解（可选）：默认使用阿里云百炼 OpenAI 兼容接口。
@@ -686,6 +702,54 @@ SLOT_LEXICON: dict = {
         "耳机": "生活用品",
         "手机": "生活用品",
     },
+    # 具体商品类型：比一级类目更细，用于“推荐一些茶壶”这类说法。
+    # terms 是商品标题命中词；category 只补足一级类目，不写死任何商品 ID。
+    "product_types": {
+        "茶壶": {"terms": ["茶壶"], "category": "厨房用品"},
+        "茶具": {"terms": ["茶具"], "category": "厨房用品"},
+        "茶杯": {"terms": ["茶杯"], "category": "厨房用品"},
+        "茶碟": {"terms": ["茶碟"], "category": "厨房用品"},
+        "茶巾": {"terms": ["茶巾"], "category": "厨房用品"},
+        "茶滤": {"terms": ["茶滤"], "category": "厨房用品"},
+        "厨房秤": {"terms": ["厨房秤"], "category": "厨房用品"},
+        "蛋糕架": {"terms": ["蛋糕架"], "category": "厨房用品"},
+        "面包箱": {"terms": ["面包箱"], "category": "厨房用品"},
+        "餐具": {"terms": ["餐具", "刀叉", "茶匙"], "category": "厨房用品"},
+        "杯子": {"terms": ["马克杯", "水杯", "杯子", "杯"], "category": "厨房用品"},
+        "碗": {"terms": ["碗"], "category": "厨房用品"},
+        "盘子": {"terms": ["盘子"], "category": "厨房用品"},
+        "相框": {"terms": ["相框", "木框"], "category": "家居装饰"},
+        "烛台": {"terms": ["烛台"], "category": "家居装饰"},
+        "蜡烛": {"terms": ["蜡烛"], "category": "家居装饰"},
+        "灯串": {"terms": ["灯串", "串灯"], "category": "家居装饰"},
+        "靠垫": {"terms": ["靠垫", "抱枕"], "category": "家居装饰"},
+        "挂钟": {"terms": ["挂钟", "时钟"], "category": "家居装饰"},
+        "花瓶": {"terms": ["花瓶"], "category": "家居装饰"},
+        "门牌": {"terms": ["门牌", "门垫"], "category": "家居装饰"},
+        "标志牌": {"terms": ["标志牌", "金属标志"], "category": "家居装饰"},
+        "收纳盒": {"terms": ["收纳盒", "收纳箱"], "category": "收纳用品"},
+        "收纳袋": {"terms": ["收纳袋", "储物袋"], "category": "收纳用品"},
+        "贺卡": {"terms": ["贺卡", "卡片"], "category": "派对用品"},
+        "包装纸": {"terms": ["包装纸"], "category": "派对用品"},
+        "丝带": {"terms": ["丝带", "缎带"], "category": "手工用品"},
+        "彩旗": {"terms": ["彩旗", "旗串"], "category": "派对用品"},
+        "纸杯": {"terms": ["蛋糕纸杯", "纸杯"], "category": "派对用品"},
+        "玩偶": {"terms": ["玩偶", "娃娃", "公仔"], "category": "玩具"},
+        "拼图": {"terms": ["拼图"], "category": "玩具"},
+        "积木": {"terms": ["积木"], "category": "玩具"},
+        "笔记本": {"terms": ["笔记本", "本子"], "category": "文具用品"},
+        "笔": {"terms": ["圆珠笔", "铅笔", "钢笔", "笔"], "category": "文具用品"},
+        "热水袋": {"terms": ["热水袋", "暖宝宝"], "category": "生活用品"},
+        "围巾": {"terms": ["围巾"], "category": "生活用品"},
+        "手套": {"terms": ["手套"], "category": "生活用品"},
+        "项链": {"terms": ["项链"], "category": "装饰品"},
+        "耳环": {"terms": ["耳环", "耳钉"], "category": "装饰品"},
+        "手链": {"terms": ["手链", "手镯"], "category": "装饰品"},
+        "戒指": {"terms": ["戒指"], "category": "装饰品"},
+        "胸针": {"terms": ["胸针"], "category": "装饰品"},
+        "钥匙扣": {"terms": ["钥匙扣", "钥匙圈"], "category": "装饰品"},
+        "购物袋": {"terms": ["购物袋", "大号袋"], "category": "购物袋"},
+    },
     "colors": {
         "白色": ["白", "白色", "奶白", "white"],
         "黑色": ["黑", "黑色", "black"],
@@ -821,7 +885,15 @@ RECALL_CONFIG: dict = {
     "merge_top_k": 120,  # 合并去重后进入排序的候选数
     # session_focus：把会话焦点/刚点赞的商品强制放回候选池，
     # 保证「反馈后排序变化」可观察、可解释（否则被点过的商品可能因分路原因掉出候选池）
-    "sources_enabled": ["personalized", "similar", "category_hot", "session_focus", "popular", "history"],
+    "sources_enabled": [
+        "personalized",
+        "similar",
+        "category_hot",
+        "item_type",
+        "session_focus",
+        "popular",
+        "history",
+    ],
     "dedupe_keep": "max_score",
     "similar_seed_size": 3,  # 用 Top-N 种子商品做相似扩散
     "dedupe_case_insensitive": True,  # 商品编码大小写视为同一商品（源数据存在 84970S/84970s 这类变体）
@@ -840,6 +912,7 @@ RANKING_CONFIG: dict = {
     "non_personalized_base_discount": 0.5,
     "source_trust": {
         "推荐系统 v146 个性化精排": 1.0,
+        "商品类型召回": 0.95,
         "历史购买相似召回": 0.9,
         "相似商品召回": 0.8,
         "品类热门召回": 0.6,
@@ -847,7 +920,7 @@ RANKING_CONFIG: dict = {
         "全局热门兜底": 0.4,
     },
     # 硬约束必须在打分前生效，且排序分数不得覆盖硬约束
-    "hard_constraints": ["budget", "category", "color", "exclude_ids"],
+    "hard_constraints": ["budget", "category", "color", "title_type", "exclude_ids"],
     "soft_constraints": ["scene", "target"],
     "session_preference": {
         # 会话偏好权重：点赞/倒赞的差异必须可归因，故“已曝光惩罚”默认关闭。

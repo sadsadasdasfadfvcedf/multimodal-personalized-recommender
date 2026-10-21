@@ -177,6 +177,7 @@ class Orchestrator:
         if (
             self.chat is not None
             and event.source in ("text", "voice")
+            and not event.visual_tags
             and self._should_chat(event.text, focus_item_id=session.focus_item_id)
         ):
             chat_result = self.chat.chat(event.text or "")
@@ -816,8 +817,9 @@ class Orchestrator:
             return f"与「{title}」相似的商品："
         category = request.slot_value("category")
         scene = request.slot_value("scene")
-        parts = [p for p in (f"{scene}场景" if scene else None, category) if p]
-        prefix = "".join(parts)
+        item_type = request.slot_value("item_type")
+        parts = [p for p in (f"{scene}场景" if scene else None, category, item_type) if p]
+        prefix = " · ".join(str(part) for part in parts)
         if request.intent == "filter":
             return f"按你的条件（{prefix or '硬约束'}）筛选结果："
         return f"{prefix}推荐：" if prefix else "为你推荐："

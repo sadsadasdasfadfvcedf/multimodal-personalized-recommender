@@ -338,7 +338,7 @@ python -m ruff check .
 python -m ruff format --check .
 python -m mypy
 python scripts/18_contract_check.py       # 16/16
-python scripts/13_webui_acceptance.py     # 20/20（反馈位置、摄像头生命周期、识图、追问、相似高光）
+python scripts/13_webui_acceptance.py     # 21/21（反馈位置、摄像头生命周期、识图、追问、相似高光、分类加载）
 ```
 
 ### 8.2 手工验收

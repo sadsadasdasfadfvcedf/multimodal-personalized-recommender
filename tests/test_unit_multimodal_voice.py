@@ -1,0 +1,116 @@
+"""语音 + 识图融合与具体商品类型召回。"""
+
+from __future__ import annotations
+
+import importlib.util
+
+from conftest import PROJECT_ROOT
+
+from src.errors import ok
+from src.orchestrator import Orchestrator
+
+
+def _webui():
+    spec = importlib.util.spec_from_file_location("webui_voice_under_test", PROJECT_ROOT / "webui.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_teapot_query_recalls_exact_product_type():
+    orch = Orchestrator(mode="offline", with_voice=False)
+    result = orch.handle(
+        {"source": "voice", "text": "嗯给我推荐一些茶壶"},
+        user_id="14156",
+        session_id="voice-teapot",
+    )
+
+    assert result.ok
+    data = result.data
+    assert data["intent_result"]["slots"]["item_type"]["value"] == "茶壶"
+    assert data["recommendations"]
+    assert all("茶壶" in item["title"] for item in data["recommendations"])
+    assert "茶壶推荐" in data["presentation"]["text"]
+
+
+def test_voice_visual_phrase_merges_asr_with_camera_frame():
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    app.orch.multimodal.record_audio = lambda *args, **kwargs: ok({"recorded": True})
+
+    class FakeAsr:
+        def transcribe(self, *args, **kwargs):
+            return ok({"text": "推荐我手上相关的物品"})
+
+    app.orch.asr = FakeAsr()
+    called = {}
+
+    def fake_vision(question, top_k=None):
+        called["question"] = question
+        called["top_k"] = top_k
+        return {
+            "ok": True,
+            "description": "白色陶瓷茶杯",
+            "vision_latency_ms": 800,
+            "response": {
+                "status": "ok",
+                "recommendations": [],
+                "intent_result": {"intent": "discover", "slots": {}},
+                "event": {"source": "vision", "modality": "visual"},
+                "trace": {"modes": {"vision": "dashscope"}},
+            },
+        }
+
+    app.vision = fake_vision
+    result = app.voice(4, top_k=8)
+
+    assert result["ok"] is True
+    assert result["transcript"] == "推荐我手上相关的物品"
+    assert result["input_modes"] == ["voice", "vision"]
+    assert result["description"] == "白色陶瓷茶杯"
+    assert called == {"question": "推荐我手上相关的物品", "top_k": 8}
+    assert result["response"]["event"]["source"] == "voice"
+    assert result["response"]["event"]["modality"] == "multimodal"
+    assert result["response"]["trace"]["modes"]["asr"] == "real"
+
+
+def test_voice_regular_shopping_phrase_stays_text_only():
+    w = _webui()
+    app = w.App("14156", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    app.orch.multimodal.record_audio = lambda *args, **kwargs: ok({"recorded": True})
+
+    class FakeAsr:
+        def transcribe(self, *args, **kwargs):
+            return ok({"text": "嗯给我推荐一些茶壶"})
+
+    app.orch.asr = FakeAsr()
+    app.vision = lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("不应抓取摄像头"))
+    called = {}
+
+    def fake_handle(spec, top_k=None):
+        called["spec"] = spec
+        called["top_k"] = top_k
+        return {"ok": True, "response": {"status": "ok", "recommendations": []}}
+
+    app.handle_spec = fake_handle
+    result = app.voice(4, top_k=8)
+
+    assert result["input_modes"] == ["voice"]
+    assert called["spec"] == {"source": "voice", "text": "嗯给我推荐一些茶壶"}
+
+
+def test_more_padding_preserves_category_and_product_type():
+    w = _webui()
+    app = w.App("14156", "offline", False, False, None)
+
+    by_category = app.more("只看厨房用品", 24)
+    assert by_category["ok"] is True
+    assert by_category["items"]
+    assert {item["category"] for item in by_category["items"]} == {"厨房用品"}
+
+    by_type = app.more("推荐一些茶壶", 24)
+    assert by_type["ok"] is True
+    assert by_type["items"]
+    assert all("茶壶" in item["title"] for item in by_type["items"])

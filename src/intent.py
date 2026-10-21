@@ -139,6 +139,25 @@ def _match_categories(text: str, catalog_categories: list[str]) -> list[tuple[st
     return hits
 
 
+def _match_product_type(text: str) -> tuple[str, str, list[str], str] | None:
+    """识别比一级类目更细的商品类型，例如「茶壶」「相框」「贺卡」。"""
+    lowered = text.lower()
+    candidates: list[tuple[int, str, str, list[str], str]] = []
+    for name, cfg in LEX.get("product_types", {}).items():
+        terms = [str(term) for term in cfg.get("terms", []) if str(term).strip()]
+        for term in terms:
+            if term.lower() in lowered:
+                candidates.append((len(term), name, term, terms, str(cfg.get("category") or "")))
+    if not candidates:
+        return None
+    # 最长命中优先：把「茶杯」识别成茶杯，而不是泛化成「杯」。
+    _, name, term, terms, category = sorted(
+        candidates,
+        key=lambda row: (-row[0], row[1]),
+    )[0]
+    return name, term, terms, category
+
+
 def _match_colors(text: str) -> list[tuple[str, str]]:
     hits: list[tuple[str, str]] = []
     seen: set[str] = set()
@@ -365,6 +384,30 @@ def extract_slots(
                 "category_alt", [c for c, _ in cat_hits[1:]], confidence=0.5, evidence=["文本命中多个类目词"]
             )
 
+    # --- 具体商品类型 ---
+    type_hit = _match_product_type(text)
+    if type_hit:
+        item_type, term, terms, type_category = type_hit
+        slots["item_type"] = Slot(
+            "item_type",
+            item_type,
+            confidence=0.9,
+            evidence=[f"文本命中商品类型「{term}」"],
+        )
+        slots["item_type_terms"] = Slot(
+            "item_type_terms",
+            terms,
+            confidence=0.9,
+            evidence=[f"商品标题匹配词：{'、'.join(terms)}"],
+        )
+        if type_category and ("category" not in slots or slots["category"].value != type_category):
+            slots["category"] = Slot(
+                "category",
+                type_category,
+                confidence=0.8,
+                evidence=[f"商品类型「{item_type}」映射到「{type_category}」"],
+            )
+
     # 举物品识图：没有文字时，VL 描述本身也应能提供品类线索。
     if "category" not in slots and event.visual_tags:
         visual_categories: list[tuple[str, float, str, str]] = []
@@ -381,6 +424,36 @@ def extract_slots(
                 confidence=round(eff, 4),
                 evidence=[f"视觉标签「{raw_tag}」识别为「{cat}」（命中「{word}」）"],
             )
+    if "item_type" not in slots and event.visual_tags:
+        visual_types: list[tuple[str, str, list[str], str, float, str]] = []
+        for tag in event.visual_tags:
+            hit = _match_product_type(tag.tag)
+            if hit:
+                item_type, term, terms, type_category = hit
+                eff = float(tag.raw.get("effective_confidence", tag.confidence))
+                visual_types.append((item_type, term, terms, type_category, eff, tag.tag))
+        if visual_types:
+            visual_types.sort(key=lambda row: (-row[4], -len(row[1]), row[0]))
+            item_type, term, terms, type_category, eff, raw_tag = visual_types[0]
+            slots["item_type"] = Slot(
+                "item_type",
+                item_type,
+                confidence=round(eff, 4),
+                evidence=[f"视觉标签「{raw_tag}」识别为「{item_type}」（命中「{term}」）"],
+            )
+            slots["item_type_terms"] = Slot(
+                "item_type_terms",
+                terms,
+                confidence=round(eff, 4),
+                evidence=[f"视觉标题匹配词：{'、'.join(terms)}"],
+            )
+            if type_category and ("category" not in slots or slots["category"].value != type_category):
+                slots["category"] = Slot(
+                    "category",
+                    type_category,
+                    confidence=round(eff, 4),
+                    evidence=[f"视觉商品类型「{item_type}」映射到「{type_category}」"],
+                )
 
     # --- 颜色 ---
     color_hits = _match_colors(text)
@@ -534,6 +607,16 @@ def build_constraints(slots: dict[str, Slot], text: str, intent: str | None = No
     if "category" in slots:
         kind = "hard" if explicit_filter else "soft"
         constraints.append(Constraint("category", "eq", slots["category"].value, kind=kind, source="slot:category"))
+    if "item_type_terms" in slots:
+        constraints.append(
+            Constraint(
+                "title_type",
+                "contains_any",
+                list(slots["item_type_terms"].value),
+                kind="hard",
+                source="slot:item_type",
+            )
+        )
     if "scene" in slots:
         constraints.append(Constraint("scene", "eq", slots["scene"].value, kind="soft", source="slot:scene"))
     if "target" in slots and intent != "feedback":

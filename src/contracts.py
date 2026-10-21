@@ -30,7 +30,7 @@ SCHEMA_VERSION = "1.0.0"
 VALID_SOURCES = ("voice", "vision", "gesture", "text", "feedback", "browse", "system")
 # browse：用户「继续浏览」类弱反馈（打开商品详情/点击卡片），阶段5 要求纳入会话偏好
 # 模态枚举
-VALID_MODALITIES = ("asr", "visual", "gesture", "text", "feedback", "none")
+VALID_MODALITIES = ("asr", "visual", "multimodal", "gesture", "text", "feedback", "none")
 # 意图枚举（与 config.INTENT_CONFIG["intents"] 对齐）
 VALID_INTENTS = ("discover", "similar", "filter", "compare", "feedback", "explain")
 VALID_POLARITIES = ("positive", "negative")

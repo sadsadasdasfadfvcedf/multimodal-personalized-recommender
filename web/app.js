@@ -14,6 +14,7 @@ let dislikeConfirmItemId = null;
 let shelfSimilarMode = false;
 const pendingItems = new Set();
 const removedFeedback = new Map();
+const likedSnapshots = new Map();
 const DEVICE_CONSENT_KEY = 'integrated_device_consent';
 const shelfTopK = () => Math.max(pageSize, Math.min(120, currentItems.length || pageSize));
 
@@ -30,6 +31,8 @@ const SRC_ZH = {'historical_mode':'历史成交价', 'category_median':'类目�
                 'catalog_default':'默认参考价', 'missing':'无价格记录'};
 const MODE_ZH = {offline_snapshot:'内置离线快照', local_artifacts:'推荐系统发布制品',
                  http:'推荐系统实时接口', offline_stub:'离线场景桩', real:'真实模型'};
+const SLOT_ZH = {category:'类目', item_type:'商品类型', scene:'场景', colors:'颜色',
+                 budget_min:'最低价', budget_max:'最高价', target:'参照商品', targets:'对比商品'};
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -50,7 +53,14 @@ const zh = (map, k, d) => map[k] || d || k || '';
 const money = v => v == null ? '—' : '£' + v;
 /* 匹配度：把模型原始分映射成用户可读刻度（表 3-3） */
 const matchPct = s => s == null ? null : Math.max(1, Math.min(99, Math.round(Number(s) * 100)));
-const intentZh = r => zh(INTENT_ZH, ((r.intent_result||{}).intent), '—');
+const intentZh = r => {
+  const ir = r.intent_result || {}, slots = ir.slots || {};
+  const kind = slots.item_type && slots.item_type.value;
+  if (kind && (ir.intent === 'discover' || ir.intent === 'filter')){
+    return ir.intent === 'filter' ? '筛选 · ' + kind : '找' + kind;
+  }
+  return zh(INTENT_ZH, ir.intent, '—');
+};
 const statusZh = r => zh(STATUS_ZH, r.status || 'ok');
 
 function media(item, cls, eager){
@@ -198,6 +208,7 @@ function renderShelf(items, title, subtitle, resp, append){
       ['换个大一点的预算试试','去掉颜色限制','看看同类热门'].map(t => '<button data-ex="'+esc(t)+'">'+esc(t)+'</button>').join('') +
       '</div>';
     e.querySelectorAll('[data-ex]').forEach(b => b.onclick = () => ask(b.dataset.ex));
+    renderLikedShelf();
     return;
   }
   $('empty').style.display = 'none';
@@ -235,6 +246,34 @@ function renderShelf(items, title, subtitle, resp, append){
         '<button class="cmpbtn" data-cmp>' + (isPicked ? '✓ 已加入对比' : '加入对比') + '</button>' +
       '</div></article>';
   }).join('');
+  renderLikedShelf();
+}
+
+function rememberLikedItem(itemId){
+  const key = String(itemId);
+  const item = currentItems.find(x => String(x.item_id) === key);
+  if (item) likedSnapshots.set(key, {...item});
+}
+
+function renderLikedShelf(){
+  const box = $('likedShelf');
+  if (!box) return;
+  const items = Array.from(likedSnapshots.values())
+    .filter(it => ratings.get(String(it.item_id)) === 'up');
+  box.hidden = items.length === 0;
+  $('likedCnt').textContent = items.length ? items.length + ' 件' : '';
+  $('likedGrid').innerHTML = items.map(it => {
+    const key = String(it.item_id);
+    return '<article class="liked-card" data-liked-item="' + esc(key) + '">' +
+      '<div class="limg">' + (it.img_url ? '<img src="' + esc(it.img_url) +
+        '" alt="" onerror="this.remove()">' : '') +
+      '<span class="lph">' + esc(it.emoji || '🛍️') + '</span></div>' +
+      '<div class="lbody" data-liked-open="' + esc(key) + '">' +
+      '<div class="lname" title="' + esc(it.title) + '">' + esc(it.title) + '</div>' +
+      '<div class="lprice">' + money(it.price) + '</div></div>' +
+      '<button class="lremove" data-liked-remove="' + esc(key) + '" aria-label="取消喜欢">取消</button>' +
+      '</article>';
+  }).join('');
 }
 
 async function loadMore(){
@@ -243,7 +282,7 @@ async function loadMore(){
   const btn = $('loadMore');
   btn.hidden = false; btn.disabled = true; btn.textContent = '正在加载更多商品…';
   const target = Math.min(120, currentLimit + 12);
-  const text = lastQuery || '推荐一些热门商品';
+  const text = lastQuery || ((window.__account || {}).home_query) || '推荐一些热门商品';
   try{
     const d = await post('/api/more', {text, top_k: target});
     if (d.ok){
@@ -390,9 +429,9 @@ function renderBot(resp, updateShelf){
 
   const slots = ((resp.intent_result || {}).slots) || {};
   const sv = Object.entries(slots).filter(([k, v]) => v && v.value !== undefined &&
-    k !== 'budget_raw' && k !== 'category_alt');
+    k !== 'budget_raw' && k !== 'category_alt' && k !== 'item_type_terms');
   if (sv.length) h += '<div class="slots">' + sv.map(([k, v]) =>
-    '<button class="slotchip" data-slot="' + esc(String(v.value)) + '">' + esc(k) + ' · ' +
+    '<button class="slotchip" data-slot="' + esc(String(v.value)) + '">' + esc(SLOT_ZH[k] || k) + ' · ' +
     esc(String(v.value)) + '</button>').join('') + '</div>';
 
   const intent = (resp.intent_result || {}).intent;
@@ -450,10 +489,12 @@ function renderBot(resp, updateShelf){
 }
 function shelfTitle(resp){
   const i = (resp.intent_result || {}).intent;
+  const s = ((resp.intent_result || {}).slots) || {};
+  const kind = s.item_type && s.item_type.value;
   if (i === 'similar') return '相似商品';
-  if (i === 'filter') return '筛选结果';
-  if (i === 'discover') return '为你推荐';
-  if (i === 'feedback' || i === 'browse') return '为你推荐';
+  if (i === 'filter') return kind ? kind + '筛选结果' : '筛选结果';
+  if (i === 'discover') return kind ? kind + '推荐' : '为你推荐';
+  if (i === 'feedback' || i === 'browse') return kind ? kind + '推荐' : '为你推荐';
   return '推荐结果';
 }
 function shelfSub(resp){
@@ -461,6 +502,7 @@ function shelfSub(resp){
   const p = [];
   if (s.scene && s.scene.value) p.push(s.scene.value);
   if (s.category && s.category.value) p.push(s.category.value);
+  if (s.item_type && s.item_type.value) p.push(s.item_type.value);
   if (s.budget_max && s.budget_max.value != null) p.push('≤£' + s.budget_max.value);
   return p.join(' · ');
 }
@@ -551,6 +593,7 @@ async function rate(itemId, polarity, forceCancel, options){
   const cancel = !!forceCancel || ratings.get(key) === polarity;
   focusItemId = key;
   const previous = ratings.get(key);
+  if (!cancel && polarity === 'up') rememberLikedItem(key);
   const removedNow = !cancel && polarity === 'down' && detachShelfItemForFeedback(key);
   setCardPending(key, true);
   setDetailPending(key, true);
@@ -571,24 +614,32 @@ async function rate(itemId, polarity, forceCancel, options){
       document.querySelectorAll('[data-undo-feedback="' + key + '"]').forEach(b => b.remove());
       if (cancel){
         ratings.delete(key);
+        likedSnapshots.delete(key);
         restoreShelfItemFromFeedback(key);
       } else {
         ratings.set(key, fb.polarity === 'negative' ? 'down' : polarity);
+        if (fb.polarity === 'positive') rememberLikedItem(key);
+        else likedSnapshots.delete(key);
       }
       syncRatingUI(key);
+      renderLikedShelf();
       if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
       renderBot(r, false);
     } else {
       const msg = (r.error && r.error.message) || r.clarification || d.error || '反馈未生效';
       finishAction(id, 'warn', '未生效', esc(msg) + actionSuggestions('feedback'));
       if (previous) ratings.set(key, previous); else ratings.delete(key);
+      if (previous === 'up') rememberLikedItem(key); else likedSnapshots.delete(key);
       syncRatingUI(key);
+      renderLikedShelf();
       if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
       if (removedNow) restoreShelfItemFromFeedback(key);
     }
   }catch(e){
     if (previous) ratings.set(key, previous); else ratings.delete(key);
+    if (previous === 'up') rememberLikedItem(key); else likedSnapshots.delete(key);
     syncRatingUI(key);
+    renderLikedShelf();
     if (String(detailItemId) === key) setModalRating(ratings.get(key) || null);
     if (removedNow) restoreShelfItemFromFeedback(key);
     finishAction(id, 'err', '失败', esc(e.message) + actionSuggestions('feedback'));
@@ -1043,7 +1094,8 @@ async function act(kind, extra){
       else finishAction(id, 'err', '失败', esc(d.error));
       if (d.ok && kind === 'reset'){
         picked.clear(); renderTray(); syncPickUI();
-        ratings.clear(); removedFeedback.clear();
+        ratings.clear(); removedFeedback.clear(); likedSnapshots.clear();
+        renderLikedShelf();
         activeFilters = []; renderFilters();
         await loadHomeShelf(true);
       }
@@ -1064,8 +1116,15 @@ async function act(kind, extra){
     const d = await post('/api/' + kind, payload);
     if (kind === 'voice'){
       if (d.transcript){
-        finishAction(id, d.ok ? 'ok' : 'warn', d.ok ? '已识别' : '未识别',
-                     '识别结果：<b>' + esc(d.transcript) + '</b>' + (d.ok ? '' : actionSuggestions('voice')));
+        const merged = Array.isArray(d.input_modes) && d.input_modes.includes('vision');
+        const visual = d.description
+          ? '<div class="vision-meta" style="margin-top:6px">画面识别：<b>' + esc(d.description) + '</b>' +
+            (d.vision_latency_ms != null ? ' · ' + Math.round(Number(d.vision_latency_ms)) + 'ms' : '') + '</div>'
+          : '';
+        finishAction(id, d.ok ? 'ok' : 'warn',
+                     d.ok ? (merged ? '语音 + 识图完成' : '已识别') : '未识别',
+                     '识别结果：<b>' + esc(d.transcript) + '</b>' + visual +
+                     (d.ok ? '' : actionSuggestions('voice')));
         if (d.ok) renderBot(d.response, true);
       } else {
         finishAction(id, 'err', '未识别到有效语音',
@@ -1242,6 +1301,16 @@ grid.addEventListener('click', ev => {
   if (like){ ev.stopPropagation(); rate(id, like.dataset.like); return; }
   if (ev.target.closest('[data-cmp]')){ ev.stopPropagation(); toggleCompare(id); return; }
   if (ev.target.closest('[data-open]')) openDetail(id);
+});
+$('likedGrid').addEventListener('click', ev => {
+  const remove = ev.target.closest('[data-liked-remove]');
+  if (remove){
+    ev.stopPropagation();
+    rate(remove.dataset.likedRemove, 'up', true);
+    return;
+  }
+  const open = ev.target.closest('[data-liked-open]');
+  if (open) openDetail(open.dataset.likedOpen, likedSnapshots.get(open.dataset.likedOpen));
 });
 stream.addEventListener('click', ev => {
   const uf = ev.target.closest('[data-undo-feedback]');

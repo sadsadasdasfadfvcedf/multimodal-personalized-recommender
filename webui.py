@@ -48,7 +48,7 @@ from config import settings  # noqa: E402
 from src.errors import ErrorCode  # noqa: E402
 from src.orchestrator import Orchestrator  # noqa: E402
 from src.presentation import synthesize  # noqa: E402
-from src.utils import ensure_utf8_stdio  # noqa: E402
+from src.utils import contains_any, ensure_utf8_stdio  # noqa: E402
 from src.vision_api import DEFAULT_VISION_QUESTION, DashScopeVisionClient  # noqa: E402
 
 # ------------------------------------------------------------
@@ -433,8 +433,25 @@ class App:
         text = (asr.data or {}).get("text") or ""
         if not text.strip():
             return _err(ErrorCode.EMPTY_TRANSCRIPT, "未识别到有效语音", field="text", transcript="")
+        if contains_any(text, settings.MULTIMODAL_ADAPTER.get("voice_visual_markers", [])):
+            out = self.vision(text, top_k=top_k)
+            out["transcript"] = text
+            out["input_modes"] = ["voice", "vision"]
+            response = out.get("response")
+            if isinstance(response, dict):
+                event = response.get("event")
+                if isinstance(event, dict):
+                    event["source"] = "voice"
+                    event["modality"] = "multimodal"
+                trace = response.get("trace")
+                if isinstance(trace, dict):
+                    modes = trace.get("modes")
+                    if isinstance(modes, dict):
+                        modes["asr"] = "real"
+            return out
         out = self.handle_spec({"source": "voice", "text": text}, top_k=top_k)
         out["transcript"] = text
+        out["input_modes"] = ["voice"]
         return out
 
     def _capture_vision_frame(self, target: Path) -> tuple[bool, str]:
@@ -825,7 +842,21 @@ class App:
         if len(items) < top_k:
             catalog = self.orch.catalog
             seen = {str(item.get("item_id")) for item in items}
-            candidates = list(catalog.popular.get("global_top") or [])
+            slots = (resp.get("effective_request") or {}).get("slots") or {}
+            category_slot = slots.get("category") or {}
+            type_slot = slots.get("item_type_terms") or {}
+            category = str(category_slot.get("value") or "").strip()
+            type_terms = type_slot.get("value") if isinstance(type_slot.get("value"), list) else []
+            if type_terms:
+                candidates = catalog.title_matches(
+                    [str(term) for term in type_terms],
+                    category=category or None,
+                    k=len(catalog.catalog),
+                )
+            elif category:
+                candidates = catalog.category_top(category, len(catalog.catalog))
+            else:
+                candidates = list(catalog.popular.get("global_top") or [])
             if len(candidates) < top_k:
                 candidates.extend(k for k in catalog.catalog if k not in candidates)
             for iid in candidates:
@@ -836,6 +867,11 @@ class App:
                     continue
                 product = catalog.product(iid)
                 if not product:
+                    continue
+                if category and product.get("category") != category:
+                    continue
+                title = f"{product.get('title', '')} {product.get('english_title', '')}".lower()
+                if type_terms and not any(str(term).lower() in title for term in type_terms):
                     continue
                 items.append(
                     {

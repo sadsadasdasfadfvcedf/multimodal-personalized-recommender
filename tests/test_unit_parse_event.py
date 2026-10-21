@@ -47,4 +47,4 @@ def test_nonempty_text_with_visual_tags_keeps_text():
     r = _parse({"source": "vision", "text": "这是什么", "visual_tags": [{"tag": "白色马克杯", "confidence": 0.85}]})
     assert r.ok
     assert r.data.text == "这是什么"
-    assert r.data.modality == "asr"
+    assert r.data.modality == "multimodal"

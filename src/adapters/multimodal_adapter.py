@@ -275,6 +275,8 @@ class MultimodalAdapter(AdapterBase):
         # 4) 模态判定
         if gesture and gesture.get("is_feedback"):
             modality = "feedback"
+        elif tags and text:
+            modality = "multimodal"
         elif tags and not text:
             modality = "visual"
         elif gesture and not text:

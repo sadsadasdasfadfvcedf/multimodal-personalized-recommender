@@ -125,6 +125,20 @@ def test_visual_tag_maps_skateboard_to_toys(categories):
     assert slots["category"].value == "玩具"
 
 
+def test_teapot_extracts_specific_product_type(categories):
+    event = _event("嗯给我推荐一些茶壶")
+    got, slots = _intent_of(event, categories)
+
+    assert got == "discover"
+    assert slots["category"].value == "厨房用品"
+    assert slots["item_type"].value == "茶壶"
+    assert "茶壶" in slots["item_type_terms"].value
+    constraints = intent.build_constraints(slots, event.text or "", got)
+    title_type = next(c for c in constraints if c.field == "title_type")
+    assert title_type.kind == "hard"
+    assert "茶壶" in title_type.value
+
+
 @pytest.mark.parametrize(
     "text,expected_index",
     [

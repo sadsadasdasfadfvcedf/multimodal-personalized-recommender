@@ -144,6 +144,25 @@
   .loadmore:hover{background:var(--brand-soft)}
   .loadmore[hidden]{display:none}
   .loadmore:disabled{opacity:.6;cursor:wait}
+  .liked-shelf{margin:4px 16px 16px;padding:12px;border:1px solid #f3d6de;
+         border-radius:var(--r-md);background:linear-gradient(180deg,#fff8fa,#fff)}
+  .liked-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+  .liked-head h3{margin:0;font-size:14px;color:#a61e4d}
+  .liked-head span{font-size:12px;color:var(--muted)}
+  .liked-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px}
+  .liked-card{display:flex;gap:9px;min-width:0;padding:8px;border:1px solid #f4dbe4;
+         border-radius:10px;background:#fff;align-items:center}
+  .liked-card .limg{position:relative;width:48px;height:48px;flex:none;border-radius:8px;
+         overflow:hidden;background:#f6f7fb}
+  .liked-card .limg img{width:100%;height:100%;object-fit:cover;display:block}
+  .liked-card .lph{position:absolute;inset:0;display:grid;place-items:center;font-size:22px}
+  .liked-card .lbody{min-width:0;flex:1;cursor:pointer}
+  .liked-card .lname{font-size:12.5px;font-weight:600;line-height:1.35;white-space:nowrap;
+         overflow:hidden;text-overflow:ellipsis}
+  .liked-card .lprice{margin-top:3px;font-size:12px;color:var(--bad);font-weight:700}
+  .liked-card .lremove{border:none;background:#fff1f4;color:#b42355;border-radius:7px;
+         padding:4px 6px;font-size:11px;cursor:pointer}
+  .liked-card .lremove:hover{background:#ffe3ea}
   .pcard{position:relative;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;
          background:#fff;display:flex;flex-direction:column;
          transition:box-shadow .16s,border-color .16s,transform .1s}

@@ -2,7 +2,7 @@
 scripts/13_webui_acceptance.py
 ==============================
 
-网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 20 项）。
+网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 21 项）。
 
 实现方式：用 Edge 的 CDP（Chrome DevTools Protocol）驱动无头浏览器，
 在真实页面上**测量**而不是靠肉眼判断：
@@ -25,8 +25,9 @@ scripts/13_webui_acceptance.py
   16. 追问携带焦点商品并直接展示推荐理由，不覆盖当前货架
   17. 点赞不改位置；倒赞移除后撤销恢复原位，再次点赞仍不改位置
   18. 打开商品详情启动摄像头，关闭详情后摄像头停止
-  19. 在对话框询问“手上物品”时自动触发识图并进入对话
+  19. 用文字或语音询问“手上物品”时自动触发识图并融合推荐
   20. 相似推荐商品有可见高光标记
+  21. 首页加载更多仍保持当前账号品类
 
 前置条件（缺一即跳过，不影响离线可复现性）：
     · 本机装有 Microsoft Edge
@@ -86,6 +87,19 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as r:
             return json.loads(r.read().decode("utf-8"))
 
+    # 每次验收从干净会话开始，避免上一次手工演示留下的槽位/反馈污染结果。
+    try:
+        reset_req = urllib.request.Request(
+            f"{url.rstrip('/')}/api/reset",
+            data=b"{}",
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(reset_req, timeout=5):
+            pass
+    except OSError:
+        pass
+
     profile = tempfile.mkdtemp(prefix="webui-accept-")
     proc = subprocess.Popen(
         [
@@ -143,6 +157,13 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                     break
                 await asyncio.sleep(0.5)
             await asyncio.sleep(2.0)
+            for _ in range(120):
+                if await ev("!loadingMore && !busy"):
+                    break
+                await asyncio.sleep(0.25)
+            # 交互验收期间关闭 IntersectionObserver 的自动扩列，避免后台翻页
+            # 与点击、反馈、识图测试争用同一页面状态；按钮点击仍使用原函数。
+            await ev("loadMore = async function(){}")
 
             worst, worst_w = 0, WIDTHS[0]
             for w in WIDTHS:
@@ -174,8 +195,8 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
             )
             for _ in range(160):
                 if await ev(
-                    "document.querySelectorAll('.spin').length===0 && "
-                    "document.getElementById('shelfTitle').textContent!=='猜你喜欢'"
+                    "!busy && document.querySelectorAll('.spin').length===0 && "
+                    "document.getElementById('shelfTitle').textContent==='筛选结果'"
                 ):
                     break
                 await asyncio.sleep(0.5)
@@ -402,6 +423,8 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 "const id=card.dataset.item;const initialIndex=order().indexOf(id);"
                 "card.querySelector('[data-like=\"up\"]').click();await wait();"
                 "const afterLike=order().indexOf(id);"
+                "const likedAfterLike=Array.from(document.querySelectorAll('[data-liked-item]'))"
+                ".some(x=>x.dataset.likedItem===id);"
                 "document.querySelector('.pcard[data-item=\"'+id+'\"] [data-like=\"down\"]').click();await wait();"
                 "const confirmShown=document.getElementById('feedbackModal').classList.contains('show');"
                 "const beforeConfirm=order().indexOf(id);"
@@ -410,11 +433,16 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 "confirmShown,beforeConfirm,cards:order().length,ratings:[...ratings.entries()]};"
                 "confirmButton.click();await wait();"
                 "const afterDown=order().indexOf(id);"
+                "const likedAfterDown=Array.from(document.querySelectorAll('[data-liked-item]'))"
+                ".some(x=>x.dataset.likedItem===id);"
                 "document.querySelector('[data-undo-feedback=\"'+id+'\"][data-feedback-polarity=\"down\"]').click();await wait();"
                 "const afterUndo=order().indexOf(id);"
                 "document.querySelector('.pcard[data-item=\"'+id+'\"] [data-like=\"up\"]').click();await wait();"
                 "const afterLikeAgain=order().indexOf(id);"
-                "return {ok:true,id,initialIndex,afterLike,confirmShown,beforeConfirm,afterDown,afterUndo,afterLikeAgain};})()"
+                "const likedAfterAgain=Array.from(document.querySelectorAll('[data-liked-item]'))"
+                ".some(x=>x.dataset.likedItem===id);"
+                "return {ok:true,id,initialIndex,afterLike,likedAfterLike,confirmShown,beforeConfirm,"
+                "afterDown,likedAfterDown,afterUndo,afterLikeAgain,likedAfterAgain};})()"
             )
             add(
                 17,
@@ -424,8 +452,11 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 and bool((position_state or {}).get("confirmShown"))
                 and (position_state or {}).get("beforeConfirm") == (position_state or {}).get("initialIndex")
                 and (position_state or {}).get("afterDown") == -1
+                and bool((position_state or {}).get("likedAfterLike"))
+                and not bool((position_state or {}).get("likedAfterDown"))
                 and (position_state or {}).get("afterUndo") == (position_state or {}).get("initialIndex")
-                and (position_state or {}).get("afterLikeAgain") == (position_state or {}).get("initialIndex"),
+                and (position_state or {}).get("afterLikeAgain") == (position_state or {}).get("initialIndex")
+                and bool((position_state or {}).get("likedAfterAgain")),
                 str(position_state),
             )
 
@@ -462,6 +493,15 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
             await ev(
                 "(function(){window.__visualOrigFetch=window.fetch;"
                 "window.fetch=async function(url,opts){"
+                "if(String(url)==='/api/voice'){"
+                "return new Response(JSON.stringify({ok:true,transcript:'推荐我手上相关的物品',"
+                "input_modes:['voice','vision'],description:'白色陶瓷杯',vision_latency_ms:800,"
+                "response:{status:'ok',intent_result:{intent:'discover',slots:{category:{value:'厨房用品'},"
+                "item_type:{value:'杯子'}}},recommendations:[{item_id:'test-cup',title:'白色杯子',price:2.1,"
+                "currency:'GBP',emoji:'🍽️',category:'厨房用品',score:0.9,rank:1,evidence_count:3,"
+                "sources:['语音+识图'],evidence:{matched_constraints:[]},img_url:''}],"
+                "trace:{latency_ms:{},modes:{},recall:{},ranking:{}},presentation:{}},error:null}),"
+                "{status:200,headers:{'Content-Type':'application/json'}});}"
                 "if(String(url)==='/api/vision'){window.__visualPayload=JSON.parse(opts.body||'{}');"
                 "return new Response(JSON.stringify({ok:true,description:'白色杯子',"
                 "vision_provider:'dashscope',vision_model:'qwen3-vl-plus',vision_latency_ms:900,"
@@ -486,17 +526,31 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 "return {payload:window.__visualPayload||null,user:lastUser?.innerText||'',"
                 "action:lastAct?.innerText||''}})()"
             )
+            await ev("document.querySelector('[data-act=\"voice\"]').click()")
+            for _ in range(80):
+                if await ev("!busy && document.getElementById('stream').innerText.includes('语音 + 识图完成')"):
+                    break
+                await asyncio.sleep(0.1)
+            voice_visual = await ev(
+                "(function(){var acts=Array.from(document.querySelectorAll('.act'));"
+                "var last=acts.at(-1);return {text:last?.innerText||'',cards:document.querySelectorAll('.pcard').length}})()"
+            )
             await ev("window.fetch=window.__visualOrigFetch")
             visual_chat_ok = (
                 (visual_chat or {}).get("payload", {}).get("question") == "推荐我手上相关的商品"
                 and "推荐我手上相关的商品" in str((visual_chat or {}).get("user", ""))
                 and "白色杯子" in str((visual_chat or {}).get("action", ""))
             )
+            voice_visual_ok = (
+                "语音 + 识图完成" in str((voice_visual or {}).get("text", ""))
+                and "画面识别" in str((voice_visual or {}).get("text", ""))
+                and "白色陶瓷杯" in str((voice_visual or {}).get("text", ""))
+            )
             add(
                 19,
-                "对话询问手上物品自动触发识图",
-                visual_chat_ok,
-                str(visual_chat),
+                "文字/语音询问手上物品均触发识图并融合",
+                visual_chat_ok and voice_visual_ok,
+                f"文字={visual_chat}；语音={voice_visual}",
             )
 
             await ev(
@@ -528,6 +582,34 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 f"高光卡片 {similar_cards or 0}，相似标签 {similar_badges or 0}",
             )
 
+            await cmd("Page.navigate", {"url": url})
+            for _ in range(80):
+                if await ev("document.querySelectorAll('.pcard').length"):
+                    break
+                await asyncio.sleep(0.25)
+            await asyncio.sleep(0.5)
+            home_more = await ev(
+                "(async function(){"
+                "const sleep=ms=>new Promise(r=>setTimeout(r,ms));"
+                "const before={count:currentItems.length,cats:[...new Set(currentItems.map(x=>x.category))]};"
+                "const btn=document.getElementById('loadMore');"
+                "if(!btn||btn.hidden)return {ok:false,reason:'loadMore hidden',before};"
+                "btn.click();"
+                "for(let i=0;i<160;i++){if(!loadingMore)break;await sleep(100);}"
+                "const after={count:currentItems.length,cats:[...new Set(currentItems.map(x=>x.category))]};"
+                "return {ok:after.count>before.count,before,after,homeQuery:(window.__account||{}).home_query};"
+                "})()"
+            )
+            add(
+                21,
+                "首页加载更多仍保持当前账号品类",
+                bool((home_more or {}).get("ok"))
+                and len(((home_more or {}).get("after") or {}).get("cats") or []) == 1
+                and ((home_more or {}).get("after") or {}).get("cats")
+                == ((home_more or {}).get("before") or {}).get("cats"),
+                str(home_more),
+            )
+
             root = settings.PROJECT_ROOT
             src = (root / "webui.py").read_text(encoding="utf-8")
             src += "\n".join(
@@ -551,7 +633,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=9455, help="CDP 调试端口")
     args = parser.parse_args()
 
-    banner("网页改版验收核验（设计文档表 6-1，20 项）")
+    banner("网页改版验收核验（设计文档表 6-1，21 项）")
     report = {"checked_at": now_iso(), "url": args.url, "checks": [], "verdict": "SKIP"}
 
     edge = _edge()

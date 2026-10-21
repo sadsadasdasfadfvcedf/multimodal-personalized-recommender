@@ -140,6 +140,52 @@ def recall(
         if category:
             _record("category_hot", adapter.category_candidates(str(category), CFG["recall_k"], exclude=exclude))
 
+    # 3.2) 具体商品类型召回（茶壶 / 相框 / 贺卡等）
+    if "item_type" in enabled:
+        raw_terms = request.slot_value("item_type_terms") or []
+        terms = [str(term) for term in raw_terms] if isinstance(raw_terms, list) else []
+        if terms:
+            category = request.slot_value("category")
+            ids = [
+                item_id
+                for item_id in catalog.title_matches(
+                    terms,
+                    category=str(category) if category else None,
+                    k=CFG["recall_k"] * 2,
+                )
+                if item_id not in exclude
+            ][: CFG["recall_k"]]
+            if ids:
+                peak = max(catalog.popularity(item_id) for item_id in ids) or 1
+                per_source["item_type"] = [
+                    {
+                        "item_id": item_id,
+                        "score": round(catalog.popularity(item_id) / peak, 6),
+                        "source_key": "item_type",
+                        "source_label": SOURCE_LABELS.get("item_type", "商品类型召回"),
+                        "detail": {"terms": terms, "category": category},
+                    }
+                    for item_id in ids
+                ]
+                source_reports.append(
+                    {
+                        "source": "item_type",
+                        "label": SOURCE_LABELS.get("item_type", "商品类型召回"),
+                        "status": "ok",
+                        "count": len(ids),
+                    }
+                )
+            else:
+                source_reports.append(
+                    {
+                        "source": "item_type",
+                        "label": SOURCE_LABELS.get("item_type", "商品类型召回"),
+                        "status": "empty",
+                        "count": 0,
+                        "error": None,
+                    }
+                )
+
     # 3.5) 会话关注（焦点商品 + 刚点赞商品），保证反馈对象留在候选池内
     if "session_focus" in enabled and session is not None:
         focus_ids: list[str] = []

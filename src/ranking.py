@@ -99,6 +99,7 @@ def hard_filter(
     *,
     exclude: set[str] | None = None,
     relax_category: bool = False,
+    relax_title_type: bool = False,
 ) -> tuple[list[Candidate], list[dict], list[dict]]:
     """执行硬约束过滤。返回 (通过, 被淘汰明细, 生效的硬约束)。"""
     exclude = exclude or set()
@@ -106,6 +107,8 @@ def hard_filter(
     applicable: list[dict] = []
     for c in hard:
         if c.field == "category" and relax_category:
+            continue
+        if c.field == "title_type" and relax_title_type:
             continue
         applicable.append(c.to_dict())
 
@@ -115,6 +118,7 @@ def hard_filter(
         product = catalog.product(cand.item_id) or {}
         price = product.get("price")
         title = f"{product.get('title', '')} {product.get('english_title', '')}"
+        title_lower = title.lower()
         category = product.get("category", "")
         reasons: list[dict] = []
 
@@ -140,8 +144,12 @@ def hard_filter(
                     reasons.append({"constraint": spec, "reason": f"类目 {category} ≠ {spec['value']}"})
             elif spec["field"] == "color":
                 wanted = _color_words(list(spec["value"] or []))
-                if wanted and not any(w.lower() in title.lower() for w in wanted):
+                if wanted and not any(w.lower() in title_lower for w in wanted):
                     reasons.append({"constraint": spec, "reason": f"标题未命中颜色 {sorted(wanted)}"})
+            elif spec["field"] == "title_type":
+                terms = [str(term).lower() for term in (spec["value"] or [])]
+                if terms and not any(term in title_lower for term in terms):
+                    reasons.append({"constraint": spec, "reason": f"标题未命中商品类型 {terms}"})
         if reasons:
             dropped.append(
                 {
@@ -167,7 +175,8 @@ def _constraint_match(
     missed: list[dict] = []
 
     soft = request.soft_constraints()
-    for c in soft:
+    type_checks = [c for c in request.constraints if c.field == "title_type"]
+    for c in [*soft, *type_checks]:
         if c.field == "category":
             if category == c.value:
                 matched.append({"field": "category", "value": c.value, "actual": category})
@@ -186,9 +195,16 @@ def _constraint_match(
                 matched.append({"field": "similar_to", "value": c.value, "hit": True})
             else:
                 missed.append({"field": "similar_to", "value": c.value, "hit": False})
+        elif c.field == "title_type":
+            terms = [str(term).lower() for term in (c.value or [])]
+            hit = next((term for term in terms if term in title), None)
+            if hit:
+                matched.append({"field": "商品类型", "value": c.value, "actual": hit})
+            else:
+                missed.append({"field": "商品类型", "value": c.value, "actual": None})
 
     # 无软约束时，用「有来源证据」作为基础匹配度
-    total = len(soft)
+    total = len(soft) + len(type_checks)
     ratio = (len(matched) / total) if total else 1.0
     return ratio, matched, missed
 
@@ -216,17 +232,42 @@ def rank(
     kept, dropped, applied = hard_filter(candidates, request, catalog, exclude=exclude)
     degraded = False
     degrade_reason = None
+    has_title_type = any(c.field == "title_type" for c in request.constraints)
 
     if not kept:
-        # 降级：放宽硬约束中的类目，仅保留预算/颜色等可核验硬约束
-        relaxed, dropped_relax, applied_relax = hard_filter(
-            candidates, request, catalog, exclude=exclude, relax_category=True
+        # 降级 1：具体商品类型没有命中时，先退回同类目，保留预算/颜色。
+        relaxed_type, dropped_type, applied_type = hard_filter(
+            candidates,
+            request,
+            catalog,
+            exclude=exclude,
+            relax_title_type=True,
         )
-        if relaxed:
-            kept, dropped, applied = relaxed, dropped_relax, applied_relax
+        if relaxed_type:
+            kept, dropped, applied = relaxed_type, dropped_type, applied_type
             degraded = True
-            degrade_reason = "硬约束（类目）过滤后为空，已放宽类目约束并保留预算/颜色硬约束"
-        else:
+            degrade_reason = "具体商品类型无匹配，已放宽为同类目推荐并保留预算/颜色约束"
+
+        # 降级 2：类目也无匹配时，再放宽类目，仅保留预算/颜色。
+        if not kept:
+            relaxed, dropped_relax, applied_relax = hard_filter(
+                candidates,
+                request,
+                catalog,
+                exclude=exclude,
+                relax_category=True,
+                relax_title_type=True,
+            )
+            if relaxed:
+                kept, dropped, applied = relaxed, dropped_relax, applied_relax
+                degraded = True
+                degrade_reason = (
+                    "硬约束（类目/商品类型）过滤后为空，已放宽并保留预算/颜色硬约束"
+                    if has_title_type
+                    else "硬约束（类目）过滤后为空，已放宽类目约束并保留预算/颜色硬约束"
+                )
+
+        if not kept:
             # 完全放宽：仅排除集合生效，用热门兜底
             kept = [c for c in candidates if c.item_id not in exclude]
             applied = []
