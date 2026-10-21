@@ -2,7 +2,7 @@
 scripts/13_webui_acceptance.py
 ==============================
 
-网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 18 项）。
+网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 19 项）。
 
 实现方式：用 Edge 的 CDP（Chrome DevTools Protocol）驱动无头浏览器，
 在真实页面上**测量**而不是靠肉眼判断：
@@ -25,6 +25,7 @@ scripts/13_webui_acceptance.py
   16. 追问携带焦点商品并直接展示推荐理由，不覆盖当前货架
   17. 点赞不改位置；倒赞移除后撤销恢复原位，再次点赞仍不改位置
   18. 打开商品详情启动摄像头，关闭详情后摄像头停止
+  19. 在对话框询问“手上物品”时自动触发识图并进入对话
 
 前置条件（缺一即跳过，不影响离线可复现性）：
     · 本机装有 Microsoft Edge
@@ -457,6 +458,46 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 str(camera_state),
             )
 
+            await ev(
+                "(function(){window.__visualOrigFetch=window.fetch;"
+                "window.fetch=async function(url,opts){"
+                "if(String(url)==='/api/vision'){window.__visualPayload=JSON.parse(opts.body||'{}');"
+                "return new Response(JSON.stringify({ok:true,description:'白色杯子',"
+                "vision_provider:'dashscope',vision_model:'qwen3-vl-plus',vision_latency_ms:900,"
+                "user_question:window.__visualPayload.question,response:{status:'ok',"
+                "intent_result:{intent:'discover',slots:{category:{value:'厨房用品'}}},"
+                "recommendations:[{item_id:'test-cup',title:'白色杯子',price:2.1,currency:'GBP',"
+                "emoji:'🍽️',category:'厨房用品',score:0.9,rank:1,evidence_count:3,"
+                "sources:['在线识图'],evidence:{matched_constraints:[]},img_url:''}],"
+                "trace:{latency_ms:{},modes:{},recall:{},ranking:{}},presentation:{}},error:null}),"
+                "{status:200,headers:{'Content-Type':'application/json'}});}"
+                "return window.__visualOrigFetch(url,opts)};"
+                "document.getElementById('q').value='推荐我手上相关的商品';"
+                "document.getElementById('searchForm').requestSubmit();})()"
+            )
+            for _ in range(80):
+                if await ev("visionBusy===false && !!window.__visualPayload"):
+                    break
+                await asyncio.sleep(0.1)
+            visual_chat = await ev(
+                "(function(){var lastUser=Array.from(document.querySelectorAll('.msg.user')).at(-1);"
+                "var lastAct=Array.from(document.querySelectorAll('.act')).at(-1);"
+                "return {payload:window.__visualPayload||null,user:lastUser?.innerText||'',"
+                "action:lastAct?.innerText||''}})()"
+            )
+            await ev("window.fetch=window.__visualOrigFetch")
+            visual_chat_ok = (
+                (visual_chat or {}).get("payload", {}).get("question") == "推荐我手上相关的商品"
+                and "推荐我手上相关的商品" in str((visual_chat or {}).get("user", ""))
+                and "白色杯子" in str((visual_chat or {}).get("action", ""))
+            )
+            add(
+                19,
+                "对话询问手上物品自动触发识图",
+                visual_chat_ok,
+                str(visual_chat),
+            )
+
             root = settings.PROJECT_ROOT
             src = (root / "webui.py").read_text(encoding="utf-8")
             src += "\n".join(
@@ -480,7 +521,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=9455, help="CDP 调试端口")
     args = parser.parse_args()
 
-    banner("网页改版验收核验（设计文档表 6-1，18 项）")
+    banner("网页改版验收核验（设计文档表 6-1，19 项）")
     report = {"checked_at": now_iso(), "url": args.url, "checks": [], "verdict": "SKIP"}
 
     edge = _edge()

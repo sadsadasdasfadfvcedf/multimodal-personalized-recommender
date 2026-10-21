@@ -474,13 +474,20 @@ class MultimodalAdapter(AdapterBase):
             ),
         )
 
-    def capture_frame(self, out_path: str, camera_index: int = 0) -> Result:
+    def capture_frame(self, out_path: str, camera_index: int = 0, warmup_frames: int = 20) -> Result:
         """抓取一帧真实摄像头画面。"""
         if self.active_mode != "real":
             return fail(ErrorCode.MODALITY_UNAVAILABLE, "offline 模式不访问摄像头", field="out_path")
         return self.guard(
             "capture_frame",
-            lambda: self._run_worker("capture", {"out": self._abs(out_path), "camera_index": int(camera_index)}),
+            lambda: self._run_worker(
+                "capture",
+                {
+                    "out": self._abs(out_path),
+                    "camera_index": int(camera_index),
+                    "warmup_frames": max(1, min(30, int(warmup_frames))),
+                },
+            ),
         )
 
     def capture_burst(

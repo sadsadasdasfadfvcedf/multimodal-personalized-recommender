@@ -32,6 +32,11 @@ const MODE_ZH = {offline_snapshot:'内置离线快照', local_artifacts:'推荐�
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const VISUAL_QUERY_MARKERS = [
+  '手上','手里','手中','拿着','拿的','举着','我拿的','我举的',
+  '画面里','镜头里','图片里','图中','这个物品','这个东西'
+];
+const isVisualQuery = text => VISUAL_QUERY_MARKERS.some(marker => String(text || '').includes(marker));
 const humanize = s => String(s ?? '')
   .replace(/\bhistorical_mode\b/g, '历史成交价')
   .replace(/\bcategory_median\b/g, '类目参考价')
@@ -471,6 +476,10 @@ function setBusy(b){
 async function ask(text, opt){
   opt = opt || {};
   if (!text || busy) return;
+  if (isVisualQuery(text)){
+    visionAsk(text);
+    return;
+  }
   removedFeedback.clear();
   lastQuery = text;
   if (!opt.silent) addUser(text);
@@ -987,7 +996,7 @@ function closeAll(){
 }
 
 /* ============ 工具动作 ============ */
-async function act(kind){
+async function act(kind, extra){
   if (busy) return;
   if (kind === 'compare'){ openCompare(); return; }
   if (['voice','vision'].includes(kind) && !deviceAllowed){
@@ -1038,7 +1047,11 @@ async function act(kind){
                                        : '正在识别画面中的主要物品并生成同类推荐（本地 VL 约 60~90 秒）…'}}[kind];
   const id = addAction(meta.i, meta.t, meta.d);
   try{
-    const payload = kind === 'voice' ? {seconds: 4, top_k: pageSize} : {top_k: pageSize};
+    const payload = kind === 'voice'
+      ? {seconds: 4, top_k: pageSize}
+      : kind === 'vision'
+        ? {top_k: shelfTopK(), question: extra || ''}
+        : {top_k: pageSize};
     const d = await post('/api/' + kind, payload);
     if (kind === 'voice'){
       if (d.transcript){
@@ -1065,6 +1078,18 @@ async function act(kind){
     } else { finishAction(id, 'ok', '完成', ''); if (d.response) renderBot(d.response, true); }
   }catch(e){ finishAction(id, 'err', '失败', esc(e.message) + actionSuggestions(kind)); }
   if (localized) visionBusy = false; else setBusy(false);
+}
+
+async function visionAsk(text){
+  if (!text || visionBusy) return;
+  if (!deviceAllowed){
+    showPrivacyNotice(true);
+    toast('请先允许使用摄像头，再询问手上的物品');
+    return;
+  }
+  addUser(text);
+  await act('vision', text);
+  $('q').focus();
 }
 
 /* ============ 运行状态抽屉 ============ */
@@ -1339,7 +1364,7 @@ async function loadHomeShelf(force){
   stream.innerHTML = '';
   await loadHomeShelf();
   addBot('<div style="font-weight:620;margin-bottom:5px">你好，我是推荐助手</div>' +
-    '<div style="font-size:13px;color:#8b91a6">在上方说一句需求，或点工具条用<b>语音 / 识图推荐</b>提要求；手势可在商品详情内直接使用。' +
+    '<div style="font-size:13px;color:#8b91a6">在上方说一句需求，或直接问<b>“推荐我手上相关的商品”</b>；也可点工具条的<b>语音 / 识图推荐</b>。手势可在商品详情内直接使用。' +
     '推荐结果在左侧货架：<b>点商品看详情</b>、<b>卡片右上角点赞 / 倒赞</b>、<b>点「加入对比」做字段对照</b>。' +
     (needReal ? '<br>当前为<b>离线模式</b>；用 <code>python webui.py --real</code> 可启用麦克风与摄像头。' : '') +
     '</div>');

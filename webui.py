@@ -49,7 +49,7 @@ from src.errors import ErrorCode  # noqa: E402
 from src.orchestrator import Orchestrator  # noqa: E402
 from src.presentation import synthesize  # noqa: E402
 from src.utils import ensure_utf8_stdio  # noqa: E402
-from src.vision_api import DashScopeVisionClient  # noqa: E402
+from src.vision_api import DEFAULT_VISION_QUESTION, DashScopeVisionClient  # noqa: E402
 
 # ------------------------------------------------------------
 # 商品图片：代理外部推荐系统的 /api/image/{id} 并本地缓存
@@ -112,12 +112,7 @@ _DEP_HINTS = (
     ("AutoProcessor", "transformers 的 AutoProcessor 依赖可用的 torchvision，请先修 torchvision"),
 )
 
-_OBJECT_VISION_QUESTION = (
-    "只识别画面中央最主要的一个物品。只回答「颜色+品类」。"
-    "品类优先从这些词中选择：家居装饰、装饰品、厨房用品、生活用品、收纳用品、派对用品、"
-    "手工用品、饰品、购物袋、玩具、园艺用品、办公用品、宠物用品、文具用品。"
-    "不要描述人物、动作或背景。"
-)
+_OBJECT_VISION_QUESTION = DEFAULT_VISION_QUESTION
 
 
 def _dep_hint(message: str) -> str | None:
@@ -442,8 +437,27 @@ class App:
         return out
 
     def _capture_vision_frame(self, target: Path) -> tuple[bool, str]:
-        """优先复用常驻摄像头 worker，避免视觉抓帧和手势直播同时抢占设备。"""
+        """摄像头 worker 已运行时复用其帧；未运行时直接抓一帧，避免 10 秒启动等待。"""
         camera = getattr(self.orch, "camera", None)
+        if camera is not None and getattr(camera, "running", False):
+            deadline = time.time() + 3.0
+            while time.time() < deadline:
+                data = camera.frame()
+                if data:
+                    try:
+                        target.write_bytes(data)
+                        return True, ""
+                    except OSError as exc:
+                        return False, f"写入抓帧文件失败: {exc}"
+                time.sleep(0.1)
+            return False, "摄像头直播运行中，但暂时没有可用画面"
+
+        # 商品详情未打开时 worker 通常是停止的；直接抓帧比启动完整 worker 快得多。
+        cap = self.orch.multimodal.capture_frame(str(target), warmup_frames=8)
+        if cap.ok:
+            return True, ""
+
+        # 直接抓帧失败时再启动 worker，保留设备冷启动兜底。
         if camera is not None:
             started = camera.start()
             if started.ok:
@@ -457,9 +471,6 @@ class App:
                         except OSError as exc:
                             return False, f"写入抓帧文件失败: {exc}"
                     time.sleep(0.1)
-        cap = self.orch.multimodal.capture_frame(str(target))
-        if cap.ok:
-            return True, ""
         return False, str(cap.error or "摄像头抓帧失败")
 
     def gesture(
@@ -563,7 +574,8 @@ class App:
         captured, capture_error = self._capture_vision_frame(frame)
         if not captured:
             return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {capture_error}")
-        vision_question = (question or "").strip() or _OBJECT_VISION_QUESTION
+        question_text = (question or "").strip() or None
+        vision_question = _OBJECT_VISION_QUESTION
         try:
             image_bytes = frame.read_bytes()
         except OSError as exc:
@@ -643,18 +655,27 @@ class App:
                 vision_cache_hit=vision_meta["vision_cache_hit"],
                 vision_online_error=vision_meta["vision_online_error"],
             )
+        # 新一轮“手上的物品”识图不应继承上一轮商品指代/相似约束。
+        # 用户长期点赞/倒赞偏好仍保留，仅清理当前轮的槽位与约束。
+        with self.lock:
+            session = self.orch.store.get_or_create(self.session_id, self.user_id)
+            session.slot_state.clear()
+            session.constraints.clear()
+            session.focus_item_id = None
+            session.pending_clarification = None
         out = self._handle_spec_fast(
             # 没有提问时 text 必须传 None：传空串会被 parse_event 当成「空 ASR 文本」
             # 直接返回 E_EMPTY_TRANSCRIPT，视觉标签根本走不到（modality=visual 分支）。
             {
                 "source": "vision",
-                "text": (question or "").strip() or None,
+                "text": question_text,
                 "visual_tags": [{"tag": desc[:64], "confidence": 0.85}],
             },
             top_k=top_k,
         )
         out["description"] = desc
         out["vision_question"] = vision_question
+        out["user_question"] = question_text
         out.update(vision_meta)
         self._attach_vision_trace(out, vision_meta, cache_key=cache_key, fallback=fallback)
         slots = ((out.get("response") or {}).get("intent_result") or {}).get("slots") or {}

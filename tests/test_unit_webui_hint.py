@@ -319,11 +319,64 @@ def test_vision_uses_object_prompt_and_passes_visual_tag():
     result = app.vision("", 8)
 
     assert result["ok"] is True
-    assert "最主要的一个物品" in str(captured["question"])
+    assert "最主要的一个商品" in str(captured["question"])
+    assert "颜色+物品名称" in str(captured["question"])
     assert captured["spec"]["source"] == "vision"
     assert captured["spec"]["text"] is None
     assert captured["spec"]["visual_tags"][0]["tag"] == "一个白色陶瓷杯"
     assert result["description"] == "一个白色陶瓷杯"
+
+
+def test_vision_chat_question_is_kept_separate_from_recognition_prompt():
+    """对话里问“手上物品”时，用户问题进入意图链路，视觉提示词仍保持固定。"""
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    app.vision_api = None
+    captured: dict[str, object] = {}
+    app.orch.multimodal.capture_frame = lambda *args, **kwargs: ok({"image": "frame.jpg"})
+
+    def fake_describe(image, question):
+        captured["vision_question"] = question
+        return ok({"response": "粉色花卉图案杯子"})
+
+    app.orch.multimodal.describe_image = fake_describe
+
+    def fake_handle(spec, **kwargs):
+        captured["spec"] = spec
+        return {
+            "ok": True,
+            "response": {
+                "status": "ok",
+                "recommendations": [],
+                "intent_result": {"slots": {"category": {"value": "厨房用品"}}},
+            },
+        }
+
+    app.handle_spec = fake_handle
+
+    session = app.orch.store.get_or_create(app.session_id, app.user_id)
+    session.focus_item_id = "20829"
+    session.slot_state = {"old": object()}
+    session.constraints = [object()]
+
+    def fake_handle_with_context(spec, **kwargs):
+        captured["session"] = {
+            "focus": session.focus_item_id,
+            "slots": len(session.slot_state),
+            "constraints": len(session.constraints),
+        }
+        return fake_handle(spec, **kwargs)
+
+    app.handle_spec = fake_handle_with_context
+
+    result = app.vision("推荐我手上相关的商品", 8)
+
+    assert result["ok"] is True
+    assert "颜色+物品名称" in str(captured["vision_question"])
+    assert captured["spec"]["text"] == "推荐我手上相关的商品"
+    assert result["user_question"] == "推荐我手上相关的商品"
+    assert captured["session"] == {"focus": None, "slots": 0, "constraints": 0}
 
 
 def test_vision_reuses_camera_worker_frame():
@@ -336,6 +389,8 @@ def test_vision_reuses_camera_worker_frame():
     captured: dict[str, bytes] = {}
 
     class FakeCamera:
+        running = True
+
         def start(self):
             return ok({"running": True})
 
@@ -369,12 +424,58 @@ def test_vision_reuses_camera_worker_frame():
     assert captured["image"] == jpeg
 
 
+def test_vision_uses_direct_capture_when_camera_worker_is_stopped():
+    """主页面识图不应为了抓一帧而等待完整 camera worker 启动。"""
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    app.vision_api = None
+    state = {"started": False}
+    capture_args: dict[str, int] = {}
+
+    class StoppedCamera:
+        running = False
+
+        def start(self):
+            state["started"] = True
+            return ok({"running": True})
+
+    app.orch.camera = StoppedCamera()
+
+    def direct_capture(path, **kwargs):
+        capture_args.update(kwargs)
+        Path(path).write_bytes(b"\xff\xd8direct-capture\xff\xd9")
+        return ok({"image": path})
+
+    app.orch.multimodal.capture_frame = direct_capture
+    app.orch.multimodal.describe_image = lambda *args, **kwargs: ok(
+        {"response": "粉色花卉图案杯子", "model": "Qwen2-VL-2B-Instruct"}
+    )
+    app.handle_spec = lambda *args, **kwargs: {
+        "ok": True,
+        "response": {
+            "status": "ok",
+            "recommendations": [],
+            "intent_result": {"slots": {"category": {"value": "厨房用品"}}},
+        },
+    }
+
+    result = app.vision("", 8)
+
+    assert result["ok"] is True
+    assert state["started"] is False
+    assert result["vision_provider"] == "local"
+    assert capture_args["warmup_frames"] == 8
+
+
 def test_vision_prefers_online_api(monkeypatch):
     w = _webui()
     app = w.App("15547", "offline", False, False, None)
     app.orch.multimodal.active_mode = "real"
 
     class FakeCamera:
+        running = True
+
         def start(self):
             return ok({"running": True})
 
@@ -430,6 +531,8 @@ def test_vision_falls_back_to_local_when_online_fails():
     app.orch.multimodal.active_mode = "real"
 
     class FakeCamera:
+        running = True
+
         def start(self):
             return ok({"running": True})
 
@@ -472,6 +575,8 @@ def test_vision_cache_hit_skips_second_online_call(monkeypatch):
     app.orch.multimodal.active_mode = "real"
 
     class FakeCamera:
+        running = True
+
         def start(self):
             return ok({"running": True})
 
@@ -524,6 +629,8 @@ def test_vision_rate_limit_returns_actionable_error(monkeypatch):
     app.orch.multimodal.active_mode = "real"
 
     class FakeCamera:
+        running = True
+
         def __init__(self):
             self.index = 0
 
