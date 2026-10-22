@@ -156,15 +156,12 @@ async def _run(url: str, port: int, edge: str) -> list[dict]:
             add(2, "相似商品可加入对比", bool((r2 or {}).get("ok")), r2 or {})
 
             # 3) 新会话直接点赞必须真的记录（reset 后会话不存在）
-            await ev(
-                "fetch('/api/reset',{method:'POST',headers:{'Content-Type':'application/json',"
-                "'X-Requested-With':'integrated-ai'},body:'{}'})"
-            )
+            await ev("fetch('/api/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})")
             await asyncio.sleep(2)
             await ev("document.querySelector('.pcard [data-like=up]').click()")
             await asyncio.sleep(16)
             r3 = await ev("""(async function(){
-              const d = await (await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json','X-Requested-With':'integrated-ai'},body:'{}'})).json();
+              const d = await (await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
               const likes = (d.state || {}).likes || {};
               const first = document.querySelector('.pcard').dataset.item;
               const card = document.querySelector('.pcard');

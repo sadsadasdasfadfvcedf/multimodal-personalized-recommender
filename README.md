@@ -354,16 +354,7 @@ python scripts/15_deps_check.py
 | `python scripts/13_webui_acceptance.py` | 网页改版验收（需 webui 在跑 + Edge） | `outputs/webui_acceptance.json` |
 | `python scripts/clean_workspace.py` | 打包前清理 | 删除 `__pycache__` / `*.pyc` |
 
-### 3.2 本地服务安全边界
-
-- Web 服务只允许绑定 `127.0.0.1` / `localhost` / `::1`，拒绝公网或 LAN 监听。
-- 所有请求校验 Host；跨站 Origin / `Sec-Fetch-Site` 被拒绝。
-- POST 必须是 `application/json`，并携带 `X-Requested-With: integrated-ai`，防止简单表单 CSRF。
-- 请求体上限 128KB；`/api/chat`、`/api/tts`、语音、识图和摄像头控制均有限流。
-- 商品图使用哈希文件名、固定安全图片类型并校验文件头；禁用重定向，路径穿越/UNC/Windows 绝对路径直接拒绝。
-- CSP 禁止内联脚本，图片响应使用 `sandbox; default-src 'none'`。
-
-### 3.3 运行模式
+### 3.2 运行模式
 
 ```powershell
 python main.py --mode offline   # 默认：只用内置离线快照（可离线演示）
@@ -372,7 +363,7 @@ python main.py --mode online    # 强制走推荐系统 HTTP 接口
 python main.py --user 14156     # 指定演示用户
 ```
 
-### 3.4 与外部系统联调（可选）
+### 3.3 与外部系统联调（可选）
 
 ```powershell
 # 启动推荐系统（127.0.0.1:8010）

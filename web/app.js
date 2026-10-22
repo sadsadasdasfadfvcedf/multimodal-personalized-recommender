@@ -1,8 +1,5 @@
 const $ = id => document.getElementById(id);
 const grid = $('pgrid'), stream = $('stream');
-document.addEventListener('error', ev => {
-  if (ev.target instanceof HTMLImageElement) ev.target.remove();
-}, true);
 let busy = false, needReal = false, currentItems = [], picked = new Map(), ratings = new Map();
 let activeFilters = [], sortMode = 'match', viewMode = 'grid', userSaid = [];
 let pageSize = 8, lastQuery = null;   // null = 首页货架；字符串 = 最近一次文字需求
@@ -22,7 +19,6 @@ const similarPreviewCache = new Map();
 let autoSimilarSeedId = null;
 let autoSimilarRequestId = 0;
 const DEVICE_CONSENT_KEY = 'integrated_device_consent';
-const API_HEADERS = {'Content-Type':'application/json', 'X-Requested-With':'integrated-ai'};
 const shelfTopK = () => Math.max(pageSize, Math.min(120, currentItems.length || pageSize));
 
 /* ============ 术语翻译（表 3-3「说人话」） ============ */
@@ -74,7 +70,7 @@ function media(item, cls, eager){
   const emoji = item.emoji || '🛍️';
   const load = eager ? ' loading="eager" fetchpriority="high"' : ' loading="lazy"';
   return '<div class="' + cls + '"><span class="ph">' + emoji + '</span>' +
-    (item.img_url ? '<img' + load + ' src="' + esc(item.img_url) + '" alt="">' : '') +
+    (item.img_url ? '<img' + load + ' src="' + esc(item.img_url) + '" alt="" onerror="this.remove()">' : '') +
     '</div>';
 }
 function badge(status, extra, label){
@@ -138,7 +134,7 @@ function setDeviceAllowed(on, persist){
     if (detailItemId && $('modal').classList.contains('show')) startLiveGesture(detailItemId);
   } else {
     pauseLiveGesture();
-    fetch('/api/camera/stop', {method:'POST', headers:API_HEADERS, body:'{}'}).catch(() => {});
+    fetch('/api/camera/stop', {method:'POST'}).catch(() => {});
     const box = $('modalGesture');
     if (box){
       box.innerHTML = '<div class="mstatus">设备已暂停</div>' +
@@ -291,7 +287,7 @@ function renderLikedShelf(){
     const wasSimilar = (it.sources || []).some(s => String(s).includes('相似商品召回'));
     return '<article class="liked-card" data-liked-item="' + esc(key) + '">' +
       '<div class="limg">' + (it.img_url ? '<img src="' + esc(it.img_url) +
-        '" alt="">' : '') +
+        '" alt="" onerror="this.remove()">' : '') +
       '<span class="lph">' + esc(it.emoji || '🛍️') + '</span></div>' +
       '<div class="lbody" data-liked-open="' + esc(key) + '">' +
       '<div class="lname" title="' + esc(it.title) + '">' + esc(it.title) + '</div>' +
@@ -323,7 +319,7 @@ function renderAutoRelated(items){
   $('autoGrid').innerHTML = items.map(it =>
     '<button type="button" class="auto-card" data-auto-open="' + esc(it.item_id) + '">' +
       '<span class="aimg">' + (it.img_url ? '<img src="' + esc(it.img_url) +
-        '" alt="">' : '') +
+        '" alt="" onerror="this.remove()">' : '') +
       '<span class="aph">' + esc(it.emoji || '🛍️') + '</span></span>' +
       '<span class="abody"><span class="aname">' + esc(it.title) + '</span>' +
       '<span class="aprice">' + money(it.price) + '</span></span>' +
@@ -606,7 +602,7 @@ function bottom(){ stream.scrollTop = stream.scrollHeight; }
 
 /* ============ 请求 ============ */
 async function post(path, body){
-  const r = await fetch(path, {method:'POST', headers:API_HEADERS,
+  const r = await fetch(path, {method:'POST', headers:{'Content-Type':'application/json'},
                                body: JSON.stringify(body || {})});
   return await r.json();
 }
@@ -758,7 +754,7 @@ function renderTray(){
   const items = Array.from(picked.values());
   $('trayItems').innerHTML = items.map(it =>
     '<span class="titem"><span class="th">' + (it.emoji || '🛍️') +
-    (it.img_url ? '<img src="' + esc(it.img_url) + '" alt="">' : '') + '</span>' +
+    (it.img_url ? '<img src="' + esc(it.img_url) + '" alt="" onerror="this.remove()">' : '') + '</span>' +
     '<span class="nm">' + esc(it.title) + '</span><span class="pr">' + money(it.price) + '</span>' +
     '<button data-unpick="' + esc(it.item_id) + '" aria-label="移除">✕</button></span>').join('');
   $('tray').classList.toggle('show', items.length > 0);
@@ -804,7 +800,7 @@ async function openCompare(){
     if (!d.ok){ $('cmpSheet').innerHTML = '<button class="x" data-close="#cmpModal">✕</button>' +
       '<div class="sec errline">' + esc(d.error || '读取失败') + '</div>'; return; }
     const rows = [
-      ['商品', p => '<img class="cmpimg" src="' + esc(p.img_url) + '" alt="">'],
+      ['商品', p => '<img class="cmpimg" src="' + esc(p.img_url) + '" alt="" onerror="this.remove()">'],
       ['标题', p => esc(p.title)],
       ['参考价', p => '<b style="color:#dc2626">' + money(p.price) + '</b>'],
       ['类目', p => esc(p.emoji + ' ' + p.category)],
@@ -1070,7 +1066,7 @@ async function openDetail(itemId){
   $('modal').classList.add('show');
   $('sheet').innerHTML = '<button class="x" data-close="#modal" aria-label="关闭">✕</button>' +
     '<div class="sec"><span class="spin"></span> 正在读取商品详情…</div>';
-  fetch('/api/view', {method:'POST', headers:API_HEADERS,
+  fetch('/api/view', {method:'POST', headers:{'Content-Type':'application/json'},
                       body: JSON.stringify({item_id: itemId})}).catch(() => {});
   try{
     const d = await (await fetch('/api/product/' + encodeURIComponent(itemId))).json();
@@ -1561,6 +1557,6 @@ async function loadHomeShelf(force){
 
 window.addEventListener('pagehide', () => {
   if (!needReal){
-    fetch('/api/camera/stop', {method:'POST', headers:API_HEADERS, body:'{}', keepalive:true}).catch(() => {});
+    fetch('/api/camera/stop', {method:'POST', keepalive:true}).catch(() => {});
   }
 });

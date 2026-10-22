@@ -93,7 +93,7 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
         reset_req = urllib.request.Request(
             f"{url.rstrip('/')}/api/reset",
             data=b"{}",
-            headers={"Content-Type": "application/json", "X-Requested-With": "integrated-ai"},
+            headers={"Content-Type": "application/json"},
             method="POST",
         )
         with urllib.request.urlopen(reset_req, timeout=5):

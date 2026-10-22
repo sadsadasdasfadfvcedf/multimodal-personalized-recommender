@@ -55,8 +55,6 @@ def test_static_page_assets_are_served():
         assert b"shelfTopK" in body
         assert b"renderLikedShelf" in body
         assert b"loadAutoSimilar" in body
-        assert b"X-Requested-With" in body
-        assert b"onerror=" not in body
         assert "语音 + 识图完成".encode() in body
         assert "查看与这件相似的商品".encode() not in body
         assert b"data-liked-similar" not in body
