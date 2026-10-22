@@ -1,59 +1,116 @@
-# 一键启动：推荐系统(:8010) + 本项目网页界面(:8020)
-# 用法: pwsh -File scripts\start_all.ps1
-#
-# 外部依赖一律从环境变量解析，与 config/settings.py 的口径保持一致：
-#   * 不硬编码绝对路径 —— 未设置 INTEGRATED_RECOMMENDER_ROOT 时按常见位置探测；
-#   * 不硬编码口令     —— 未设置 INTEGRATED_DEMO_PASSWORD 时，HTTP 模式会被自动跳过
-#                         （见 config/settings.py 第 10 条「不硬编码密钥」）。
+# Start recommender/image service (:8010) and this web UI (:8020).
+# Works with Windows PowerShell 5.1 and PowerShell 7.
+
 $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
 $out = Join-Path $root "outputs"
+New-Item -ItemType Directory -Path $out -Force | Out-Null
 
-# ---------- 外部推荐系统根目录：环境变量优先，其次常见位置探测 ----------
 if (-not $env:INTEGRATED_RECOMMENDER_ROOT) {
-    $candidates = @(
-        (Join-Path (Split-Path -Parent $root) "推荐系统"),
-        (Join-Path $env:USERPROFILE "Desktop\推荐系统"),
-        (Join-Path $env:USERPROFILE "Documents\推荐系统"),
-        (Join-Path $env:USERPROFILE "Documents\trae_projects\推荐系统")
+    $searchRoots = @(
+        (Join-Path $env:USERPROFILE "Desktop"),
+        (Join-Path $env:USERPROFILE "Documents"),
+        (Join-Path $env:USERPROFILE "Documents\trae_projects"),
+        (Split-Path -Parent $root)
     )
-    $hit = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    $candidates = @()
+    foreach ($base in $searchRoots) {
+        if (-not (Test-Path -LiteralPath $base)) { continue }
+        $candidates += Get-ChildItem -LiteralPath $base -Directory -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "v146_release") } |
+            ForEach-Object { $_.FullName }
+    }
+    $hit = $candidates | Where-Object {
+        Test-Path -LiteralPath (Join-Path $_ "v146_release")
+    } | Select-Object -First 1
     if ($hit) { $env:INTEGRATED_RECOMMENDER_ROOT = $hit }
 }
+
 if (-not $env:INTEGRATED_RECOMMENDER_ROOT) {
-    Write-Error "未找到推荐系统目录。请先设置 `$env:INTEGRATED_RECOMMENDER_ROOT 指向推荐系统根目录。"
+    Write-Error "Recommender root not found. Set INTEGRATED_RECOMMENDER_ROOT first."
     exit 1
 }
-$recsys = Join-Path $env:INTEGRATED_RECOMMENDER_ROOT "v146_release"
 
-# ---------- 演示口令：只从环境变量读取，绝不写进仓库 ----------
-if (-not $env:INTEGRATED_DEMO_PASSWORD) {
-    Write-Host "提示：未设置 INTEGRATED_DEMO_PASSWORD，推荐系统 HTTP 模式将被自动跳过。"
+$recsys = Join-Path $env:INTEGRATED_RECOMMENDER_ROOT "v146_release"
+if (-not (Test-Path -LiteralPath $recsys)) {
+    Write-Error "v146_release not found under INTEGRATED_RECOMMENDER_ROOT."
+    exit 1
 }
+
+$pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+if (-not $pythonCommand) {
+    Write-Error "Python was not found in PATH."
+    exit 1
+}
+$python = $pythonCommand.Source
 
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONPATH = (Join-Path $env:INTEGRATED_RECOMMENDER_ROOT ".codex_deps") + ";" + $recsys
 $env:INTEGRATED_MODE = "auto"
-if (-not $env:INTEGRATED_DEMO_USER)  { $env:INTEGRATED_DEMO_USER  = "15547" }
+if (-not $env:INTEGRATED_DEMO_USER) { $env:INTEGRATED_DEMO_USER = "15547" }
 if (-not $env:INTEGRATED_RECSYS_URL) { $env:INTEGRATED_RECSYS_URL = "http://127.0.0.1:8010" }
 
 function Stop-Port($port) {
-    $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-    if ($c) { $c | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue } }
-    Start-Sleep 2
+    $connections = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+    if ($connections) {
+        $connections | ForEach-Object {
+            Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Start-Sleep -Milliseconds 700
 }
+
+function Wait-Http($url, $attempts = 80) {
+    for ($i = 0; $i -lt $attempts; $i++) {
+        try {
+            $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 2
+            if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
+                return $true
+            }
+        } catch {
+            # Service is still starting.
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    return $false
+}
+
 Stop-Port 8010
 Stop-Port 8020
 
-$r1 = Start-Process -FilePath "python" -ArgumentList "-m","uvicorn","app:app","--app-dir","webapp","--host","127.0.0.1","--port","8010" -WorkingDirectory $recsys -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $out "_recsys.log") -RedirectStandardError (Join-Path $out "_recsys.log.err")
-Start-Sleep 6
+$recsysArgs = @(
+    "-m", "uvicorn", "app:app",
+    "--app-dir", "webapp",
+    "--host", "127.0.0.1",
+    "--port", "8010"
+)
+$r1 = Start-Process -FilePath $python -ArgumentList $recsysArgs `
+    -WorkingDirectory $recsys -WindowStyle Hidden -PassThru `
+    -RedirectStandardOutput (Join-Path $out "_recsys.log") `
+    -RedirectStandardError (Join-Path $out "_recsys.log.err")
 
-$r2 = Start-Process -FilePath "python" -ArgumentList "-B","webui.py","--real","--voice","--port","8020","--no-browser" -WorkingDirectory $root -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $out "_web.log") -RedirectStandardError (Join-Path $out "_web.log.err")
-Start-Sleep 8
+if (-not (Wait-Http "http://127.0.0.1:8010/api/image/21181")) {
+    Write-Error "Recommender service failed to start. Check outputs/_recsys.log.err."
+    exit 1
+}
+
+$webArgs = @(
+    "-B", "webui.py",
+    "--real", "--voice", "--llm",
+    "--port", "8020",
+    "--no-browser"
+)
+$r2 = Start-Process -FilePath $python -ArgumentList $webArgs `
+    -WorkingDirectory $root -WindowStyle Hidden -PassThru `
+    -RedirectStandardOutput (Join-Path $out "_web.log") `
+    -RedirectStandardError (Join-Path $out "_web.log.err")
+
+if (-not (Wait-Http "http://127.0.0.1:8020/api/info")) {
+    Write-Error "Web UI failed to start. Check outputs/_web.log.err."
+    exit 1
+}
 
 Write-Host ("recsys PID = " + $r1.Id)
 Write-Host ("webui  PID = " + $r2.Id)
-foreach ($p in 8010,8020) {
-    $c = Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue
-    Write-Host ("port " + $p + " listening = " + [bool]$c)
-}
+Write-Host "recommender = http://127.0.0.1:8010"
+Write-Host "web UI      = http://127.0.0.1:8020"

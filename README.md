@@ -49,6 +49,18 @@ python scripts/run_all_offline.py          # 9 个脚本，约 24 秒，末尾�
 ```powershell
 cd C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_ai_project
 
+.\scripts\start_all.ps1             # ★ 推荐/图片服务 + 网页界面一起启动
+```
+
+如果 `.\scripts\start_all.ps1` 被执行策略拦截，使用：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_all.ps1
+```
+
+也可以分别启动单独入口：
+
+```powershell
 python scripts/00_check_env.py      # 运行环境检查
 python webui.py                     # ★ 网页对话界面 → http://127.0.0.1:8020
 python chat.py                      # ★ 终端对话
@@ -56,7 +68,8 @@ python main.py                      # 一键端到端演示（含语音播报）
 python main.py --no-voice           # 不合成语音
 ```
 
-**默认完全离线**：不需要网络、不需要启动外部服务、不加载任何重型模型。
+**默认完全离线**：不需要网络或重型模型；但要在线补齐未缓存的商品图片并启用完整推荐联动，
+请使用 `scripts/start_all.ps1` 同时启动 `8010` 推荐服务和 `8020` 网页服务。
 
 ## 1.1 网页对话界面（`webui.py`）
 
