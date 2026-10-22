@@ -362,6 +362,29 @@ IMAGE_CONFIG: dict = {
 }
 
 # ============================================================
+# 6.2 本地网页服务安全边界
+# ============================================================
+WEB_SECURITY_CONFIG: dict = {
+    "allowed_hosts": ["127.0.0.1", "localhost", "::1"],
+    "required_header": ("X-Requested-With", "integrated-ai"),
+    "max_body_bytes": 128 * 1024,
+    "socket_timeout_s": 15.0,
+    "max_chat_chars": 4000,
+    "max_tts_chars": 600,
+    # path -> (次数, 窗口秒数)
+    "rate_limits": {
+        "/api/chat": (30, 60),
+        "/api/tts": (12, 60),
+        "/api/voice": (8, 60),
+        "/api/vision": (8, 60),
+        "/api/camera/start": (10, 60),
+    },
+    # 在线 LLM、联网搜索、视觉和 TTS 共用的进程级分钟预算。
+    "global_paid_limit": (60, 60),
+    "paid_paths": ["/api/chat", "/api/tts", "/api/voice", "/api/vision"],
+}
+
+# ============================================================
 # 7. 意图与槽位（阶段2）
 # ============================================================
 INTENT_CONFIG: dict = {

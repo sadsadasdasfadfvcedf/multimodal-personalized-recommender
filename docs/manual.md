@@ -428,7 +428,7 @@ integrated_ai_project/
 │  ├─ 16_webui_click_path_check.py             网页点击路径回归（4 项，需 Edge）
 │  ├─ 17_browser_qa.py                         浏览器运行时 QA（console/CWV/无障碍）
 │  ├─ 18_contract_check.py                     网页 API 契约核验（14 项）
-│  ├─ 19_security_check.py                     网页服务安全基线（8 项）
+│  ├─ 19_security_check.py                     网页服务安全基线（13 项）
 │  ├─ 13_webui_acceptance.py                   网页改版验收（22 项，需 Edge）
 │  ├─ run_all_offline.py                       一键跑完整离线套件（汇总表）
 ```
@@ -566,7 +566,7 @@ python chat.py --user 14156         # 换用户（15547 林先生 / 14156 陈小
 | python scripts/17_browser_qa.py | 浏览器运行时 QA（console/网络/CWV/无障碍） | outputs/browser_qa.json |
 | python scripts/18_contract_check.py | 网页 API 契约核验（protocol §10） | outputs/contract_check.json |
 | python scripts/19_online_llm_check.py | 在线 LLM 联通性与延迟（需 Key，可选） | outputs/online_llm_check.json |
-| python scripts/19_security_check.py | 网页服务安全基线（8 项） | outputs/security_check.json |
+| python scripts/19_security_check.py | 网页服务安全基线（13 项） | outputs/security_check.json |
 | python scripts/21_deepseek_search_check.py | DeepSeek Search/Fetch 实测（需 Key，可选） | outputs/deepseek_search_check.json |
 | python scripts/20_fingerprint_stability.py | 连续两轮离线套件，验证证据指纹可重复 | 控制台结果 |
 | python scripts/13_webui_acceptance.py | 网页改版验收（需 webui 在跑 + Edge） | outputs/webui_acceptance.json |

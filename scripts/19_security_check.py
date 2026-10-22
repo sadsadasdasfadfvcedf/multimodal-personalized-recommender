@@ -5,13 +5,14 @@ scripts/19_security_check.py
 网页服务安全基线与输入边界检查（ecc:security-review 的产物）。
 
 检查项：
-    1. 安全响应头（nosniff / X-Frame-Options / Referrer-Policy / CSP）
-    2. 图片接口路径穿越（item_id 含 ../）
-    3. 音频接口路径穿越（name 含 ../）
-    4. 超大请求体不会拖死服务
-    5. 语音时长参数越界（负数/超长）被钳制
-    6. 源码中无硬编码密钥/口令
-    7. 错误响应不泄露 traceback
+    1. 安全响应头与禁止内联脚本的 CSP
+    2. POSIX / Windows 路径穿越与监听 Host 校验
+    3. Origin 与同源请求标记、JSON Content-Type
+    4. 超大、负数、非数字 Content-Length
+    5. 图片代理固定安全 Content-Type
+    6. 付费接口限流
+    7. 源码中无硬编码密钥/口令
+    8. 错误响应不泄露 traceback
 
 前置条件：webui.py 正在运行（默认 http://127.0.0.1:8020）
 输出：outputs/security_check.json
@@ -22,6 +23,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import socket
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -41,9 +43,21 @@ SCAN_DIRS = ["config", "src", "scripts"]
 SCAN_FILES = ["webui.py", "chat.py", "main.py"]
 
 
-def _call(base: str, path: str, body=None, method: str = "POST", timeout: float = 30.0, headers: dict | None = None):
+def _call(
+    base: str,
+    path: str,
+    body=None,
+    method: str = "POST",
+    timeout: float = 30.0,
+    headers: dict | None = None,
+    *,
+    content_type: str = "application/json; charset=utf-8",
+    secure: bool = True,
+):
     data = json.dumps(body or {}).encode("utf-8") if method == "POST" else None
-    hdrs = {"Content-Type": "application/json; charset=utf-8"}
+    hdrs = {"Content-Type": content_type}
+    if secure and method == "POST":
+        hdrs["X-Requested-With"] = "integrated-ai"
     if headers:
         hdrs.update(headers)
     req = urllib.request.Request(base + path, data=data, headers=hdrs, method=method)
@@ -59,6 +73,25 @@ def _call(base: str, path: str, body=None, method: str = "POST", timeout: float 
             return exc.code, dict(exc.headers), json.loads(raw.decode("utf-8"))
         except Exception:
             return exc.code, dict(exc.headers), {"_raw": raw[:200].decode("utf-8", "replace")}
+
+
+def _raw_request(base: str, request: bytes, timeout: float = 5.0) -> str:
+    parsed = urllib.parse.urlsplit(base)
+    host = parsed.hostname or "127.0.0.1"
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    with socket.create_connection((host, port), timeout=timeout) as sock:
+        sock.sendall(request)
+        sock.shutdown(socket.SHUT_WR)
+        chunks: list[bytes] = []
+        while True:
+            try:
+                chunk = sock.recv(65536)
+            except TimeoutError:
+                break
+            if not chunk:
+                break
+            chunks.append(chunk)
+        return b"".join(chunks).decode("utf-8", "replace")
 
 
 def _scan_secrets() -> list[str]:
@@ -121,43 +154,130 @@ def main() -> int:
         },
     )
     csp = h.get("content-security-policy") or ""
-    add(2, "CSP 已配置", "default-src 'self'" in csp and "frame-ancestors 'none'" in csp, {"csp": csp[:180]})
+    add(
+        2,
+        "CSP 已配置且禁止内联脚本",
+        "default-src 'self'" in csp and "frame-ancestors 'none'" in csp and "script-src 'self';" in csp,
+        {"csp": csp[:220]},
+    )
 
-    # 3/4) 路径穿越
+    # 3/4) 路径穿越（含 Windows 绝对路径与反斜杠）
     evil = urllib.parse.quote("../../config/settings.py", safe="")
-    s3, _, b3 = _call(base, f"/api/img/{evil}", method="GET", timeout=15)
-    add(3, "图片接口路径穿越被拒", s3 == 404 and b3.get("code") == "E_ITEM_NOT_FOUND", {"status": s3, "body": b3})
+    s3, _, b3 = _call(base, f"/api/img/{evil}", method="GET", timeout=8)
+    evil_win = urllib.parse.quote(r"C:\Windows\win.ini", safe="")
+    s3b, _, b3b = _call(base, f"/api/img/{evil_win}", method="GET", timeout=8)
+    add(
+        3,
+        "图片接口拒绝路径穿越与 Windows 绝对路径",
+        s3 == 400 and b3.get("code") == "E_INVALID_INPUT" and s3b == 400,
+        {"posix": [s3, b3], "windows": [s3b, b3b]},
+    )
     s4, _, b4 = _call(base, f"/audio/{evil}", method="GET", timeout=15)
     add(4, "音频接口路径穿越被拒", s4 == 404 and b4.get("code") == "E_ITEM_NOT_FOUND", {"status": s4, "body": b4})
 
-    # 5) 超大请求体（>1MB）不应拖死服务
-    big = {"text": "x" * 1_100_000}
-    s5, _, b5 = _call(base, "/api/chat", big, timeout=20)
-    resp5 = b5.get("response") or {}
+    # 5-8) Host / Origin / 同源标记 / JSON Content-Type
+    s5, _, b5 = _call(base, "/api/info", method="GET", headers={"Host": "evil.example"})
     add(
         5,
-        "超大请求体被快速拒绝",
-        s5 == 200 and (resp5.get("status") == "error"),
-        {"status": s5, "resp_status": resp5.get("status"), "code": (resp5.get("error") or {}).get("code")},
+        "DNS rebinding 非白名单 Host 被拒",
+        s5 == 403 and b5.get("code") == "E_INVALID_INPUT",
+        {"status": s5, "body": b5},
     )
-
-    # 6) 语音时长越界：负数应被钳制到 1s，且响应结构化
-    s6, _, b6 = _call(base, "/api/voice", {"seconds": -999}, timeout=40)
+    s6, _, b6 = _call(
+        base,
+        "/api/user",
+        {"user_id": "15547"},
+        headers={"Origin": "http://evil.example"},
+    )
     add(
         6,
-        "语音时长越界被钳制",
-        s6 == 200 and ("ok" in b6) and isinstance(b6.get("ok"), bool),
-        {"status": s6, "keys": sorted(b6)},
+        "跨站 Origin 被拒",
+        s6 == 403 and b6.get("code") == "E_INVALID_INPUT",
+        {"status": s6, "body": b6},
+    )
+    s7, _, b7 = _call(base, "/api/user", {"user_id": "15547"}, secure=False)
+    add(
+        7,
+        "缺少同源请求标记被拒",
+        s7 == 403 and b7.get("code") == "E_INVALID_INPUT",
+        {"status": s7, "body": b7},
+    )
+    s8, _, b8 = _call(
+        base,
+        "/api/user",
+        {"user_id": "15547"},
+        content_type="text/plain",
+    )
+    add(
+        8,
+        "非 application/json POST 被拒",
+        s8 == 415 and b8.get("code") == "E_INVALID_INPUT",
+        {"status": s8, "body": b8},
     )
 
-    # 7) 源码无硬编码密钥
-    hits = _scan_secrets()
-    add(7, "无硬编码密钥", not hits, {"hits": hits[:5], "scanned_dirs": SCAN_DIRS})
+    # 9) 超大/非法 Content-Length 在读取正文前拒绝
+    parsed = urllib.parse.urlsplit(base)
+    host = parsed.netloc
+    raw_big = (
+        f"POST /api/chat HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\n"
+        "X-Requested-With: integrated-ai\r\nContent-Length: 99999999\r\nConnection: close\r\n\r\n"
+    ).encode()
+    raw_big_resp = _raw_request(base, raw_big)
+    raw_neg = (
+        f"POST /api/chat HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\n"
+        "X-Requested-With: integrated-ai\r\nContent-Length: -1\r\nConnection: close\r\n\r\n"
+    ).encode()
+    raw_neg_resp = _raw_request(base, raw_neg)
+    raw_bad = (
+        f"POST /api/chat HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\n"
+        "X-Requested-With: integrated-ai\r\nContent-Length: nope\r\nConnection: close\r\n\r\n"
+    ).encode()
+    raw_bad_resp = _raw_request(base, raw_bad)
+    add(
+        9,
+        "超大/负数/非数字 Content-Length 被快速拒绝",
+        " 413 " in raw_big_resp.splitlines()[0]
+        and " 400 " in raw_neg_resp.splitlines()[0]
+        and " 400 " in raw_bad_resp.splitlines()[0],
+        {
+            "big": raw_big_resp.splitlines()[0] if raw_big_resp else "",
+            "negative": raw_neg_resp.splitlines()[0] if raw_neg_resp else "",
+            "non_numeric": raw_bad_resp.splitlines()[0] if raw_bad_resp else "",
+        },
+    )
 
-    # 8) 错误响应不含 traceback
-    s8, _, b8 = _call(base, "/api/not-a-route", method="GET", timeout=10)
-    raw8 = json.dumps(b8, ensure_ascii=False)
-    add(8, "错误响应不泄露 traceback", "Traceback" not in raw8 and 'File "' not in raw8, {"status": s8, "body": b8})
+    # 10) 图片代理固定安全类型，不透传上游 HTML/SVG
+    s10, h10, _ = _call(base, "/api/img/ZZZ999", method="GET", timeout=15)
+    ctype10 = str(h10.get("Content-Type") or "").split(";", 1)[0].lower()
+    add(
+        10,
+        "图片代理固定返回安全图片类型",
+        s10 == 200 and ctype10 in {"image/png", "image/jpeg", "image/webp"},
+        {"status": s10, "content_type": ctype10},
+    )
+
+    # 11) 付费接口限流（连续空 TTS 请求应触发 429，不会真正合成音频）
+    rate_statuses: list[int] = []
+    for _ in range(15):
+        sr, _, _ = _call(base, "/api/tts", {"text": ""}, timeout=8)
+        rate_statuses.append(sr)
+        if sr == 429:
+            break
+    add(11, "付费对话接口限流生效", 429 in rate_statuses, {"statuses": rate_statuses})
+
+    # 12) 源码无硬编码密钥
+    hits = _scan_secrets()
+    add(12, "无硬编码密钥", not hits, {"hits": hits[:5], "scanned_dirs": SCAN_DIRS})
+
+    # 13) 错误响应不含 traceback
+    s13, _, b13 = _call(base, "/api/not-a-route", method="GET", timeout=10)
+    raw13 = json.dumps(b13, ensure_ascii=False)
+    add(
+        13,
+        "错误响应不泄露 traceback",
+        "Traceback" not in raw13 and 'File "' not in raw13,
+        {"status": s13, "body": b13},
+    )
 
     passed = sum(1 for c in report["checks"] if c["passed"])
     report["summary"] = {

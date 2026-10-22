@@ -24,10 +24,12 @@ webui.py —— 多模态个性化推荐助手 · 网页对话界面
 from __future__ import annotations
 
 import argparse
+import base64
 import contextlib
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import threading
@@ -56,7 +58,41 @@ from src.vision_api import DEFAULT_VISION_QUESTION, DashScopeVisionClient  # noq
 # ------------------------------------------------------------
 _MIME_EXT = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 _EXT_MIME = {v: k for k, v in _MIME_EXT.items()}
-_PLACEHOLDER_IMAGE = b'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>'
+_ALLOWED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
+_ITEM_ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,80}$")
+_PLACEHOLDER_IMAGE = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_NO_REDIRECT_OPENER = urllib.request.build_opener(_NoRedirectHandler)
+
+
+def _valid_item_id(item_id: str) -> bool:
+    return bool(_ITEM_ID_RE.fullmatch(str(item_id or "")))
+
+
+def _sniff_image_mime(data: bytes) -> str | None:
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def _image_cache_path(cache_dir: Path, item_id: str, ext: str) -> Path:
+    digest = hashlib.sha256(item_id.encode("utf-8")).hexdigest()
+    target = (cache_dir / f"{digest}{ext}").resolve()
+    if not target.is_relative_to(cache_dir.resolve()):
+        raise ValueError("图片缓存路径越界")
+    return target
 
 
 def _recsys_image_base() -> str:
@@ -71,33 +107,40 @@ def fetch_product_image(item_id: str, timeout_s: float | None = None) -> tuple[b
     本地缓存让推荐系统未启动时图片依然可显示。
     """
     item_id = str(item_id).strip()
-    if not item_id or "/" in item_id or ".." in item_id:
+    if not _valid_item_id(item_id):
         return None
     cache_dir = settings.PATHS["images"]
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     # 1) 本地缓存
-    for ext, mime in _EXT_MIME.items():
-        cached = cache_dir / (item_id + ext)
+    for ext, _mime in _EXT_MIME.items():
+        cached = _image_cache_path(cache_dir, item_id, ext)
         if cached.exists() and cached.stat().st_size > 0:
             age_days = (time.time() - cached.stat().st_mtime) / 86400
             if age_days <= settings.IMAGE_CONFIG["recache_days"]:
-                return cached.read_bytes(), mime
+                data = cached.read_bytes()
+                detected = _sniff_image_mime(data)
+                if detected in _ALLOWED_IMAGE_TYPES:
+                    return data, detected
 
     # 2) 代理推荐系统
     url = _recsys_image_base() + "/api/image/" + urllib.parse.quote(item_id)
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "integrated-ai-project"})
-        with urllib.request.urlopen(req, timeout=timeout_s or settings.IMAGE_CONFIG["timeout_s"]) as resp:
+        with _NO_REDIRECT_OPENER.open(req, timeout=timeout_s or settings.IMAGE_CONFIG["timeout_s"]) as resp:
+            if resp.status != 200:
+                return None
             data = resp.read(settings.IMAGE_CONFIG["max_bytes"] + 1)
-            ctype = (resp.headers.get("Content-Type") or "image/jpeg").split(";")[0].strip()
     except Exception:
         return None
     if not data or len(data) > settings.IMAGE_CONFIG["max_bytes"]:
         return None
-    ext = _MIME_EXT.get(ctype, ".jpg")
+    ctype = _sniff_image_mime(data)
+    if ctype not in _ALLOWED_IMAGE_TYPES:
+        return None
+    ext = _MIME_EXT[ctype]
     with contextlib.suppress(OSError):
-        (cache_dir / (item_id + ext)).write_bytes(data)
+        _image_cache_path(cache_dir, item_id, ext).write_bytes(data)
     return data, ctype
 
 
@@ -205,7 +248,10 @@ class App:
     def __init__(
         self, user_id: str, mode: str | None, with_voice: bool, use_llm: bool, allow_real: bool | None = None
     ) -> None:
-        self.lock = threading.Lock()
+        # RLock：临时覆盖运行时开关时允许安全地嵌套 handle_spec。
+        self.lock = threading.RLock()
+        self.rate_lock = threading.Lock()
+        self._rate_calls: dict[str, list[float]] = {}
         self.user_id = user_id
         # allow_real 必须**显式传参**：settings.RUNTIME 在 import 时即已求值，
         # 之后再 os.environ[...]="1" 不会生效（这是实测踩到的坑）。
@@ -225,6 +271,53 @@ class App:
         self.media.mkdir(parents=True, exist_ok=True)
         self.turn = 0
 
+    @contextlib.contextmanager
+    def _runtime_flags(
+        self,
+        *,
+        llm_enabled: bool | None = None,
+        dry_run_voice: bool | None = None,
+    ):
+        """在锁内临时覆盖共享开关，退出时无条件恢复。"""
+        with self.lock:
+            prev_llm = self.orch.llm_explainer.enabled
+            prev_dry = self.orch.dry_run_voice
+            if llm_enabled is not None:
+                self.orch.llm_explainer.enabled = bool(llm_enabled)
+            if dry_run_voice is not None:
+                self.orch.dry_run_voice = bool(dry_run_voice)
+            try:
+                yield
+            finally:
+                self.orch.llm_explainer.enabled = prev_llm
+                self.orch.dry_run_voice = prev_dry
+
+    def _consume_rate(self, key: str, limit: int, window_s: float) -> tuple[bool, int]:
+        now = time.monotonic()
+        with self.rate_lock:
+            calls = [stamp for stamp in self._rate_calls.get(key, []) if now - stamp < window_s]
+            if len(calls) >= limit:
+                retry_after = max(1, int(window_s - (now - calls[0])))
+                self._rate_calls[key] = calls
+                return False, retry_after
+            calls.append(now)
+            self._rate_calls[key] = calls
+        return True, 0
+
+    def rate_limit(self, path: str, client_ip: str) -> tuple[bool, int]:
+        security = settings.WEB_SECURITY_CONFIG
+        per_path = security["rate_limits"].get(path)
+        if not per_path:
+            return True, 0
+        limit, window_s = per_path
+        allowed, retry = self._consume_rate(f"{path}:{client_ip}", int(limit), float(window_s))
+        if not allowed:
+            return False, retry
+        if path in security["paid_paths"]:
+            limit, window_s = security["global_paid_limit"]
+            return self._consume_rate("global-paid", int(limit), float(window_s))
+        return True, 0
+
     def account(self) -> dict:
         for item in settings.DEMO_ACCOUNTS:
             if item["user_id"] == self.user_id:
@@ -233,12 +326,8 @@ class App:
 
     def _handle_spec_fast(self, spec: dict, top_k: int | None = None) -> dict:
         """多模态快捷入口不等待 LLM 批量改写解释，先快速返回商品结果。"""
-        previous = self.orch.llm_explainer.enabled
-        self.orch.llm_explainer.enabled = False
-        try:
+        with self._runtime_flags(llm_enabled=False):
             return self.handle_spec(spec, top_k=top_k)
-        finally:
-            self.orch.llm_explainer.enabled = previous
 
     def _vision_cache_get(self, key: str) -> dict | None:
         now = time.monotonic()
@@ -321,25 +410,29 @@ class App:
             }
 
     def camera_start(self) -> dict:
-        camera = getattr(self.orch, "camera", None)
-        if camera is None:
-            return _err(ErrorCode.MODALITY_UNAVAILABLE, "手势直播需要 --real 模式")
-        result = camera.start()
+        with self.lock:
+            camera = getattr(self.orch, "camera", None)
+            if camera is None:
+                return _err(ErrorCode.MODALITY_UNAVAILABLE, "手势直播需要 --real 模式")
+            result = camera.start()
         if not result.ok:
             return _from_app_error(result.error)
         return {"ok": True, "state": result.data}
 
     def camera_stop(self) -> dict:
-        camera = getattr(self.orch, "camera", None)
-        if camera is not None:
-            camera.stop()
+        with self.lock:
+            camera = getattr(self.orch, "camera", None)
+            if camera is not None:
+                camera.stop()
         return {"ok": True, "state": {"running": False}}
 
     def camera_state(self) -> dict:
-        camera = getattr(self.orch, "camera", None)
-        if camera is None:
-            return {"ok": True, "state": {"running": False}}
-        return {"ok": True, "state": camera.state()}
+        with self.lock:
+            camera = getattr(self.orch, "camera", None)
+            if camera is None:
+                return {"ok": True, "state": {"running": False}}
+            state = camera.state()
+        return {"ok": True, "state": state}
 
     def switch_user(self, user_id: str) -> dict:
         """切换演示账号：结束旧会话，换新 user_id 的默认会话。"""
@@ -364,12 +457,8 @@ class App:
         with self.lock:
             self.turn += 1
             # 网页默认按需合成语音：每次推荐都等 TTS 会让 0.2s 的推荐变成 2~3s。
-            prev_dry = self.orch.dry_run_voice
-            self.orch.dry_run_voice = True
-            try:
+            with self._runtime_flags(dry_run_voice=True):
                 res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id, top_k=top_k)
-            finally:
-                self.orch.dry_run_voice = prev_dry
         if not res.ok:
             return _from_app_error(res.error)
         resp = res.data
@@ -390,6 +479,13 @@ class App:
         text = str(text or "").strip()
         if not text:
             return _err(ErrorCode.INVALID_INPUT, "待合成文本为空", field="text")
+        max_chars = int(settings.WEB_SECURITY_CONFIG["max_tts_chars"])
+        if len(text) > max_chars:
+            return _err(
+                ErrorCode.INVALID_INPUT,
+                f"待合成文本过长，最多 {max_chars} 个字符",
+                field="text",
+            )
         tmp_dir = settings.PATHS["artifacts"] / "tts" / uuid.uuid4().hex
         try:
             result = synthesize(text, out_dir=tmp_dir)
@@ -406,6 +502,14 @@ class App:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
     def chat(self, text: str, top_k: int | None = None, focus_item_id: str | None = None) -> dict:
+        text = str(text or "")
+        max_chars = int(settings.WEB_SECURITY_CONFIG["max_chat_chars"])
+        if len(text) > max_chars:
+            return _err(
+                ErrorCode.INVALID_INPUT,
+                f"输入文本过长，最多 {max_chars} 个字符",
+                field="text",
+            )
         focus = str(focus_item_id or "").strip()
         if focus and self.orch.catalog.exists(focus):
             with self.lock:
@@ -420,7 +524,7 @@ class App:
         ad = self.orch.multimodal
         if ad.active_mode != "real":
             return _err(ErrorCode.MODALITY_UNAVAILABLE, "语音输入需要 --real 模式")
-        wav = self.media / f"voice_{self.turn}.wav"
+        wav = self.media / f"voice_{uuid.uuid4().hex}.wav"
         rec = ad.record_audio(str(wav), seconds=seconds)
         if not rec.ok:
             return _err(ErrorCode.MODALITY_UNAVAILABLE, f"录音失败: {rec.error}")
@@ -510,15 +614,15 @@ class App:
         cfg = settings.MULTIMODAL_ADAPTER["gesture"]
         count = max(1, int(cfg.get("capture_frames", 5)))
         interval = max(0, int(cfg.get("capture_interval_ms", 250)))
-        stamp = time.strftime("%H%M%S")
-        burst_dir = self.media / f"gesture_{self.turn}_{stamp}"
+        request_token = uuid.uuid4().hex
+        burst_dir = self.media / f"gesture_{request_token}"
         cap = ad.capture_burst(str(burst_dir), count=count, interval_ms=interval)
         rows: list[dict] = []
         if cap.ok:
             g = ad.recognize_gesture_batch(str(burst_dir / "*.jpg"), limit=count, lenient=True)
         else:
             # 连拍不可用时退回单帧，保证功能可用
-            frame = self.media / f"gesture_{self.turn}.jpg"
+            frame = self.media / f"gesture_{request_token}.jpg"
             cap = ad.capture_frame(str(frame))
             if not cap.ok:
                 return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {cap.error}")
@@ -588,7 +692,7 @@ class App:
         ad = self.orch.multimodal
         if ad.active_mode != "real":
             return _err(ErrorCode.MODALITY_UNAVAILABLE, "视觉理解需要 --real 模式")
-        frame = self.media / f"vision_{self.turn}.jpg"
+        frame = self.media / f"vision_{uuid.uuid4().hex}.jpg"
         captured, capture_error = self._capture_vision_frame(frame)
         if not captured:
             return _err(ErrorCode.MODALITY_UNAVAILABLE, f"抓帧失败: {capture_error}")
@@ -780,20 +884,10 @@ class App:
         home_query = str(account.get("home_query") or "推荐一些热门商品")
         spec = {"source": "text", "text": home_query}
         limit = max(1, min(40, int(limit)))
-        with self.lock:
-            # 首页只需要文本货架；合成语音会让 /api/home 从 ~5ms 涨到 ~3.3s，
-            # 直接把 LCP 拖到 4s+。这里在锁内临时 dry-run，调用完恢复。
-            prev_dry_run = self.orch.dry_run_voice
-            prev_llm = self.orch.llm_explainer.enabled
-            self.orch.dry_run_voice = True
-            # 首页货架必须快：即使运行时打开了「LLM 解释」，也不在这里调用
-            # 4B 模型。否则一个 /api/home 会持锁几十秒，重置/翻页全部卡住。
-            self.orch.llm_explainer.enabled = False
-            try:
-                res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id + "-home", top_k=limit)
-            finally:
-                self.orch.dry_run_voice = prev_dry_run
-                self.orch.llm_explainer.enabled = prev_llm
+        # 首页只需要文本货架；合成语音会让 /api/home 从 ~5ms 涨到 ~3.3s，
+        # 直接把 LCP 拖到 4s+。首页也不调用 LLM 解释。
+        with self.lock, self._runtime_flags(dry_run_voice=True, llm_enabled=False):
+            res = self.orch.handle(spec, user_id=self.user_id, session_id=self.session_id + "-home", top_k=limit)
         if not res.ok:
             return _from_app_error(res.error)
         resp = res.data
@@ -823,16 +917,8 @@ class App:
         top_k = max(1, min(120, int(top_k)))
         spec = {"source": "text", "text": text or "推荐一些热门商品"}
         sid = f"{self.session_id}-more-{int(time.time() * 1000)}"
-        with self.lock:
-            prev_dry_run = self.orch.dry_run_voice
-            prev_llm = self.orch.llm_explainer.enabled
-            self.orch.dry_run_voice = True
-            self.orch.llm_explainer.enabled = False
-            try:
-                res = self.orch.handle(spec, user_id=self.user_id, session_id=sid, top_k=top_k)
-            finally:
-                self.orch.dry_run_voice = prev_dry_run
-                self.orch.llm_explainer.enabled = prev_llm
+        with self.lock, self._runtime_flags(dry_run_voice=True, llm_enabled=False):
+            res = self.orch.handle(spec, user_id=self.user_id, session_id=sid, top_k=top_k)
         if not res.ok:
             return _from_app_error(res.error)
         resp = res.data
@@ -909,20 +995,15 @@ class App:
             session = self.orch.store.get_or_create(sid, self.user_id)
             session.focus_item_id = item_id
             session.last_item_ids = [item_id]
-            prev_dry_run = self.orch.dry_run_voice
-            prev_llm = self.orch.llm_explainer.enabled
-            self.orch.dry_run_voice = True
-            self.orch.llm_explainer.enabled = False
             try:
-                res = self.orch.handle(
-                    {"source": "text", "text": "和这个商品相似的商品"},
-                    user_id=self.user_id,
-                    session_id=sid,
-                    top_k=top_k,
-                )
+                with self._runtime_flags(dry_run_voice=True, llm_enabled=False):
+                    res = self.orch.handle(
+                        {"source": "text", "text": "和这个商品相似的商品"},
+                        user_id=self.user_id,
+                        session_id=sid,
+                        top_k=top_k,
+                    )
             finally:
-                self.orch.dry_run_voice = prev_dry_run
-                self.orch.llm_explainer.enabled = prev_llm
                 self.orch.store.end(sid)
         if not res.ok:
             return _from_app_error(res.error)
@@ -952,11 +1033,7 @@ class App:
         """
         raw_polarity = str(polarity).lower()
         if raw_polarity in ("none", "clear", "cancel", "off"):
-            prev_llm = self.orch.llm_explainer.enabled
-            prev_dry = self.orch.dry_run_voice
-            self.orch.llm_explainer.enabled = False
-            self.orch.dry_run_voice = True
-            try:
+            with self._runtime_flags(dry_run_voice=True, llm_enabled=False):
                 result = self.orch.clear_feedback(
                     str(item_id),
                     user_id=self.user_id,
@@ -964,9 +1041,6 @@ class App:
                     top_k=top_k,
                 )
                 return {"ok": True, "response": result.data} if result.ok else _from_app_error(result.error)
-            finally:
-                self.orch.llm_explainer.enabled = prev_llm
-                self.orch.dry_run_voice = prev_dry
 
         polarity = "positive" if raw_polarity in ("positive", "up", "like", "1") else "negative"
         name = "thumbs_up" if polarity == "positive" else "thumbs_down"
@@ -976,15 +1050,8 @@ class App:
                 sess.focus_item_id = str(item_id)
                 if str(item_id) not in sess.last_item_ids:
                     sess.last_item_ids = [str(item_id), *sess.last_item_ids]
-        prev_llm = self.orch.llm_explainer.enabled
-        prev_dry = self.orch.dry_run_voice
-        self.orch.llm_explainer.enabled = False
-        self.orch.dry_run_voice = True
-        try:
+        with self._runtime_flags(dry_run_voice=True, llm_enabled=False):
             return self.handle_spec({"source": "gesture", "gesture": {"name": name, "confidence": 1.0}}, top_k=top_k)
-        finally:
-            self.orch.llm_explainer.enabled = prev_llm
-            self.orch.dry_run_voice = prev_dry
 
     def products(self, item_ids: list[str]) -> dict:
         """批量取商品详情 —— 供对比栏做字段对照。
@@ -1017,35 +1084,99 @@ class App:
         return {"ok": True, "products": out}
 
     def state(self) -> dict:
-        sess = self.orch.store.get(self.session_id)
-        return sess.snapshot() if sess else {}
+        with self.lock:
+            sess = self.orch.store.get(self.session_id)
+            return sess.snapshot() if sess else {}
 
     def info(self) -> dict:
-        chat_report = (
-            self.orch.chat.report() if self.orch.chat is not None and hasattr(self.orch.chat, "report") else {}
-        )
-        return {
-            "user_id": self.user_id,
-            "session_id": self.session_id,
-            "modes": self.orch.modes(),
-            "ok": True,
-            "account": self.account(),
-            "accounts": settings.DEMO_ACCOUNTS,
-            "voice": self.with_voice,
-            "llm": bool(self.orch.llm_explainer.enabled),
-            "llm_chat": chat_report,
-            "vision": self.vision_api.public_info()
-            if self.vision_api is not None
-            else {"configured": False, "provider": "local", "model": "Qwen2-VL-2B-Instruct"},
-        }
+        with self.lock:
+            chat_report = (
+                self.orch.chat.report() if self.orch.chat is not None and hasattr(self.orch.chat, "report") else {}
+            )
+            return {
+                "user_id": self.user_id,
+                "session_id": self.session_id,
+                "modes": self.orch.modes(),
+                "ok": True,
+                "account": self.account(),
+                "accounts": settings.DEMO_ACCOUNTS,
+                "voice": self.with_voice,
+                "llm": bool(self.orch.llm_explainer.enabled),
+                "llm_chat": chat_report,
+                "vision": self.vision_api.public_info()
+                if self.vision_api is not None
+                else {"configured": False, "provider": "local", "model": "Qwen2-VL-2B-Instruct"},
+            }
 
 
 def make_handler(app: App):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
+        server_version = "IntegratedAI"
+        sys_version = ""
+
+        def setup(self):
+            super().setup()
+            self.connection.settimeout(float(settings.WEB_SECURITY_CONFIG["socket_timeout_s"]))
 
         def log_message(self, fmt, *args):  # 静默访问日志，避免刷屏
             pass
+
+        def _reject(self, status: int, message: str, field: str = "request", **extra) -> None:
+            self._json(_err(ErrorCode.INVALID_INPUT, message, field=field, **extra), status)
+
+        def _host_header_ok(self) -> bool:
+            raw = str(self.headers.get("Host") or "").strip()
+            if not raw:
+                return False
+            host = urllib.parse.urlsplit("//" + raw).hostname
+            allowed = {str(item).lower() for item in settings.WEB_SECURITY_CONFIG["allowed_hosts"]}
+            return bool(host and host.lower() in allowed)
+
+        def _origin_ok(self) -> bool:
+            origin = str(self.headers.get("Origin") or "").strip()
+            if not origin:
+                return True
+            parsed = urllib.parse.urlsplit(origin)
+            allowed = {str(item).lower() for item in settings.WEB_SECURITY_CONFIG["allowed_hosts"]}
+            if parsed.scheme not in ("http", "https") or not parsed.hostname:
+                return False
+            if parsed.hostname.lower() not in allowed:
+                return False
+            bound_port = getattr(self.server, "server_port", None)
+            return not (parsed.port is not None and bound_port is not None and int(parsed.port) != int(bound_port))
+
+        def _validate_request(self) -> bool:
+            if not self._host_header_ok():
+                self._reject(403, "Host 不在本地允许列表", "host")
+                return False
+            fetch_site = str(self.headers.get("Sec-Fetch-Site") or "").lower()
+            if fetch_site and fetch_site not in ("same-origin", "none"):
+                self._reject(403, "拒绝跨站请求", "origin")
+                return False
+            if not self._origin_ok():
+                self._reject(403, "Origin 与本地服务不匹配", "origin")
+                return False
+            return True
+
+        def _validate_json_post(self) -> bool:
+            if not self._validate_request():
+                return False
+            ctype = str(self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+            if ctype != "application/json":
+                self._reject(415, "POST 请求必须使用 application/json", "content-type")
+                return False
+            if self.headers.get("Transfer-Encoding"):
+                self._reject(400, "不支持 Transfer-Encoding 请求体", "transfer-encoding")
+                return False
+            if self.headers.get("Content-Encoding"):
+                self._reject(400, "不支持压缩请求体", "content-encoding")
+                return False
+            header_name, expected = settings.WEB_SECURITY_CONFIG["required_header"]
+            if str(self.headers.get(header_name) or "") != str(expected):
+                self._reject(403, "缺少同源请求标记", "header")
+                return False
+            return True
 
         def _send(self, code: int, body: bytes, ctype: str) -> None:
             self.send_response(code)
@@ -1055,11 +1186,19 @@ def make_handler(app: App):
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("X-Frame-Options", "DENY")
             self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+            self.send_header("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")
+            image_response = ctype.split(";", 1)[0].strip().lower() in _ALLOWED_IMAGE_TYPES
             self.send_header(
                 "Content-Security-Policy",
-                "default-src 'self'; img-src 'self' data:; media-src 'self'; "
-                "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
-                "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'",
+                (
+                    "sandbox; default-src 'none'"
+                    if image_response
+                    else "default-src 'self'; img-src 'self' data:; media-src 'self'; "
+                    "style-src 'self' 'unsafe-inline'; script-src 'self'; "
+                    "connect-src 'self'; object-src 'none'; frame-ancestors 'none'; "
+                    "base-uri 'none'; form-action 'self'"
+                ),
             )
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
@@ -1072,16 +1211,39 @@ def make_handler(app: App):
                 "application/json; charset=utf-8",
             )
 
-        def _body(self) -> dict:
-            length = int(self.headers.get("Content-Length") or 0)
+        def _body(self) -> dict | None:
+            raw_length = self.headers.get("Content-Length")
+            try:
+                length = int(raw_length or 0)
+            except (TypeError, ValueError):
+                self._reject(400, "Content-Length 必须是整数", "content-length")
+                return None
+            if length < 0:
+                self._reject(400, "Content-Length 不能为负数", "content-length")
+                return None
             if not length:
                 return {}
-            if length > 1_000_000:  # 1MB 上限：本地接口不需要更大请求体
-                return {}
+            max_bytes = int(settings.WEB_SECURITY_CONFIG["max_body_bytes"])
+            if length > max_bytes:
+                self._reject(413, f"请求体过大，最多 {max_bytes} 字节", "content-length")
+                return None
             try:
-                return json.loads(self.rfile.read(length).decode("utf-8"))
+                raw = self.rfile.read(length)
             except Exception:
-                return {}
+                self._reject(400, "读取请求体失败", "body")
+                return None
+            if len(raw) != length:
+                self._reject(400, "请求体长度与 Content-Length 不一致", "body")
+                return None
+            try:
+                payload = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                self._reject(400, "请求体必须是合法 JSON", "body")
+                return None
+            if not isinstance(payload, dict):
+                self._reject(400, "请求体必须是 JSON 对象", "body")
+                return None
+            return payload
 
         def _static(self, name: str, ctype: str) -> None:
             target = (WEB_ROOT / name).resolve()
@@ -1098,6 +1260,8 @@ def make_handler(app: App):
             self.send_response(200)
             self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
             self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Security-Policy", "sandbox; default-src 'none'")
             self.end_headers()
             try:
                 while True:
@@ -1114,6 +1278,8 @@ def make_handler(app: App):
                 pass
 
         def do_GET(self):
+            if not self._validate_request():
+                return
             path_only = self.path.split("?", 1)[0]
             if path_only == "/favicon.ico":
                 self._send(204, b"", "image/x-icon")
@@ -1157,13 +1323,17 @@ def make_handler(app: App):
                 return
             if self.path.startswith("/api/img/"):
                 item_id = urllib.parse.unquote(self.path[len("/api/img/") :].split("?")[0])
+                if not _valid_item_id(item_id):
+                    self._reject(400, "商品编号格式非法", "item_id")
+                    return
                 got = fetch_product_image(item_id)
                 if got is None:
                     # 缺图时返回透明占位图，让前端类目 emoji 兜底层继续显示，避免 404 噪音。
-                    self._send(200, _PLACEHOLDER_IMAGE, "image/svg+xml; charset=utf-8")
+                    self._send(200, _PLACEHOLDER_IMAGE, "image/png")
                 else:
                     data, ctype = got
-                    self._send(200, data, ctype)
+                    safe_type = ctype if ctype in _ALLOWED_IMAGE_TYPES else "image/jpeg"
+                    self._send(200, data, safe_type)
                 return
             if self.path.startswith("/api/product/"):
                 item_id = urllib.parse.unquote(self.path[len("/api/product/") :].split("?")[0])
@@ -1181,9 +1351,26 @@ def make_handler(app: App):
             self._json(_err(ErrorCode.INVALID_INPUT, f"未知路径：{self.path}", field="path"), 404)
 
         def do_POST(self):
+            if not self._validate_json_post():
+                return
+            path_only = self.path.split("?", 1)[0]
+            allowed, retry_after = app.rate_limit(path_only, str(self.client_address[0]))
+            if not allowed:
+                self._json(
+                    _err(
+                        ErrorCode.INVALID_INPUT,
+                        f"请求过于频繁，请约 {retry_after} 秒后再试",
+                        field="rate",
+                        retry_after_s=retry_after,
+                    ),
+                    429,
+                )
+                return
             body = self._body()
+            if body is None:
+                return
             try:
-                if self.path == "/api/chat":
+                if path_only == "/api/chat":
                     raw_k = body.get("top_k")
                     self._json(
                         app.chat(
@@ -1192,10 +1379,10 @@ def make_handler(app: App):
                             str(body.get("focus_item_id") or ""),
                         )
                     )
-                elif self.path == "/api/more":
+                elif path_only == "/api/more":
                     raw_k = body.get("top_k")
                     self._json(app.more(str(body.get("text", "")), int(raw_k) if raw_k else 16))
-                elif self.path == "/api/similar-preview":
+                elif path_only == "/api/similar-preview":
                     raw_k = body.get("top_k")
                     self._json(
                         app.similar_preview(
@@ -1203,16 +1390,16 @@ def make_handler(app: App):
                             int(raw_k) if raw_k else 4,
                         )
                     )
-                elif self.path == "/api/tts":
+                elif path_only == "/api/tts":
                     self._json(app.tts(str(body.get("text", ""))))
-                elif self.path == "/api/camera/start":
+                elif path_only == "/api/camera/start":
                     self._json(app.camera_start())
-                elif self.path == "/api/camera/stop":
+                elif path_only == "/api/camera/stop":
                     self._json(app.camera_stop())
-                elif self.path == "/api/voice":
+                elif path_only == "/api/voice":
                     raw_k = body.get("top_k")
                     self._json(app.voice(float(body.get("seconds", 4)), int(raw_k) if raw_k else None))
-                elif self.path == "/api/gesture":
+                elif path_only == "/api/gesture":
                     raw_k = body.get("top_k")
                     self._json(
                         app.gesture(
@@ -1221,22 +1408,22 @@ def make_handler(app: App):
                             bool(body.get("apply_feedback", True)),
                         )
                     )
-                elif self.path == "/api/vision":
+                elif path_only == "/api/vision":
                     raw_k = body.get("top_k")
                     self._json(app.vision(str(body.get("question", "")), int(raw_k) if raw_k else None))
-                elif self.path == "/api/undo":
+                elif path_only == "/api/undo":
                     self._json(app.control("undo"))
-                elif self.path == "/api/reset":
+                elif path_only == "/api/reset":
                     self._json(app.control("reset"))
-                elif self.path == "/api/products":
+                elif path_only == "/api/products":
                     ids = body.get("item_ids") or []
                     if isinstance(ids, list):
                         self._json(app.products(list(ids)))
                     else:
                         self._json(_err(ErrorCode.INVALID_INPUT, "item_ids 必须是数组", field="item_ids"), 400)
-                elif self.path == "/api/view":
+                elif path_only == "/api/view":
                     self._json(app.view(str(body.get("item_id", ""))))
-                elif self.path == "/api/feedback":
+                elif path_only == "/api/feedback":
                     raw_k = body.get("top_k")
                     self._json(
                         app.feedback(
@@ -1245,17 +1432,17 @@ def make_handler(app: App):
                             int(raw_k) if raw_k else None,
                         )
                     )
-                elif self.path == "/api/user":
+                elif path_only == "/api/user":
                     self._json(app.switch_user(str(body.get("user_id", ""))))
-                elif self.path == "/api/state":
+                elif path_only == "/api/state":
                     self._json({"ok": True, "state": app.state()})
-                elif self.path == "/api/llm":
+                elif path_only == "/api/llm":
                     with app.lock:
                         enabled = not bool(app.orch.llm_explainer.enabled)
                         app.orch.llm_explainer.enabled = enabled
                     self._json({"ok": True, "enabled": enabled})
                 else:
-                    self._json(_err(ErrorCode.INVALID_INPUT, f"未知接口：{self.path}", field="path"), 404)
+                    self._json(_err(ErrorCode.INVALID_INPUT, f"未知接口：{path_only}", field="path"), 404)
             except Exception as exc:  # 任何异常都回结构化错误，不让页面卡死
                 msg = f"{type(exc).__name__}: {exc}"
                 hint = _dep_hint(msg)
@@ -1267,7 +1454,7 @@ def make_handler(app: App):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="网页对话界面")
-    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--host", default="127.0.0.1", help="仅允许 127.0.0.1 / localhost / ::1")
     parser.add_argument("--port", type=int, default=8020)
     parser.add_argument("--user", default="15547")
     parser.add_argument("--mode", default=None, choices=["offline", "auto", "online"])
@@ -1282,10 +1469,15 @@ def main() -> int:
     allow_real = True if args.real else None
     if args.real:
         os.environ.setdefault("INTEGRATED_DEMO_USER", "15547")
+    allowed_hosts = {str(item).lower() for item in settings.WEB_SECURITY_CONFIG["allowed_hosts"]}
+    if str(args.host).lower() not in allowed_hosts:
+        print("安全限制：网页服务只允许绑定本地回环地址（127.0.0.1 / localhost / ::1）。")
+        return 2
 
     app = App(args.user, mode, args.voice, args.llm, allow_real)
     server = ThreadingHTTPServer((args.host, args.port), make_handler(app))
-    url = f"http://{args.host}:{args.port}"
+    display_host = f"[{args.host}]" if ":" in args.host else args.host
+    url = f"http://{display_host}:{args.port}"
     modes = app.orch.modes()
     print("=" * 70)
     print("多模态个性化推荐助手 · 网页对话界面")

@@ -49,7 +49,13 @@ ITEM_REQUIRED = ("item_id", "title", "price", "score", "rank", "sources", "expla
 def _call(base: str, path: str, body=None, method: str = "POST", timeout: float = 180.0):
     data = json.dumps(body or {}).encode("utf-8") if method == "POST" else None
     req = urllib.request.Request(
-        base + path, data=data, headers={"Content-Type": "application/json; charset=utf-8"}, method=method
+        base + path,
+        data=data,
+        headers={
+            "Content-Type": "application/json; charset=utf-8",
+            "X-Requested-With": "integrated-ai",
+        },
+        method=method,
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:

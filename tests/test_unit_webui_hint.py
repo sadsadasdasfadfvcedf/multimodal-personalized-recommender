@@ -23,6 +23,11 @@ def _webui():
     return module
 
 
+def _fake_capture(out_path, *args, **kwargs):
+    Path(str(out_path)).write_bytes(b"\xff\xd8fake-frame\xff\xd9")
+    return ok({"image": str(out_path)})
+
+
 def test_hint_for_protobuf_error():
     hint = _webui()._dep_hint("'MessageFactory' object has no attribute 'GetPrototype'")
     assert hint and "protobuf" in hint
@@ -295,7 +300,7 @@ def test_vision_uses_object_prompt_and_passes_visual_tag():
     app.vision_api = None
     captured: dict[str, object] = {}
 
-    app.orch.multimodal.capture_frame = lambda *args, **kwargs: ok({"image": "frame.jpg"})
+    app.orch.multimodal.capture_frame = _fake_capture
 
     def fake_describe(image, question):
         captured["question"] = question
@@ -334,7 +339,7 @@ def test_vision_chat_question_is_kept_separate_from_recognition_prompt():
     app.orch.multimodal.active_mode = "real"
     app.vision_api = None
     captured: dict[str, object] = {}
-    app.orch.multimodal.capture_frame = lambda *args, **kwargs: ok({"image": "frame.jpg"})
+    app.orch.multimodal.capture_frame = _fake_capture
 
     def fake_describe(image, question):
         captured["vision_question"] = question
@@ -683,7 +688,7 @@ def test_vision_unmapped_object_returns_actionable_error():
     app = w.App("15547", "offline", False, False, None)
     app.orch.multimodal.active_mode = "real"
     app.vision_api = None
-    app.orch.multimodal.capture_frame = lambda *args, **kwargs: ok({"image": "frame.jpg"})
+    app.orch.multimodal.capture_frame = _fake_capture
     app.orch.multimodal.describe_image = lambda *args, **kwargs: ok({"response": "一个不明物体"})
     app.handle_spec = lambda *args, **kwargs: {"ok": True, "response": {"status": "ok", "intent_result": {"slots": {}}}}
 
