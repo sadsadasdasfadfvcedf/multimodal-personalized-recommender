@@ -126,3 +126,18 @@ def test_windows_path_and_svg_payload_are_rejected(tmp_path):
     assert first.parent == tmp_path.resolve()
     assert second.parent == tmp_path.resolve()
     assert first.name != second.name
+
+
+def test_legacy_image_cache_is_read_and_migrated(monkeypatch, tmp_path):
+    w = _webui()
+    legacy = tmp_path / "85123A.png"
+    legacy.write_bytes(w._PLACEHOLDER_IMAGE)
+    monkeypatch.setitem(w.settings.PATHS, "images", tmp_path)
+
+    got = w.fetch_product_image("85123A", timeout_s=0.1)
+
+    assert got is not None
+    assert got[0] == w._PLACEHOLDER_IMAGE
+    assert got[1] == "image/png"
+    migrated = w._image_cache_path(tmp_path, "85123A", ".png")
+    assert migrated.is_file()

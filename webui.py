@@ -95,6 +95,14 @@ def _image_cache_path(cache_dir: Path, item_id: str, ext: str) -> Path:
     return target
 
 
+def _legacy_image_cache_path(cache_dir: Path, item_id: str, ext: str) -> Path | None:
+    """兼容安全加固前按商品 ID 命名的缓存；仍执行目录边界校验。"""
+    if not _valid_item_id(item_id):
+        return None
+    target = (cache_dir / f"{item_id}{ext}").resolve()
+    return target if target.is_relative_to(cache_dir.resolve()) else None
+
+
 def _recsys_image_base() -> str:
     return str(settings.RECOMMENDER_ADAPTER["http"]["base_url"]).rstrip("/")
 
@@ -114,14 +122,21 @@ def fetch_product_image(item_id: str, timeout_s: float | None = None) -> tuple[b
 
     # 1) 本地缓存
     for ext, _mime in _EXT_MIME.items():
-        cached = _image_cache_path(cache_dir, item_id, ext)
-        if cached.exists() and cached.stat().st_size > 0:
+        hashed = _image_cache_path(cache_dir, item_id, ext)
+        legacy = _legacy_image_cache_path(cache_dir, item_id, ext)
+        for cached in (hashed, legacy):
+            if cached is None or not cached.exists() or cached.stat().st_size <= 0:
+                continue
             age_days = (time.time() - cached.stat().st_mtime) / 86400
-            if age_days <= settings.IMAGE_CONFIG["recache_days"]:
-                data = cached.read_bytes()
-                detected = _sniff_image_mime(data)
-                if detected in _ALLOWED_IMAGE_TYPES:
-                    return data, detected
+            if age_days > settings.IMAGE_CONFIG["recache_days"]:
+                continue
+            data = cached.read_bytes()
+            detected = _sniff_image_mime(data)
+            if detected in _ALLOWED_IMAGE_TYPES:
+                if cached != hashed:
+                    with contextlib.suppress(OSError):
+                        hashed.write_bytes(data)
+                return data, detected
 
     # 2) 代理推荐系统
     url = _recsys_image_base() + "/api/image/" + urllib.parse.quote(item_id)
