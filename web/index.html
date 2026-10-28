@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>多模态个性化推荐助手</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f46e5'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-size='36' fill='white'%3E%E6%8B%BE%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/styles.css?v=20261024-7">
 
 </head>
 <body>
@@ -30,6 +30,7 @@
 <div class="toolbar" id="toolbar" role="toolbar" aria-label="操作">
   <button data-act="voice">🎤 语音</button>
   <button data-act="vision">📷 识图推荐</button>
+  <button data-act="voice-vision" title="一边说问题，一边抓取摄像头画面">🎤 语音识图</button>
   <span class="sep"></span>
   <button data-act="undo">↩ 撤销</button>
   <button data-act="reset">⟳ 重来</button>
@@ -111,6 +112,7 @@
       <span class="dot" id="liveDot"></span><b>推荐助手</b>
       <span class="live" id="liveTxt">实时</span>
       <button class="clr" id="clearChat">清空</button>
+      <button class="clr closebtn" id="assistantClose" aria-label="收起助手" title="收起助手">✕</button>
     </div>
     <div class="stream" id="stream" aria-live="polite"></div>
     <button class="jump" id="toBottom">↓ 回到最新</button>
@@ -139,7 +141,7 @@
   <button data-tab="status"><b>⚙</b>状态</button>
 </nav>
 
-<button class="fab" id="fab" aria-label="打开助手">💬</button>
+<button class="fab" id="fab" aria-label="打开推荐助手，可拖动位置" title="推荐助手（可拖动）"><span class="fab-mark">拾</span></button>
 
 <div class="mask" id="mask"></div>
 
@@ -161,7 +163,7 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script src="/app.js" defer></script>
+<script src="/app.js?v=20261024-7" defer></script>
 
 </body>
 </html>

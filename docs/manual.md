@@ -15,7 +15,7 @@
 | 规模 | 6 个阶段 × 8 课时 = 48 课时 |
 | 合成来源 | 模块一 推荐系统 v146 ＋ 模块二 智能多模态AI助手 |
 | 系统形态 | 可完全离线运行的「Web 对话界面 + 终端对话 + 一键演示」三段式入口 |
-| 核心技术 | 统一事件契约 · 规则+词表意图理解 · 六路召回 · 可控精排 · 证据包 + RAG 解释 · 反馈闭环 A/B |
+| 核心技术 | 统一事件契约 · 规则+词表意图理解 · 多路召回 · 可控精排 · 证据包 + RAG 解释 · 反馈闭环 A/B |
 | 工程约束 | 单一配置入口 · 适配器接口边界 · 结构化错误码 · 每个结论都有可重跑证据 |
 | 文档版本 | v1.0 · 依据 6 份阶段任务书与 outputs/ 实测证据整理 |
 
@@ -61,7 +61,7 @@
 | 新增能力 | 具体说明 |
 |---|---|
 | 统一事件契约 | 把语音 / 视觉 / 手势 / 文本四类输入压成同一种信封（trace_id、user_id、timestamp、source、session_id、schema_version），下游只认这一种输入，模态差异全部收敛在适配器里 |
-| 结构化意图与槽位 | 六类意图（discover / similar / filter / compare / feedback / explain）× 五类槽位（品类、预算、对象、颜色、场景），每个槽位都带证据来源与置信度；必选槽位缺失时澄清而不臆测 |
+| 结构化意图与槽位 | 六类意图（discover / similar / filter / compare / feedback / explain）× 多类槽位（品类、商品类型、预算、对象、颜色、场景、风格/主题、材质/工艺），每个槽位都带证据来源与置信度；必选槽位缺失时澄清而不臆测 |
 | 会话上下文 | 多轮约束合并（类目 + 预算可同时生效）、撤销、冲突检测、会话级偏好隔离与结束清理 |
 | 可控精排 | 硬约束（预算 / 类目 / 颜色 / 排除项）在打分之前过滤，排序分数不得覆盖硬约束；空结果时先放宽再热门兜底，并明确标记 degraded |
 | 证据包与可核验解释 | 解释器只允许读 EvidencePack；每条解释至少一条实质证据；无证据时返回 no_evidence 而不是编造 |
@@ -122,14 +122,14 @@
 | 1 | 契约与错误治理 | 四类数据结构（InteractionEvent / RecommendationRequest / RecommendationItem / EvidencePack）+ JSON 校验；27 个错误码；统一响应信封；schema 版本校验 | src/contracts.py src/errors.py | 1 | stage01_contract_report.json 25/25 PASS |
 | 2 | 多模态适配 | ASR 文本、VL 视觉标签、手势事件 → InteractionEvent；真实模型与离线桩输出同一套契约 | src/adapters/ multimodal_adapter.py scripts/mm_worker.py | 1 · 2 | real_multimodal_check.json 契约一致 contracts_all_ok |
 | 3 | 推荐适配 | HTTP /api/recommendations → 发布制品 → 内置快照 三级降级；候选统一字段、去重与 TopK 截断 | src/adapters/ recommender_adapter.py | 1 · 3 | live_integration.json HTTP 候选 8 条，三轮主链路 ok |
-| 4 | 意图理解 | 六类意图 + 五类槽位抽取，记录证据来源与置信度；必选槽位缺失不臆测；约束冲突可检测 | src/intent.py | 2 | stage02_context_metrics.json 26/26（阈值 ≥80%） |
+| 4 | 意图理解 | 六类意图 + 多类槽位抽取，记录证据来源与置信度；必选槽位缺失不臆测；约束冲突可检测 | src/intent.py | 2 | stage02_context_metrics.json 26/26（阈值 ≥80%） |
 | 5 | 会话上下文 | 多轮约束合并、撤销、冲突提示、点赞/倒赞正负互斥、会话偏好隔离与结束清理 | src/session.py src/privacy.py | 2 · 5 | 会话检查 12/12； 跨会话隔离复核全部一致 |
-| 6 | 多路召回 | 六路：个性化精排 / 相似商品 / 品类热门 / 会话关注 / 全局热门 / 历史购买相似；合并去重保留全部 sources 与分数明细 | src/recall.py | 3 | stage03_demo.json 候选来源可追溯 |
+| 6 | 多路召回 | 十一路：个性化精排 / 相似商品 / 品类热门（含备用类目）/ 商品类型 / 颜色 / 材质 / 主题 / 场景 / 会话关注 / 全局热门 / 历史购买相似；合并去重保留全部 sources 与分数明细 | src/recall.py | 3 | stage03_demo.json 候选来源可追溯 |
 | 7 | 可控精排 | 硬约束先过滤（预算/类目/颜色/排除项）；0.55 基础分 + 0.20 约束命中 + 0.10 来源可信 + 0.15 会话偏好重排；空结果放宽与热门兜底 | src/ranking.py | 3 | 硬约束核验 0 违规； 三类 trace：ok / empty / degraded |
 | 8 | 证据包 | 商品事实、候选来源、命中约束、视觉标签、KB 片段、价格一致性核验 | src/evidence.py src/catalog.py | 4 | 解释↔证据对照表 证据条数 9 / 6 / 6 / 7 / 8 |
 | 9 | RAG 解释 | 纯 Python BM25 检索 6 篇知识库文档 / 18 个片段；可选接入真实 LLM，但须连过事实、格式、流畅度三道门控 | src/explain.py src/rag.py src/llm_explain.py | 4 | stage04_explanations.json 7/7；Qwen3-4B 门控通过 4/4 |
 | 10 | 文本 / 语音呈现 | 文本回复 + TTS 语音播报（edge-tts → Windows SAPI System.Speech → SAPI COM → 纯文本四级）；播报内容是文本的摘录而非新内容 | src/presentation.py | 4 | 呈现一致性检查通过 （92 字文本 → 14 字播报） |
-| 11 | 反馈闭环 | 点赞 / 倒赞写入会话偏好、正负互斥、反馈前后 A/B 对照、负反馈不污染其他会话 | src/feedback.py | 5 | stage05_feedback_ab.json 8/8：成功 3 · 无变化 3 · 反向 1 · 失败 1 |
+| 11 | 反馈闭环 | 点赞 / 倒赞写入会话偏好、正负互斥、反馈前后 A/B 对照、负反馈不污染其他会话 | src/feedback.py | 5 | stage05_feedback_ab.json 8/8：成功 4 · 无变化 2 · 反向 1 · 失败 1 |
 | 12 | 可观测与验收 | 全链路 trace、降级矩阵、故障注入、隐私扫描、打包清单、一键端到端验收 | src/orchestrator.py src/privacy.py | 3 · 6 | stage06_acceptance.json 隐私扫描 PASS（文件数随文档增删变动，以 stage06_acceptance.json 为准） |
 
 表 2-1  功能清单与实测验收对照
@@ -153,7 +153,10 @@
 > 识图推荐：点「📷 识图推荐」后，系统会抓取当前摄像头画面，优先用在线
 > `qwen3-vl-plus` 识别画面中央的主要物品（实测约 1~2 秒），失败时回退本地 Qwen2-VL。
 > 识别文本会抽取品类与颜色，再进入现有召回/精排链路更新货架。
-> 也可以直接在对话框输入「推荐我手上相关的商品」或「画面里这个东西适合送人吗」，
+> 工具条新增「🎤 语音识图」：录音 5 秒并强制同轮抓帧，适合一边举着物品一边说
+> 「这个适合送人吗」；不依赖「手上」等关键词。原有「🎤 语音」按钮仍会在听到
+> 「手上 / 手里 / 拿着」等词时自动触发识图。
+> 也可以直接在对话框输入「推荐我手上相关的物品」或「画面里这个东西适合送人吗」，
 > 系统会自动抓帧；用户问题进入对话/意图链路，视觉模型只输出“颜色+物品名称”。
 > 首次使用设备前会显示摄像头、麦克风和在线图片上传提示；识图结果按图片哈希短期缓存，
 > 并限制请求频率。模型、延迟、缓存命中和回退原因会写入 `trace.vision`。
@@ -234,7 +237,7 @@
 | 适配层 | src/adapters/base.py src/adapters/multimodal_adapter.py src/adapters/recommender_adapter.py | 两个外部系统的唯一接口层。统一走 guard 包装，负责超时、重试、降级留痕与健康检查 |
 | 数据层 | src/catalog.py · src/rag.py · data/offline/ · data/kb/ | 离线商品目录、个性化分数、相似索引、热门池、历史；知识库 BM25 检索 |
 | 理解层 | src/intent.py · src/session.py · src/text_norm.py | 六类意图与五类槽位、证据与置信度、会话状态与偏好、文本规范化 |
-| 决策层 | src/recall.py · src/ranking.py | 六路召回、合并去重与 TopK、硬约束过滤、上下文重排与降级 |
+| 决策层 | src/recall.py · src/ranking.py | 多路召回、合并去重与 TopK、硬约束过滤、上下文重排与降级 |
 | 表达层 | src/evidence.py · src/explain.py · src/llm_explain.py · src/presentation.py | 证据包组装、模板解释、可选 LLM 解释与三重门控、文本与语音呈现 |
 | 闭环层 | src/feedback.py · src/privacy.py | 反馈写入与会话偏好、反馈前后 A/B、隐私与提交包扫描 |
 | 编排层 | src/orchestrator.py | 主链路编排、trace 与耗时、模式与降级记录、状态判定 |
@@ -262,7 +265,7 @@
               约束互相矛盾 → E_CONSTRAINT_CONFLICT
 
 ```text
-④ 召回      个性化 / 相似 / 品类热门 / 会话关注 / 全局热门 / 历史 六路并行
+④ 召回      个性化 / 相似 / 品类热门 / 商品类型 / 颜色 / 材质 / 主题 / 场景 / 会话关注 / 全局热门 / 历史 多路并行
 ```
 
               每路 recall_k=80 → 合并去重（大小写视为同一商品）→ merge_top_k=120
@@ -382,7 +385,7 @@ integrated_ai_project/
 ```
 
 ```text
-│  ├─ recall.py     ranking.py                 六路召回、硬约束过滤与上下文重排
+│  ├─ recall.py     ranking.py                 多路召回、硬约束过滤与上下文重排
 ```
 
 ```text
@@ -429,7 +432,7 @@ integrated_ai_project/
 │  ├─ 17_browser_qa.py                         浏览器运行时 QA（console/CWV/无障碍）
 │  ├─ 18_contract_check.py                     网页 API 契约核验（14 项）
 │  ├─ 19_security_check.py                     网页服务安全基线（8 项）
-│  ├─ 13_webui_acceptance.py                   网页改版验收（22 项，需 Edge）
+│  ├─ 13_webui_acceptance.py                   网页改版验收（27 项，需 Edge）
 │  ├─ run_all_offline.py                       一键跑完整离线套件（汇总表）
 ```
 
@@ -752,7 +755,7 @@ python scripts/07_live_integration_check.py
 | 2 | 不臆测缺失槽位 / 👍👎 映射 / 冲突检测 / 样例 ≥80% | 意图 26/26（阈值 80%）+ 会话 12/12 | outputs/stage02_context_metrics.json |
 | 3 | 来源可追溯 / 硬约束不被覆盖 / 空结果提示 / 可复现 | 6/6 通过；硬约束核验 0 违规 | outputs/stage03_demo.json |
 | 4 | 每条解释有证据 / 无证据不编造 / 价格一致 / 低置信降权 | 7/7 通过；证据不足案例正确返回 no_evidence | outputs/stage04_explanation_cases.jsonl |
-| 5 | 变化可解释 / 不跨会话污染 / 口径一致 / 含无变化案例 | 8/8 通过（成功 3 · 无变化 3 · 反向 1 · 失败 1） | outputs/stage05_feedback_ab.json |
+| 5 | 变化可解释 / 不跨会话污染 / 口径一致 / 含无变化案例 | 8/8 通过（成功 4 · 无变化 2 · 反向 1 · 失败 1） | outputs/stage05_feedback_ab.json |
 | 6 | 三类链路 / 故障降级 / 数字可追溯 / 无敏感数据 | 5/5 通过；隐私扫描 PASS | outputs/stage06_acceptance.json |
 
 表 8-1  阶段验收结论（数字均由脚本重跑产出）

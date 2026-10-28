@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 import uuid
@@ -245,3 +246,29 @@ def contains_any(text: str, needles: Iterable[str]) -> str | None:
         if needle and needle.lower() in lowered:
             return needle
     return None
+
+
+_ASCII_WORD = re.compile(r"[a-z0-9]+")
+_ASCII_TERM_CACHE: dict[str, re.Pattern[str]] = {}
+
+
+def title_has_term(title_lower: str, term: str) -> bool:
+    """标题是否命中某个词。
+
+    中文用子串（「相框」能命中「白色木质相框」）；英文必须按单词边界匹配，
+    否则 `wood` 会命中 `WOODLAND`、`sea` 会命中 `SEASON`、`star` 会命中
+    `STARFISH` —— 材质/主题/颜色召回会因此混入语义无关的商品。
+    英文允许常见词形变化（复数、-ed、-ing），如 `FLOWERS`、`KNITTED`。
+    """
+    term = str(term or "").strip().lower()
+    if not term:
+        return False
+    if not _ASCII_WORD.fullmatch(term):
+        return term in title_lower
+    pattern = _ASCII_TERM_CACHE.get(term)
+    if pattern is None:
+        # 不用 \b：Python 把中文也当单词字符，「木质black相框」这类中英相邻
+        # 的标题会失去边界。显式用「前后不是英文字母/数字」定义词边界。
+        pattern = re.compile(rf"(?<![a-z0-9]){re.escape(term)}(?:s|es|ed|ing)?(?![a-z0-9])")
+        _ASCII_TERM_CACHE[term] = pattern
+    return pattern.search(title_lower) is not None

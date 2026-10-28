@@ -49,6 +49,11 @@ def test_static_page_assets_are_served():
         assert b"apply_feedback:false" in body
         assert b"isVisualQuery" in body
         assert b"visionAsk" in body
+        assert b"function responseSlots" in body
+        assert b"effective_request" in body
+        assert "当前条件".encode() in body
+        assert b"slotchip readonly" in body
+        assert "秒后开始录音".encode() in body
         assert b"speechSynthesis" in body
         assert b"pauseLiveGesture" in body
         assert b"payload.focus_item_id = String(focusItemId)" in body

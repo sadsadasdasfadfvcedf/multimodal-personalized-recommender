@@ -104,6 +104,12 @@ def explain(
             text = f"符合你的品类要求：{hit.get('actual')}（要求 {hit.get('required')}）。"
         elif field == "color":
             text = f"符合你的颜色要求：命中「{hit.get('actual')}」（要求 {hit.get('required')}）。"
+        elif field == "title_theme":
+            text = f"符合你的风格/主题要求：标题命中「{hit.get('actual')}」。"
+        elif field == "title_material":
+            text = f"符合你的材质要求：标题命中「{hit.get('actual')}」。"
+        elif field in ("商品类型", "风格/主题", "材质/工艺"):
+            text = f"符合你的{field}要求：标题命中「{hit.get('actual')}」。"
         elif field == "similar_to":
             # 相似约束的命中信息放在 value 里，没有 required —— 必须单独处理，
             # 否则会渲染成「命中约束 similar_to=None」这种不可读文本。

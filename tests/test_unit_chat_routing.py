@@ -62,6 +62,27 @@ def test_open_question_routes_to_chat():
     assert chat.calls == ["什么是协同过滤？"]
 
 
+def test_general_tasks_are_not_hijacked_by_shopping_scene_words():
+    for index, text in enumerate(("帮我写一句生日祝福", "今天天气怎么样")):
+        chat = FakeChat()
+        orch = Orchestrator(with_voice=False, chat_service=chat)
+        session_id = f"general-task-probe-{index}"
+        if text.startswith("今天"):
+            orch.handle(
+                {"source": "text", "text": "推荐一些厨房用品"},
+                user_id="15547",
+                session_id=session_id,
+            )
+        d = orch.handle(
+            {"source": "text", "text": text},
+            user_id="15547",
+            session_id=session_id,
+        ).data
+
+        assert d["intent_result"]["intent"] == "chat", text
+        assert chat.calls == [text], text
+
+
 def test_chat_web_search_metadata_is_passed_through():
     chat = FakeWebChat()
     d = _ask("DeepSeek 最新版本是什么？", chat)
@@ -111,25 +132,162 @@ def test_recommendation_system_question_routes_to_chat():
 
 def test_reason_question_uses_focused_product():
     """点「继续问这件」后，为什么推荐它必须走 explain，而不是通用问答。"""
-    chat = FakeChat()
-    orch = Orchestrator(with_voice=False, chat_service=chat)
-    session_id = "focus-explain-probe"
+    for index, text in enumerate(("为什么推荐它", "为什么推荐他", "为什么推荐她", "为什么推荐", "为什么推荐呢")):
+        chat = FakeChat()
+        orch = Orchestrator(with_voice=False, chat_service=chat)
+        session_id = f"focus-explain-probe-{index}"
+        first = orch.handle(
+            {"source": "text", "text": "推荐一些厨房用品"},
+            user_id="15547",
+            session_id=session_id,
+        ).data
+        target = first["recommendations"][0]["item_id"]
+
+        d = orch.handle(
+            {"source": "voice", "text": text},
+            user_id="15547",
+            session_id=session_id,
+        ).data
+
+        assert d["intent_result"]["intent"] == "explain", text
+        assert d["recommendations"][0]["item_id"] == target, text
+        assert "targets" not in d["intent_result"]["slots"], text
+        assert chat.calls == [], text
+
+
+def test_similar_followup_uses_focused_product_without_pronoun():
+    for index, text in enumerate(("推荐一些相似的", "推荐一些类似的物品", "还有别的颜色吗")):
+        chat = FakeChat()
+        orch = Orchestrator(with_voice=False, chat_service=chat)
+        session_id = f"focus-similar-probe-{index}"
+        first = orch.handle(
+            {"source": "text", "text": "推荐一些厨房用品"},
+            user_id="15547",
+            session_id=session_id,
+        ).data
+        target = first["recommendations"][0]["item_id"]
+
+        d = orch.handle(
+            {"source": "voice", "text": text},
+            user_id="15547",
+            session_id=session_id,
+        ).data
+
+        assert d["status"] != "clarification", text
+        assert d["intent_result"]["slots"]["target"]["value"] == target, text
+        assert "targets" not in d["intent_result"]["slots"], text
+        assert chat.calls == [], text
+
+
+def test_browsing_another_product_keeps_that_product_as_focus():
+    orch = Orchestrator(with_voice=False)
+    session_id = "browse-focus-probe"
     first = orch.handle(
         {"source": "text", "text": "推荐一些厨房用品"},
         user_id="15547",
         session_id=session_id,
     ).data
-    target = first["recommendations"][0]["item_id"]
+    selected = first["recommendations"][1]["item_id"]
+
+    orch.handle(
+        {"source": "browse", "item_id": selected},
+        user_id="15547",
+        session_id=session_id,
+    )
+    session = orch.store.get_or_create(session_id, "15547")
+    assert session.focus_item_id == selected
 
     d = orch.handle(
-        {"source": "text", "text": "为什么推荐它"},
+        {"source": "voice", "text": "推荐类似的商品"},
+        user_id="15547",
+        session_id=session_id,
+    ).data
+    assert d["intent_result"]["intent"] == "similar"
+    assert d["intent_result"]["slots"]["target"]["value"] == selected
+    first_similar_ids = [item["item_id"] for item in d["recommendations"]]
+    assert selected not in first_similar_ids
+    assert orch.store.get_or_create(session_id, "15547").focus_item_id == selected
+
+    another = next(item["item_id"] for item in d["recommendations"] if item["item_id"] != selected)
+    orch.handle(
+        {"source": "browse", "item_id": another},
+        user_id="15547",
+        session_id=session_id,
+    )
+    d2 = orch.handle(
+        {"source": "voice", "text": "推荐类似的商品"},
+        user_id="15547",
+        session_id=session_id,
+    ).data
+    second_similar_ids = [item["item_id"] for item in d2["recommendations"]]
+    assert d2["intent_result"]["slots"]["target"]["value"] == another
+    assert another not in second_similar_ids
+    assert first_similar_ids != second_similar_ids
+    assert orch.store.get_or_create(session_id, "15547").focus_item_id == another
+
+
+def test_new_product_focus_clears_previous_search_filters():
+    orch = Orchestrator(with_voice=False)
+    session_id = "product-context-reset-probe"
+    first = orch.handle(
+        {"source": "text", "text": "只看心形装饰品"},
+        user_id="15547",
+        session_id=session_id,
+    ).data
+    assert first["effective_request"]["slots"]["category"]["value"] == "装饰品"
+    assert first["effective_request"]["slots"]["theme"]["value"] == "心形"
+
+    mug = "21870"
+    assert orch.catalog.category_of(mug) == "厨房用品"
+    orch.handle(
+        {"source": "browse", "item_id": mug},
+        user_id="15547",
+        session_id=session_id,
+    )
+    d = orch.handle(
+        {"source": "voice", "text": "推荐相似的商品"},
         user_id="15547",
         session_id=session_id,
     ).data
 
-    assert d["intent_result"]["intent"] == "explain"
-    assert d["recommendations"][0]["item_id"] == target
-    assert chat.calls == []
+    assert d["merge_report"]["product_context_reset"] is True
+    assert set(d["effective_request"]["slots"]) == {"target"}
+    assert d["effective_request"]["slots"]["target"]["value"] == mug
+    assert mug not in [item["item_id"] for item in d["recommendations"]]
+
+
+def test_similar_refresh_returns_a_different_batch():
+    orch = Orchestrator(with_voice=False)
+    session_id = "similar-refresh-probe"
+    orch.handle(
+        {"source": "text", "text": "只看心形装饰品"},
+        user_id="15547",
+        session_id=session_id,
+    )
+    target = "22335"
+    orch.handle(
+        {"source": "browse", "item_id": target},
+        user_id="15547",
+        session_id=session_id,
+    )
+    first = orch.handle(
+        {"source": "voice", "text": "推荐相似的商品"},
+        user_id="15547",
+        session_id=session_id,
+    ).data
+    first_ids = [item["item_id"] for item in first["recommendations"]]
+
+    refreshed = orch.handle(
+        {"source": "voice", "text": "换一批相似商品"},
+        user_id="15547",
+        session_id=session_id,
+    ).data
+    second_ids = [item["item_id"] for item in refreshed["recommendations"]]
+
+    assert refreshed["intent_result"]["intent"] == "similar"
+    assert refreshed["intent_result"]["slots"]["target"]["value"] == target
+    assert first_ids != second_ids
+    assert not set(first_ids) & set(second_ids)
 
 
 def test_shopping_phrases_are_not_chat():

@@ -21,6 +21,8 @@ from typing import Any
 
 from config import settings
 
+from .utils import title_has_term
+
 
 class Catalog:
     """商品目录 + 相似索引 + 个性化分数 + 热门池 + 购买历史。"""
@@ -268,7 +270,7 @@ class Catalog:
             if category and product.get("category") != category:
                 continue
             title = f"{product.get('title', '')} {product.get('english_title', '')}".lower()
-            if any(term in title for term in wanted):
+            if any(title_has_term(title, term) for term in wanted):
                 matched.append(item_id)
         matched.sort(key=lambda item_id: (-self.popularity(item_id), item_id))
         return matched[:k]

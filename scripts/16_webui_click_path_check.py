@@ -136,24 +136,20 @@ async def _run(url: str, port: int, edge: str) -> list[dict]:
             })()""")
             add(1, "清空对比栏后卡片标签复位", bool((r1 or {}).get("ok")), r1 or {})
 
-            # 2) 相似商品详情 -> 加入对比生效
+            # 2) 商品详情 -> 加入对比生效
+            # 详情页已改为单商品操作区（相似好物在点赞后由 /api/similar-preview 展示），
+            # 不再在详情内嵌 .mini 列表；直接点操作区的 data-cmp2。
             await ev("document.querySelector('.pcard [data-open]').click()")
             await asyncio.sleep(1.5)
-            mini = await ev("document.querySelectorAll('#sheet .mini [data-item]').length")
-            if mini:
-                await ev("document.querySelector('#sheet .mini [data-item]').click()")
-                await asyncio.sleep(2.0)
-                r2 = await ev("""(function(){
-                  const c = document.querySelector('[data-cmp2]');
-                  if (!c) return {ok:false, reason:'no cmp2'};
-                  const before = Number(document.getElementById('cmpPill').textContent || 0);
-                  c.click();
-                  const after = Number(document.getElementById('cmpPill').textContent || 0);
-                  return {ok: after === before + 1, before: before, after: after};
-                })()""")
-            else:
-                r2 = {"ok": False, "reason": "no similar items"}
-            add(2, "相似商品可加入对比", bool((r2 or {}).get("ok")), r2 or {})
+            r2 = await ev("""(function(){
+              const c = document.querySelector('#sheet [data-cmp2]');
+              if (!c) return {ok:false, reason:'no cmp2'};
+              const before = Number(document.getElementById('cmpPill').textContent || 0);
+              c.click();
+              const after = Number(document.getElementById('cmpPill').textContent || 0);
+              return {ok: after === before + 1, before: before, after: after};
+            })()""")
+            add(2, "商品详情加入对比生效", bool((r2 or {}).get("ok")), r2 or {})
 
             # 3) 新会话直接点赞必须真的记录（reset 后会话不存在）
             await ev("fetch('/api/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})")

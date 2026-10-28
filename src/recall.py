@@ -8,6 +8,11 @@ src/recall.py
     personalized  推荐系统 v146 个性化精排
     similar       相似商品召回（以会话焦点/参照商品为种子）
     category_hot  品类热门召回
+    item_type     商品类型召回（按标题词命中）
+    color         颜色召回（按标题里的颜色词命中）
+    material      材质召回（木质 / 玻璃 / 陶瓷 …）
+    theme         主题召回（复古 / 花卉 / 心形 …）
+    scene         场景召回（圣诞 / 婚礼 / 生日 …）
     history       基于历史购买的相似召回
     popular       全局热门兜底
 
@@ -87,6 +92,11 @@ def recall(
     """执行多路召回，返回合并去重后的候选列表与召回 trace。"""
     enabled = set(CFG["sources_enabled"])
     exclude: set[str] = set(request.exclude_item_ids or [])
+    target = str(request.slot_value("target") or "")
+    similar_only = request.intent == "similar" and bool(target)
+    if similar_only:
+        # 相似推荐不能把种子商品自己再推荐给用户。
+        exclude.add(target)
     # 已购商品与是否有会话无关：即使调用方没传 session，也必须从所有来源剔除。
     exclude |= catalog.purchased(request.user_id)
     if session:
@@ -112,6 +122,36 @@ def recall(
                 }
             )
 
+    def _term_source(key: str, words: list[str], detail: dict) -> None:
+        """按标题词召回一路候选（颜色/材质/主题/场景共用）。
+
+        这些属性都只能从标题核验（见 ranking.hard_filter），所以候选也必须
+        从标题建池；否则硬约束会先淘汰掉所有候选，再被降级放宽，属性就没生效。
+        词表为空时不写 source_reports，避免没有该条件的查询多出一条空来源。
+        """
+        cleaned = list(dict.fromkeys(str(word).strip() for word in words if str(word).strip()))
+        if not cleaned:
+            return
+        label = SOURCE_LABELS.get(key, key)
+        ids = [item_id for item_id in catalog.title_matches(cleaned, k=CFG["recall_k"] * 2) if item_id not in exclude][
+            : CFG["recall_k"]
+        ]
+        if not ids:
+            source_reports.append({"source": key, "label": label, "status": "empty", "count": 0, "error": None})
+            return
+        peak = max(catalog.popularity(item_id) for item_id in ids) or 1
+        per_source[key] = [
+            {
+                "item_id": item_id,
+                "score": round(catalog.popularity(item_id) / peak, 6),
+                "source_key": key,
+                "source_label": label,
+                "detail": detail,
+            }
+            for item_id in ids
+        ]
+        source_reports.append({"source": key, "label": label, "status": "ok", "count": len(ids)})
+
     # 1) 个性化
     if "personalized" in enabled:
         _record("personalized", adapter.personalized_candidates(request.user_id, CFG["recall_k"]))
@@ -119,18 +159,20 @@ def recall(
     # 2) 相似（种子 = 参照商品 + 会话焦点 + 个性化 Top-N）
     if "similar" in enabled:
         seeds: list[str] = []
-        target = request.slot_value("target")
         if target:
-            seeds.append(str(target))
-        if session and session.focus_item_id:
-            seeds.append(session.focus_item_id)
-        for row in per_source.get("personalized", [])[: CFG["similar_seed_size"]]:
-            seeds.append(str(row["item_id"]))
+            seeds.append(target)
+        if not similar_only:
+            if session and session.focus_item_id:
+                seeds.append(session.focus_item_id)
+            for row in per_source.get("personalized", [])[: CFG["similar_seed_size"]]:
+                seeds.append(str(row["item_id"]))
         seeds = [s for s in dict.fromkeys(seeds) if catalog.exists(s)]
         if seeds:
             _record("similar", adapter.similar_candidates(seeds, CFG["recall_k"], exclude=exclude))
 
-    # 3) 品类热门
+    # 3) 品类热门（主类目 + 备用类目 category_alt）
+    # 「生日礼物」这类说法会同时给出 派对用品 / 装饰品 两个类目，只召回主类目
+    # 会让备用类目只能靠个性化/热门碰运气。
     if "category_hot" in enabled:
         category = request.slot_value("category")
         if not category:
@@ -138,8 +180,36 @@ def recall(
                 if constraint.field == "category":
                     category = constraint.value
                     break
+        categories: list[str] = []
         if category:
-            _record("category_hot", adapter.category_candidates(str(category), CFG["recall_k"], exclude=exclude))
+            categories.append(str(category))
+        alt = request.slot_value("category_alt")
+        if isinstance(alt, str):
+            alt = [alt]
+        for name in alt or []:
+            if str(name) not in categories:
+                categories.append(str(name))
+        if categories:
+            rows: list[dict] = []
+            failures: list = []
+            for name in categories:
+                result = adapter.category_candidates(name, CFG["recall_k"], exclude=exclude)
+                if result.ok and result.data:
+                    rows.extend(result.data)
+                elif not result.ok and result.error is not None:
+                    failures.append(result.error)
+            if rows or not failures:
+                _record("category_hot", ok(rows))
+            else:
+                source_reports.append(
+                    {
+                        "source": "category_hot",
+                        "label": SOURCE_LABELS.get("category_hot", "category_hot"),
+                        "status": "failed",
+                        "count": 0,
+                        "error": failures[0].to_dict(),
+                    }
+                )
 
     # 3.2) 具体商品类型召回（茶壶 / 相框 / 贺卡等）
     if "item_type" in enabled:
@@ -196,6 +266,45 @@ def recall(
                         "error": None,
                     }
                 )
+
+    # 3.4) 属性召回：颜色 / 材质 / 主题 / 场景。
+    # 这些属性在精排阶段都是「标题核验」的硬条件，没有对应的召回来源时，
+    # 候选池里一旦没有命中商品，硬约束就会把候选全部淘汰，再被降级放宽，
+    # 用户看到的便是与输入不符的结果（如「黑色」返回白色相框）。
+    if "color" in enabled:
+        colors = request.slot_value("colors")
+        if not colors:
+            for constraint in request.constraints:
+                if constraint.field == "color":
+                    colors = constraint.value
+                    break
+        if isinstance(colors, str):
+            colors = [colors]
+        color_names = [str(color) for color in (colors or []) if str(color).strip()]
+        color_words: list[str] = []
+        for color in color_names:
+            color_words.extend(LEX["colors"].get(color, [color]))
+        _term_source("color", color_words, {"colors": color_names, "words": color_words})
+
+    if "material" in enabled:
+        material = request.slot_value("material")
+        if material:
+            material_words = list(LEX.get("materials", {}).get(str(material), [str(material)]))
+            _term_source("material", material_words, {"material": str(material), "words": material_words})
+
+    if "theme" in enabled:
+        theme = request.slot_value("theme")
+        if theme:
+            theme_words = list(LEX.get("themes", {}).get(str(theme), [str(theme)]))
+            _term_source("theme", theme_words, {"theme": str(theme), "words": theme_words})
+
+    if "scene" in enabled:
+        scene = request.slot_value("scene")
+        if scene:
+            # scenes 是「同义词 → 规范场景」的映射，标题里可能命中任一写法。
+            scene_words = [word for word, name in LEX.get("scenes", {}).items() if name == str(scene)]
+            scene_words.append(str(scene))
+            _term_source("scene", scene_words, {"scene": str(scene), "words": scene_words})
 
     # 3.5) 会话关注（焦点商品 + 刚点赞商品），保证反馈对象留在候选池内
     if "session_focus" in enabled and session is not None:
@@ -275,10 +384,24 @@ def recall(
             cand.norm_scores[key] = norm.get(nkey, 0.0)
             cand.evidence.setdefault("source_detail", {})[key] = row.get("detail", {})
 
+    # 「找相似」优先只使用该商品的相似召回；只有相似源为空时才使用其他来源兜底。
+    if similar_only and per_source.get("similar"):
+        merged = {item_id: cand for item_id, cand in merged.items() if "similar" in cand.source_keys}
+
+    def _source_priority(cand: Candidate) -> int:
+        """属性来源优先进入排序候选池，避免被 merge_top_k 截断。"""
+        if "item_type" in cand.source_keys:
+            return 3
+        if any(key in cand.source_keys for key in ("color", "material", "theme", "scene")):
+            return 2
+        if "session_focus" in cand.source_keys:
+            return 1
+        return 0
+
     ranked = sorted(
         merged.values(),
         key=lambda c: (
-            -(2 if "item_type" in c.source_keys else 1 if "session_focus" in c.source_keys else 0),
+            -_source_priority(c),
             -max(c.norm_scores.values() or [0.0]),
             -len(c.source_keys),
             c.item_id,

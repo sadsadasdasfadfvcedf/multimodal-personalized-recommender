@@ -96,7 +96,7 @@ if (-not (Wait-Http "http://127.0.0.1:8010/api/image/21181")) {
 
 $webArgs = @(
     "-B", "webui.py",
-    "--real", "--voice", "--llm",
+    "--real", "--voice",
     "--port", "8020",
     "--no-browser"
 )

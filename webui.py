@@ -28,6 +28,7 @@ import contextlib
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import threading
@@ -405,7 +406,22 @@ class App:
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    def chat(self, text: str, top_k: int | None = None, focus_item_id: str | None = None) -> dict:
+    def chat(
+        self,
+        text: str,
+        top_k: int | None = None,
+        focus_item_id: str | None = None,
+        clear_slots: list[str] | None = None,
+    ) -> dict:
+        self._apply_focus_item(focus_item_id)
+        if clear_slots:
+            with self.lock:
+                session = self.orch.store.get_or_create(self.session_id, self.user_id)
+                for name in clear_slots[:20]:
+                    session.clear_slot(str(name))
+        return self.handle_spec({"source": "text", "text": text}, top_k=top_k)
+
+    def _apply_focus_item(self, focus_item_id: str | None) -> None:
         focus = str(focus_item_id or "").strip()
         if focus and self.orch.catalog.exists(focus):
             with self.lock:
@@ -413,10 +429,16 @@ class App:
                 session.focus_item_id = focus
                 if focus not in session.last_item_ids:
                     session.last_item_ids = [focus, *session.last_item_ids]
-        return self.handle_spec({"source": "text", "text": text}, top_k=top_k)
 
-    def voice(self, seconds: float, top_k: int | None = None) -> dict:
+    def voice(
+        self,
+        seconds: float,
+        top_k: int | None = None,
+        focus_item_id: str | None = None,
+        force_vision: bool = False,
+    ) -> dict:
         seconds = max(1.0, min(10.0, float(seconds)))  # 防止负数/超长录音拖死服务
+        self._apply_focus_item(focus_item_id)
         ad = self.orch.multimodal
         if ad.active_mode != "real":
             return _err(ErrorCode.MODALITY_UNAVAILABLE, "语音输入需要 --real 模式")
@@ -433,7 +455,8 @@ class App:
         text = (asr.data or {}).get("text") or ""
         if not text.strip():
             return _err(ErrorCode.EMPTY_TRANSCRIPT, "未识别到有效语音", field="text", transcript="")
-        if contains_any(text, settings.MULTIMODAL_ADAPTER.get("voice_visual_markers", [])):
+        # force_vision：网页「语音识图」按钮显式要求同轮抓帧，不依赖「手上」等关键词。
+        if force_vision or contains_any(text, settings.MULTIMODAL_ADAPTER.get("voice_visual_markers", [])):
             out = self.vision(text, top_k=top_k)
             out["transcript"] = text
             out["input_modes"] = ["voice", "vision"]
@@ -449,7 +472,9 @@ class App:
                     if isinstance(modes, dict):
                         modes["asr"] = "real"
             return out
-        out = self.handle_spec({"source": "voice", "text": text}, top_k=top_k)
+        # 语音输入优先保证响应速度：推荐解释先走逐句有据的快速模板，
+        # 不阻塞等待在线/本地 LLM 对 8 件商品批量改写。普通问答仍走 chat。
+        out = self._handle_spec_fast({"source": "voice", "text": text}, top_k=top_k)
         out["transcript"] = text
         out["input_modes"] = ["voice"]
         return out
@@ -942,7 +967,9 @@ class App:
         """
         if not self.orch.catalog.exists(str(item_id)):
             return _err(ErrorCode.ITEM_NOT_FOUND, "商品不在目录中")
-        return self.handle_spec({"source": "browse", "item_id": str(item_id)})
+        # 详情页打开是高频操作；前端不消费该接口的推荐列表，只为记录弱反馈。
+        # 走快速路径避免在线 LLM 解释占住全局锁，拖慢随后的语音/点赞。
+        return self._handle_spec_fast({"source": "browse", "item_id": str(item_id)})
 
     def feedback(self, item_id: str, polarity: str, top_k: int | None = None) -> dict:
         """商品卡上的点赞/倒赞：先把会话焦点指到该商品，再走正规反馈链路。
@@ -1072,12 +1099,21 @@ def make_handler(app: App):
                 "application/json; charset=utf-8",
             )
 
-        def _body(self) -> dict:
+        def _body(self) -> dict | None:
             length = int(self.headers.get("Content-Length") or 0)
             if not length:
                 return {}
             if length > 1_000_000:  # 1MB 上限：本地接口不需要更大请求体
-                return {}
+                # 先把请求体读掉再回 413：若直接返回，客户端还在写 body 时会收到
+                # RST（WinError 10053），验收脚本拿不到结构化错误。
+                # 最多读 2MB，超出的极端请求直接断开。
+                self.rfile.read(min(length, 2_000_000))
+                self.close_connection = True
+                self._json(
+                    _err(ErrorCode.INVALID_INPUT, "请求体超过 1MB 上限", field="body"),
+                    413,
+                )
+                return None
             try:
                 return json.loads(self.rfile.read(length).decode("utf-8"))
             except Exception:
@@ -1157,6 +1193,14 @@ def make_handler(app: App):
                 return
             if self.path.startswith("/api/img/"):
                 item_id = urllib.parse.unquote(self.path[len("/api/img/") :].split("?")[0])
+                # 商品编号只允许字母/数字/._-：拒绝 ../、绝对路径等注入尝试。
+                # 未知但格式合法的编号仍返回占位图，避免前端 404 噪音。
+                if not re.fullmatch(r"[A-Za-z0-9._-]+", item_id) or item_id in (".", ".."):
+                    self._json(
+                        _err(ErrorCode.INVALID_INPUT, "商品编号格式非法", field="item_id"),
+                        400,
+                    )
+                    return
                 got = fetch_product_image(item_id)
                 if got is None:
                     # 缺图时返回透明占位图，让前端类目 emoji 兜底层继续显示，避免 404 噪音。
@@ -1182,14 +1226,18 @@ def make_handler(app: App):
 
         def do_POST(self):
             body = self._body()
+            if body is None:
+                return
             try:
                 if self.path == "/api/chat":
                     raw_k = body.get("top_k")
+                    raw_clear = body.get("clear_slots")
                     self._json(
                         app.chat(
                             str(body.get("text", "")),
                             int(raw_k) if raw_k else None,
                             str(body.get("focus_item_id") or ""),
+                            [str(name) for name in raw_clear] if isinstance(raw_clear, list) else None,
                         )
                     )
                 elif self.path == "/api/more":
@@ -1211,7 +1259,14 @@ def make_handler(app: App):
                     self._json(app.camera_stop())
                 elif self.path == "/api/voice":
                     raw_k = body.get("top_k")
-                    self._json(app.voice(float(body.get("seconds", 4)), int(raw_k) if raw_k else None))
+                    self._json(
+                        app.voice(
+                            float(body.get("seconds", 4)),
+                            int(raw_k) if raw_k else None,
+                            str(body.get("focus_item_id") or "") or None,
+                            bool(body.get("with_vision")),
+                        )
+                    )
                 elif self.path == "/api/gesture":
                     raw_k = body.get("top_k")
                     self._json(

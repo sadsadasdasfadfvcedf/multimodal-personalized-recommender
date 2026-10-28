@@ -13,6 +13,7 @@ from pathlib import Path
 
 from conftest import PROJECT_ROOT
 
+from src.contracts import Slot
 from src.errors import ErrorCode, fail, ok
 
 
@@ -712,6 +713,21 @@ def test_chat_receives_explicit_focus_item():
 
     assert result["ok"] is True
     assert captured == {"focus": "20829", "text": "为什么推荐它"}
+
+
+def test_chat_can_clear_removed_filter_slots():
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    session = app.orch.store.get_or_create(app.session_id, app.user_id)
+    session.slot_state["category"] = Slot("category", "生活用品")
+    session.slot_state["colors"] = Slot("colors", ["黑色"])
+    app.handle_spec = lambda *args, **kwargs: {"ok": True, "response": {"status": "ok", "recommendations": []}}
+
+    result = app.chat("只看黑色", 8, clear_slots=["category", "category_alt"])
+
+    assert result["ok"] is True
+    assert "category" not in session.slot_state
+    assert session.slot_state["colors"].value == ["黑色"]
 
 
 def test_home_and_more_do_not_call_llm_explain():

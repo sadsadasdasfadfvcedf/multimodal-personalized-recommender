@@ -181,6 +181,65 @@ def _match_scenes(text: str) -> list[tuple[str, str]]:
     return hits
 
 
+_SPOKEN_PRODUCT_PRONOUN = re.compile(r"(?<!其)[他她](?!们)")
+_PRODUCT_FOLLOWUP_CUES = [
+    *LEX["explain_markers"],
+    *LEX["similar_markers"],
+    "别的颜色",
+    "其他颜色",
+    "换个颜色",
+    "价格呢",
+    "多少钱",
+    "什么颜色",
+    "颜色呢",
+    "材质呢",
+    "尺寸呢",
+    "适合送礼",
+    "值得买",
+]
+_PRODUCT_PRONOUN_CUES = [
+    "怎么样",
+    "如何",
+    "好看",
+    "适合",
+    "搭配",
+    "值得",
+    "颜色",
+    "价格",
+    "多少钱",
+    "材质",
+    "风格",
+    "尺寸",
+    "大小",
+    "评价",
+]
+
+
+def is_product_reference(text: str, *, has_context: bool = False) -> bool:
+    """识别商品指代，并兼容 ASR 把“它”转成“他/她”的常见情况。"""
+    if contains_any(text, LEX.get("referential_markers", ["这个", "这款", "它"])):
+        return True
+    if not has_context:
+        return False
+    if contains_any(text, _PRODUCT_FOLLOWUP_CUES):
+        return True
+    return bool(_SPOKEN_PRODUCT_PRONOUN.search(text) and contains_any(text, _PRODUCT_PRONOUN_CUES))
+
+
+def _match_named_lexicon(text: str, table: dict[str, list[str]]) -> list[tuple[str, str]]:
+    """按词典把标题关键词归一为风格/主题或材质值。"""
+    hits: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    lowered = text.lower()
+    for name, words in table.items():
+        for word in sorted((str(item) for item in words), key=len, reverse=True):
+            if word.lower() in lowered and name not in seen:
+                hits.append((name, word))
+                seen.add(name)
+                break
+    return hits
+
+
 def _match_budget(text: str) -> dict | None:
     """解析预算表达，支持「1000以上500以内」这类多数字表达。
 
@@ -314,11 +373,17 @@ def classify(
         scores["explain"] += 0.9
 
     # 硬约束筛选
-    hard_fields = [c.name for c in slots.values() if c.name in ("budget_min", "budget_max", "colors")]
+    hard_fields = [
+        c.name for c in slots.values() if c.name in ("budget_min", "budget_max", "colors", "theme", "material")
+    ]
     if "budget_min" in hard_fields or "budget_max" in hard_fields:
         scores["filter"] += 0.8
     if "colors" in hard_fields:
         scores["filter"] += 0.5
+    if "theme" in hard_fields:
+        scores["filter"] += 0.4
+    if "material" in hard_fields:
+        scores["filter"] += 0.4
     if contains_any(text, ["只看", "只要", "筛选", "必须", "限定", "不超过", "以内", "以下", "少于", "only"]):
         scores["filter"] += 0.5
 
@@ -335,7 +400,7 @@ def classify(
     if slots.get("target"):
         scores["similar"] += 0.25
         scores["explain"] += 0.15
-    if slots.get("targets"):
+    if slots.get("targets") and len(slots["targets"].value or []) >= 2:
         scores["compare"] += 0.5
 
     # 空文本：只能依靠手势/视觉
@@ -491,6 +556,21 @@ def extract_slots(
         scene, word = scene_hits[0]
         slots["scene"] = Slot("scene", scene, confidence=0.7, evidence=[f"文本命中场景词「{word}」"])
 
+    # --- 风格/主题与材质（仅从标题可核验词表抽取） ---
+    theme_hits = _match_named_lexicon(text, LEX.get("themes", {}))
+    if theme_hits:
+        theme, word = theme_hits[0]
+        slots["theme"] = Slot("theme", theme, confidence=0.75, evidence=[f"文本命中风格/主题词「{word}」"])
+    material_hits = _match_named_lexicon(text, LEX.get("materials", {}))
+    if material_hits:
+        material, word = material_hits[0]
+        slots["material"] = Slot(
+            "material",
+            material,
+            confidence=0.75,
+            evidence=[f"文本命中材质词「{word}」"],
+        )
+
     # --- 预算 ---
     budget = _match_budget(text)
     if budget:
@@ -508,9 +588,10 @@ def extract_slots(
     explicit = _resolve_explicit_targets(text, title_lookup)
     session_items = session_items or []
     if explicit:
-        slots["targets"] = Slot(
-            "targets", explicit, confidence=0.8, evidence=[f"文本显式提到商品：{', '.join(explicit)}"]
-        )
+        if len(explicit) >= 2:
+            slots["targets"] = Slot(
+                "targets", explicit, confidence=0.8, evidence=[f"文本显式提到商品：{', '.join(explicit)}"]
+            )
         slots["target"] = Slot("target", explicit[0], confidence=0.8, evidence=["取第一个显式商品作为参照"])
     else:
         ordinal_target = _resolve_ordinal_target(text, session_items)
@@ -518,14 +599,18 @@ def extract_slots(
             slots["target"] = Slot(
                 "target", ordinal_target, confidence=0.75, evidence=["文本序号指代 + 上一轮推荐结果"]
             )
-            slots["targets"] = Slot("targets", [ordinal_target], confidence=0.7, evidence=["文本序号指代"])
-        referential = contains_any(text, LEX.get("referential_markers", ["这个", "这款", "它"]))
+        referential = is_product_reference(text, has_context=bool(focus_item_id or session_items))
         if not ordinal_target and referential and (focus_item_id or session_items):
             target = focus_item_id or session_items[0]
             slots["target"] = Slot("target", target, confidence=0.7, evidence=["文本指代词 + 会话焦点商品"])
-            slots["targets"] = Slot("targets", [target], confidence=0.6, evidence=["会话焦点商品"])
         elif event.visual_tags and focus_item_id:
             slots["target"] = Slot("target", focus_item_id, confidence=0.6, evidence=["视觉焦点商品"])
+
+    # 语音常把「为什么推荐它」识别成「为什么推荐」，或把「找类似的」
+    # 识别成「推荐一些相似的」。已选中商品时，这类没有明示对象的追问
+    # 应绑定当前商品，而不是再次要求用户补充 target。
+    if "target" not in slots and focus_item_id and is_product_reference(text, has_context=True):
+        slots["target"] = Slot("target", focus_item_id, confidence=0.65, evidence=["追问意图 + 会话焦点商品"])
 
     # --- 反馈极性 ---
     polarity, evidence = _match_feedback_polarity(text, gesture)
@@ -628,6 +713,26 @@ def build_constraints(slots: dict[str, Slot], text: str, intent: str | None = No
         )
     if "scene" in slots:
         constraints.append(Constraint("scene", "eq", slots["scene"].value, kind="soft", source="slot:scene"))
+    if "theme" in slots:
+        constraints.append(
+            Constraint(
+                "title_theme",
+                "contains_any",
+                list(LEX.get("themes", {}).get(slots["theme"].value, [slots["theme"].value])),
+                kind="hard",
+                source="slot:theme",
+            )
+        )
+    if "material" in slots:
+        constraints.append(
+            Constraint(
+                "title_material",
+                "contains_any",
+                list(LEX.get("materials", {}).get(slots["material"].value, [slots["material"].value])),
+                kind="hard",
+                source="slot:material",
+            )
+        )
     if "target" in slots and intent != "feedback":
         constraints.append(
             Constraint("item_id", "similar_to", slots["target"].value, kind="soft", source="slot:target")

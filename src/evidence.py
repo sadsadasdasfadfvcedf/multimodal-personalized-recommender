@@ -25,7 +25,7 @@ from .contracts import EvidencePack, RecommendationRequest, VisualTag
 from .errors import ErrorCode, Result, fail, ok
 from .rag import KnowledgeBase
 from .session import SessionContext
-from .utils import is_number
+from .utils import is_number, title_has_term
 
 CFG = settings.EXPLANATION_CONFIG
 LEX = settings.SLOT_LEXICON
@@ -117,10 +117,24 @@ def build_pack(
         if c.field == "color":
             words = [w for color in (c.value or []) for w in LEX["colors"].get(color, [color])]
             title = f"{facts['title']} {facts['english_title']}".lower()
-            hit = next((w for w in words if w.lower() in title), None)
+            hit = next((w for w in words if title_has_term(title, w)), None)
             if hit:
                 constraints_hit.append(
                     {"field": "color", "op": "in", "required": c.value, "actual": hit, "verifiable": True}
+                )
+        if c.field in ("title_theme", "title_material"):
+            words = [str(word) for word in (c.value or [])]
+            title = f"{facts['title']} {facts['english_title']}".lower()
+            hit = next((word for word in words if title_has_term(title, word)), None)
+            if hit:
+                constraints_hit.append(
+                    {
+                        "field": c.field,
+                        "op": c.op,
+                        "required": c.value,
+                        "actual": hit,
+                        "verifiable": True,
+                    }
                 )
 
     # 视觉标签（只保留有效置信度达标的）
@@ -140,7 +154,13 @@ def build_pack(
                     facts["category"],
                     facts["title"],
                     request.slot_value("scene") or "",
-                    " ".join(str(c.value) for c in request.constraints if c.field in ("category", "color")),
+                    request.slot_value("theme") or "",
+                    request.slot_value("material") or "",
+                    " ".join(
+                        str(c.value)
+                        for c in request.constraints
+                        if c.field in ("category", "color", "title_theme", "title_material")
+                    ),
                 ],
             )
         )

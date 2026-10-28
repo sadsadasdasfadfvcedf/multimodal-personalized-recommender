@@ -30,7 +30,7 @@ from .contracts import RecommendationItem, RecommendationRequest, make_event
 from .errors import ErrorCode, Result, fail, ok
 from .evidence import build_pack
 from .explain import explain
-from .intent import understand
+from .intent import is_product_reference, understand
 from .llm_chat import ChatService
 from .llm_explain import LlmExplainer
 from .presentation import present as present_items
@@ -286,6 +286,21 @@ class Orchestrator:
 
         request: RecommendationRequest = intent_result.data["request"]
         intent_dict = intent_result.data["intent_result"]
+        previous_target_slot = session.slot_state.get("target")
+        current_target = request.slot_value("target")
+        product_context_reset = False
+        if (
+            request.intent in ("similar", "explain")
+            and current_target
+            and (previous_target_slot is None or str(previous_target_slot.value) != str(current_target))
+        ):
+            # 用户切换到新的参照商品后，上一条搜索的类目/主题/颜色等
+            # 不能继续污染新商品的相似与解释链路。
+            session.slot_state.clear()
+            session.constraints.clear()
+            product_context_reset = True
+        if request.intent == "similar" and contains_any(event.text or "", LEX.get("similar_refresh_markers", [])):
+            request.exclude_item_ids = list(dict.fromkeys([*request.exclude_item_ids, *session.seen_item_ids]))
         context_reset = self._should_reset_context(event, request)
         if context_reset:
             session.slot_state.clear()
@@ -294,7 +309,11 @@ class Orchestrator:
             session.pending_clarification = None
         merge_report = session.merge_slots(request.slots, request.constraints, source=f"turn:{intent_dict['intent']}")
         merge_report["context_reset"] = context_reset
+        merge_report["product_context_reset"] = product_context_reset
         session.set_clarification(None)
+        if request.intent != "compare":
+            # 单商品追问只保留 target；旧版本遗留的一元素 targets 不能继续显示成“对比商品”。
+            session.clear_slot("targets")
 
         # 3.5) 会话合并后的有效请求：多轮约束（如先「推荐礼物」再「500以内」）在此生效
         effective = self._effective_request(request, session)
@@ -345,7 +364,15 @@ class Orchestrator:
     # ============================================================
     # 处理器：推荐主链路
     # ============================================================
-    def _handle_recommend(self, event, request: RecommendationRequest, session: SessionContext, timer: Timer) -> dict:
+    def _handle_recommend(
+        self,
+        event,
+        request: RecommendationRequest,
+        session: SessionContext,
+        timer: Timer,
+        *,
+        update_focus: bool = True,
+    ) -> dict:
         with timer.track("recall_ms"):
             recall_result = recall(request, self.recommender, self.catalog, session)
         if not recall_result.ok or not recall_result.data["candidates"]:
@@ -381,7 +408,10 @@ class Orchestrator:
         with timer.track("present_ms"):
             header = self._header(request)
             if ranking_trace.get("degraded"):
-                header = "（当前条件下没有完全匹配的商品，以下为热门兜底）" + header
+                # 降级不一定是热门兜底：颜色优先策略下可能是“保留颜色、放宽类目”。
+                # 呈现用的提示必须与真实降级原因一致。
+                reason = ranking_trace.get("degrade_reason") or "当前条件下没有完全匹配的商品"
+                header = f"（{reason}）" + header
             presentation = present_items(
                 recommendations, header=header, with_voice=self.with_voice, dry_run=self.dry_run_voice
             )
@@ -397,7 +427,12 @@ class Orchestrator:
                 item["evidence"]["constraint_satisfied"] = True
 
         session.add_recommendation(
-            [r["item_id"] for r in recommendations], focus=recommendations[0]["item_id"] if recommendations else None
+            [r["item_id"] for r in recommendations],
+            focus=(
+                recommendations[0]["item_id"]
+                if update_focus and recommendations and not session.focus_item_id
+                else None
+            ),
         )
         status = "degraded" if degraded else "ok"
         return {
@@ -429,6 +464,7 @@ class Orchestrator:
                 ),
             }
         category = self.catalog.category_of(item_id)
+        session.focus_item_id = item_id
         with timer.track("browse_ms"):
             viewed = session.add_view(item_id, category=category)
         if not viewed.ok:
@@ -448,7 +484,7 @@ class Orchestrator:
             session_id=session.session_id,
             mode=self.mode,
         )
-        payload = self._handle_recommend(event, request, session, timer)
+        payload = self._handle_recommend(event, request, session, timer, update_focus=False)
         affected = next((i for i in payload.get("recommendations", []) if i["item_id"] == item_id), None)
         payload["browse"] = {
             **viewed.data,
@@ -682,6 +718,17 @@ class Orchestrator:
         item["explanation"] = explanation.data["text"]
         item["explanation_source"] = (explanation.data.get("llm") or {}).get("source")
         item["explanation_confidence"] = explanation.data["confidence"]
+        llm_meta = explanation.data.get("llm") or {}
+        if llm_meta.get("llm_rejected"):
+            item["llm_rejected"] = True
+        fallback_reason = llm_meta.get("fallback_reason")
+        if (
+            self.llm_explainer.enabled
+            and llm_meta.get("source") == "template"
+            and fallback_reason
+            and fallback_reason != "LLM 未启用或适配器不在 real 模式"
+        ):
+            item["llm_fallback_reason"] = fallback_reason
         with timer.track("present_ms"):
             presentation = present_items(
                 [item], header="解释：", with_voice=self.with_voice, dry_run=self.dry_run_voice
@@ -769,6 +816,16 @@ class Orchestrator:
                 item["explanation_grounded"] = final.get("grounded")
                 if final.get("llm_rejected"):
                     item["llm_rejected"] = True
+                fallback_reason = final.get("fallback_reason")
+                # 只要本轮确实尝试过 LLM（enabled），就把回退原因带到商品上：
+                # 空输出、批量失败、门控拒绝都算；「LLM 未启用」不展示。
+                if (
+                    self.llm_explainer.enabled
+                    and final.get("source") == "template"
+                    and fallback_reason
+                    and fallback_reason != "LLM 未启用或适配器不在 real 模式"
+                ):
+                    item["llm_fallback_reason"] = fallback_reason
                 item["explanation_confidence"] = explanation_data["confidence"]
                 item["evidence_count"] = explanation_data["evidence_count"]
                 explanations.append({**explanation_data, "llm": final, "evidence_pack": pack.to_dict()})
@@ -811,7 +868,7 @@ class Orchestrator:
             return False
         if contains_any(text, ["这个", "这件", "它", "刚才", "上一", "之前", "还有", "再推荐", "类似", "相似"]):
             return False
-        allowed = {"budget_min", "budget_max", "budget_raw"}
+        allowed = {"budget_min", "budget_max", "budget_raw", "theme", "material"}
         for name, slot in request.slots.items():
             if name not in allowed and slot.value not in (None, "", []):
                 return False
@@ -862,7 +919,11 @@ class Orchestrator:
         # 里的「推荐」是名词，不是购物指令。
         if any(marker in lowered for marker in cfg.get("tech_markers", [])):
             return True
-        if focus_item_id and any(marker in lowered for marker in LEX.get("referential_markers", [])):
+        # 明确的写作、天气、翻译等通用任务优先，避免被“生日”“礼物”
+        # 等商品场景词误路由到推荐链路。
+        if any(marker in lowered for marker in cfg.get("chat_priority_markers", [])):
+            return True
+        if focus_item_id and is_product_reference(text, has_context=True):
             return False
         if any(marker in lowered for marker in cfg["block_markers"]):
             return False

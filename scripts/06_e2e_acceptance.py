@@ -151,10 +151,19 @@ def main() -> int:
 
     # ---------- 2) 故障注入与降级 ----------
     # 2.1 HTTP 推荐系统不可用 → 逐级降级到内置快照
+    # 显式关闭 HTTP 策略，不能依赖「没有配置演示账号」——本地 local.env
+    # 配好 8010 账号后，适配器会真的登录成功，这个故障场景就不再成立。
+    # 也不要用不可达地址：连接错误文本可能带内存地址，导致证据每次漂移。
     with fault("recommender_http_unavailable"):
-        degraded_adapter = RecommenderAdapter(
-            mode="online", strategy_order=["http", "local_artifacts", "offline_snapshot"]
-        )
+        http_cfg = settings.RECOMMENDER_ADAPTER["http"]
+        old_enabled = http_cfg["enabled"]
+        http_cfg["enabled"] = False
+        try:
+            degraded_adapter = RecommenderAdapter(
+                mode="online", strategy_order=["http", "local_artifacts", "offline_snapshot"]
+            )
+        finally:
+            http_cfg["enabled"] = old_enabled
     scenarios.append(
         {
             "chain": "fault",

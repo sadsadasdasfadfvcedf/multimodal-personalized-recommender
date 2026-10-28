@@ -248,18 +248,18 @@ flowchart TD
     }
   ],
   "latency_ms": {
-    "event_ms": 0.074,
-    "intent_ms": 0.704,
-    "recall_ms": 2.17,
-    "rank_ms": 0.509,
+    "event_ms": 0.86,
+    "intent_ms": 0.741,
+    "recall_ms": 4.843,
+    "rank_ms": 0.454,
     "present_ms": 0.025,
-    "dispatch_ms": 3.278,
-    "total_ms": 4.301
+    "dispatch_ms": 5.875,
+    "total_ms": 7.763
   }
 }
 ```
 
-- 召回来源（source / status / count）：[('personalized', 'ok', 80), ('similar', 'ok', 36), ('category_hot', 'ok', 61), ('history', 'ok', 80), ('popular', 'ok', 80)]
+- 召回来源（source / status / count）：[('personalized', 'ok', 80), ('similar', 'ok', 36), ('category_hot', 'ok', 61), ('scene', 'ok', 3), ('history', 'ok', 80), ('popular', 'ok', 80)]
 - 硬约束核验：输入候选 120 条 → 淘汰 91 条 → 降级 False
 - Top1 解释（只取证据包中的事实）：
 

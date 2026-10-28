@@ -2,7 +2,7 @@
 scripts/13_webui_acceptance.py
 ==============================
 
-网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 22 项）。
+网页改版的验收清单核验（对应《页面改版设计README》表 6-1，当前 27 项）。
 
 实现方式：用 Edge 的 CDP（Chrome DevTools Protocol）驱动无头浏览器，
 在真实页面上**测量**而不是靠肉眼判断：
@@ -29,6 +29,11 @@ scripts/13_webui_acceptance.py
   20. 相似推荐分组分层；点赞后自动出现“你可能也喜欢”
   21. 首页加载更多仍保持当前账号品类
   22. 严格匹配不足时补足数量，并明确标注“同类补充”
+  23. 多轮追加条件时，助手与左侧筛选栏显示当前生效的全部条件
+  24. 材质条件可抽取、可展示并按标题证据过滤
+  25. 风格/主题条件可抽取、可展示并按标题证据过滤
+  26. 商品详情“继续问这件”连续切换商品后，相似推荐绑定新商品且结果不重复
+  27. 删除单个筛选条件后不会从会话上下文重新回弹
 
 前置条件（缺一即跳过，不影响离线可复现性）：
     · 本机装有 Microsoft Edge
@@ -426,12 +431,18 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 "const afterLike=order().indexOf(id);"
                 "const likedAfterLike=Array.from(document.querySelectorAll('[data-liked-item]'))"
                 ".some(x=>x.dataset.likedItem===id);"
-                "document.querySelector('.pcard[data-item=\"'+id+'\"] [data-like=\"down\"]').click();await wait();"
+                "let down=null;"
+                "for(let i=0;i<200;i++){down=document.querySelector('.pcard[data-item=\"'+id+'\"] [data-like=\"down\"]');"
+                "if(!pendingItems.has(id)&&!busy&&down&&!down.disabled)break;await sleep(25);}"
+                "const beforeDown={busy,pending:pendingItems.has(id),disabled:!!down?.disabled,"
+                "modal:document.getElementById('feedbackModal').className,confirmItem:dislikeConfirmItemId};"
+                "if(!down||down.disabled)return {ok:false,reason:'down not ready',id,beforeDown};"
+                "down.click();await wait();"
                 "const confirmShown=document.getElementById('feedbackModal').classList.contains('show');"
                 "const beforeConfirm=order().indexOf(id);"
                 "const confirmButton=document.querySelector('#feedbackModal [data-feedback-confirm]');"
                 "if(!confirmButton)return {ok:false,reason:'confirm missing',id,initialIndex,afterLike,"
-                "confirmShown,beforeConfirm,cards:order().length,ratings:[...ratings.entries()]};"
+                "confirmShown,beforeConfirm,beforeDown,cards:order().length,ratings:[...ratings.entries()]};"
                 "confirmButton.click();await wait();"
                 "const afterDown=order().indexOf(id);"
                 "const likedAfterDown=Array.from(document.querySelectorAll('[data-liked-item]'))"
@@ -495,6 +506,7 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 "(function(){window.__visualOrigFetch=window.fetch;"
                 "window.fetch=async function(url,opts){"
                 "if(String(url)==='/api/voice'){"
+                "window.__voicePayload=JSON.parse(opts.body||'{}');"
                 "return new Response(JSON.stringify({ok:true,transcript:'推荐我手上相关的物品',"
                 "input_modes:['voice','vision'],description:'白色陶瓷杯',vision_latency_ms:800,"
                 "response:{status:'ok',intent_result:{intent:'discover',slots:{category:{value:'厨房用品'},"
@@ -534,7 +546,9 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 await asyncio.sleep(0.1)
             voice_visual = await ev(
                 "(function(){var acts=Array.from(document.querySelectorAll('.act'));"
-                "var last=acts.at(-1);return {text:last?.innerText||'',cards:document.querySelectorAll('.pcard').length}})()"
+                "var last=acts.at(-1);return {text:last?.innerText||'',"
+                "cards:document.querySelectorAll('.pcard').length,payload:window.__voicePayload||null,"
+                "focus:focusItemId}})()"
             )
             await ev("window.fetch=window.__visualOrigFetch")
             visual_chat_ok = (
@@ -546,6 +560,8 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 "语音 + 识图完成" in str((voice_visual or {}).get("text", ""))
                 and "画面识别" in str((voice_visual or {}).get("text", ""))
                 and "白色陶瓷杯" in str((voice_visual or {}).get("text", ""))
+                and ((voice_visual or {}).get("payload") or {}).get("focus_item_id")
+                == (voice_visual or {}).get("focus")
             )
             add(
                 19,
@@ -674,6 +690,280 @@ async def _run(url: str, port: int, edge: str, seconds: float) -> list[dict]:
                 str(fallback_state),
             )
 
+            reset_req = urllib.request.Request(
+                f"{url.rstrip('/')}/api/reset",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(reset_req, timeout=5):
+                pass
+            await cmd("Page.navigate", {"url": url})
+            for _ in range(80):
+                if await ev("document.querySelectorAll('.pcard').length"):
+                    break
+                await asyncio.sleep(0.25)
+            await ev(
+                "(function(){document.getElementById('q').value='给我推荐一些500以内的婚礼茶壶';"
+                "document.getElementById('searchForm').requestSubmit();})()"
+            )
+            for _ in range(160):
+                if await ev(
+                    "!busy && document.querySelectorAll('#fchips [data-drop]').length===4 && "
+                    "document.getElementById('stream').innerText.includes('当前条件')"
+                ):
+                    break
+                await asyncio.sleep(0.25)
+            await ev(
+                "(function(){document.getElementById('q').value='那白色的呢';"
+                "document.getElementById('searchForm').requestSubmit();})()"
+            )
+            for _ in range(160):
+                if await ev(
+                    "!busy && document.querySelectorAll('#fchips [data-drop]').length===5 && "
+                    "document.querySelectorAll('.pcard').length>0"
+                ):
+                    break
+                await asyncio.sleep(0.25)
+            condition_state = await ev(
+                "(function(){const bots=Array.from(document.querySelectorAll('.msg .bub.bot'));"
+                "const last=bots.at(-1);"
+                "return {label:last?.querySelector('.slots-label')?.textContent.trim()||'',"
+                "chips:Array.from(last?.querySelectorAll('.slotchip')||[]).map(x=>x.textContent.trim()),"
+                "filters:Array.from(document.querySelectorAll('#fchips .fchip')).map(x=>"
+                "x.textContent.replace('✕','').trim())};})()"
+            )
+            expected_chips = {
+                "类目 · 厨房用品",
+                "商品类型 · 茶壶",
+                "场景 · 婚礼",
+                "最高价 · 500",
+                "颜色 · 白色",
+            }
+            expected_filters = {
+                "品类 · 厨房用品",
+                "商品类型 · 茶壶",
+                "场景 · 婚礼",
+                "预算 · ≤ £500",
+                "颜色 · 白色",
+            }
+            actual_chips = set((condition_state or {}).get("chips") or [])
+            actual_filters = set((condition_state or {}).get("filters") or [])
+            add(
+                23,
+                "多轮追加条件时保留并展示当前全部生效条件",
+                (condition_state or {}).get("label") == "当前条件"
+                and expected_chips.issubset(actual_chips)
+                and expected_filters.issubset(actual_filters),
+                str(condition_state),
+            )
+
+            reset_req = urllib.request.Request(
+                f"{url.rstrip('/')}/api/reset",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(reset_req, timeout=5):
+                pass
+            await cmd("Page.navigate", {"url": url})
+            for _ in range(80):
+                if await ev("document.querySelectorAll('.pcard').length"):
+                    break
+                await asyncio.sleep(0.25)
+            await ev(
+                "(function(){document.getElementById('q').value='木质相框';"
+                "document.getElementById('searchForm').requestSubmit();})()"
+            )
+            for _ in range(160):
+                if await ev(
+                    "!busy && document.querySelectorAll('#fchips [data-drop]').length===3 && "
+                    "document.getElementById('stream').innerText.includes('材质/工艺')"
+                ):
+                    break
+                await asyncio.sleep(0.25)
+            await ev(
+                "(function(){document.getElementById('q').value='那白色的呢';"
+                "document.getElementById('searchForm').requestSubmit();})()"
+            )
+            for _ in range(160):
+                if await ev(
+                    "!busy && document.querySelectorAll('#fchips [data-drop]').length===4 && "
+                    "document.querySelectorAll('.pcard').length>0"
+                ):
+                    break
+                await asyncio.sleep(0.25)
+            material_state = await ev(
+                "(function(){const bots=Array.from(document.querySelectorAll('.msg .bub.bot'));"
+                "const last=bots.at(-1);return {"
+                "chips:Array.from(last?.querySelectorAll('.slotchip')||[]).map(x=>x.textContent.trim()),"
+                "filters:Array.from(document.querySelectorAll('#fchips .fchip')).map(x=>"
+                "x.textContent.replace('✕','').trim()),"
+                "exact:Array.from(document.querySelectorAll('.pcard[data-match-scope=\"exact\"] h3'))"
+                ".map(x=>x.textContent.trim())};})()"
+            )
+            material_chips = set((material_state or {}).get("chips") or [])
+            material_filters = set((material_state or {}).get("filters") or [])
+            material_titles = [str(title) for title in ((material_state or {}).get("exact") or [])]
+            add(
+                24,
+                "材质条件可抽取、展示并按标题证据过滤",
+                {"类目 · 家居装饰", "商品类型 · 相框", "材质/工艺 · 木质", "颜色 · 白色"}.issubset(material_chips)
+                and {"品类 · 家居装饰", "商品类型 · 相框", "材质/工艺 · 木质", "颜色 · 白色"}.issubset(material_filters)
+                and any("木质" in title and "白色" in title for title in material_titles),
+                str(material_state),
+            )
+
+            reset_req = urllib.request.Request(
+                f"{url.rstrip('/')}/api/reset",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(reset_req, timeout=5):
+                pass
+            await cmd("Page.navigate", {"url": url})
+            for _ in range(80):
+                if await ev("document.querySelectorAll('.pcard').length"):
+                    break
+                await asyncio.sleep(0.25)
+            await ev(
+                "(function(){document.getElementById('q').value='只看心形装饰品';"
+                "document.getElementById('searchForm').requestSubmit();})()"
+            )
+            for _ in range(160):
+                if await ev(
+                    "!busy && document.querySelectorAll('#fchips [data-drop]').length===2 && "
+                    "document.getElementById('stream').innerText.includes('风格/主题')"
+                ):
+                    break
+                await asyncio.sleep(0.25)
+            theme_state = await ev(
+                "(function(){const bots=Array.from(document.querySelectorAll('.msg .bub.bot'));"
+                "const last=bots.at(-1);return {"
+                "chips:Array.from(last?.querySelectorAll('.slotchip')||[]).map(x=>x.textContent.trim()),"
+                "filters:Array.from(document.querySelectorAll('#fchips .fchip')).map(x=>"
+                "x.textContent.replace('✕','').trim()),"
+                "exact:Array.from(document.querySelectorAll('.pcard[data-match-scope=\"exact\"] h3'))"
+                ".map(x=>x.textContent.trim())};})()"
+            )
+            theme_chips = set((theme_state or {}).get("chips") or [])
+            theme_filters = set((theme_state or {}).get("filters") or [])
+            theme_titles = [str(title) for title in ((theme_state or {}).get("exact") or [])]
+            add(
+                25,
+                "风格/主题条件可抽取、展示并按标题证据过滤",
+                {"类目 · 装饰品", "风格/主题 · 心形"}.issubset(theme_chips)
+                and {"品类 · 装饰品", "风格/主题 · 心形"}.issubset(theme_filters)
+                and any("心形" in title for title in theme_titles),
+                str(theme_state),
+            )
+
+            reset_req = urllib.request.Request(
+                f"{url.rstrip('/')}/api/reset",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(reset_req, timeout=5):
+                pass
+            await cmd("Page.navigate", {"url": url})
+            for _ in range(80):
+                if await ev("document.querySelectorAll('.pcard').length"):
+                    break
+                await asyncio.sleep(0.25)
+            focus_sequence = await ev(
+                "(async function(){"
+                "const sleep=ms=>new Promise(r=>setTimeout(r,ms));"
+                "const cards=()=>Array.from(document.querySelectorAll('.pcard'));"
+                "const last=()=>Array.from(document.querySelectorAll('.msg .bub.bot')).at(-1);"
+                "const wait=async(fn,n=240)=>{for(let i=0;i<n;i++){if(fn())return true;await sleep(100);}return false;};"
+                "const openAndAsk=async(card)=>{"
+                "card.querySelector('.pimg[data-open]').click();"
+                "await wait(()=>document.getElementById('modal').classList.contains('show')&&"
+                "!!document.querySelector('#modal [data-ask-product]'));"
+                "document.querySelector('#modal [data-ask-product]').click();await sleep(100);"
+                "document.getElementById('q2').value='推荐相似的商品';"
+                "document.getElementById('sendbtn2').click();"
+                "await wait(()=>!busy&&!document.querySelector('#stream .spin')&&"
+                "last()?.innerText.includes('为你找到'));"
+                "const chips=Array.from(last().querySelectorAll('.slotchip')).map(x=>x.textContent.trim());"
+                "return {target:chips.find(x=>x.startsWith('参照商品'))||'',"
+                "ids:cards().map(x=>x.dataset.item),"
+                "hasCompare:chips.some(x=>x.startsWith('对比商品'))};};"
+                "await sleep(700);"
+                "document.getElementById('q').value='只看心形装饰品';"
+                "document.getElementById('searchForm').requestSubmit();"
+                "await wait(()=>!busy&&cards().length>0&&!document.querySelector('#stream .spin'));"
+                "const first=cards()[0];const firstId=first.dataset.item;const r1=await openAndAsk(first);"
+                "const second=cards()[1];const secondId=second.dataset.item;const r2=await openAndAsk(second);"
+                "return {firstId,secondId,firstTarget:r1.target,secondTarget:r2.target,"
+                "firstResult:r1.ids[0]||'',secondResult:r2.ids[0]||'',"
+                "hasCompare:r1.hasCompare||r2.hasCompare};})()"
+            )
+            focus_state = focus_sequence or {}
+            add(
+                26,
+                "连续切换商品后，继续追问绑定新商品且相似结果不重复",
+                bool(focus_state.get("firstTarget"))
+                and bool(focus_state.get("secondTarget"))
+                and focus_state.get("firstTarget") != focus_state.get("secondTarget")
+                and focus_state.get("firstId") != focus_state.get("secondId")
+                and focus_state.get("firstResult") != focus_state.get("secondResult")
+                and not focus_state.get("hasCompare"),
+                str(focus_state),
+            )
+
+            reset_req = urllib.request.Request(
+                f"{url.rstrip('/')}/api/reset",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(reset_req, timeout=5):
+                pass
+            await cmd("Page.navigate", {"url": url})
+            for _ in range(80):
+                if await ev("document.querySelectorAll('.pcard').length"):
+                    break
+                await asyncio.sleep(0.25)
+            await ev(
+                "(function(){document.getElementById('q').value='只看生活用品，黑色';"
+                "document.getElementById('searchForm').requestSubmit();})()"
+            )
+            for _ in range(160):
+                if await ev(
+                    "!busy && !document.querySelector('#stream .spin') && "
+                    "document.querySelectorAll('#fchips [data-drop]').length===2"
+                ):
+                    break
+                await asyncio.sleep(0.25)
+            await ev("document.querySelector('#fchips [data-drop=\"category\"]').click()")
+            for _ in range(160):
+                if await ev(
+                    "!busy && !document.querySelector('#stream .spin') && "
+                    "!document.querySelector('#fchips [data-drop=\"category\"]')"
+                ):
+                    break
+                await asyncio.sleep(0.25)
+            remove_filter_state = await ev(
+                "(function(){const bots=Array.from(document.querySelectorAll('.msg .bub.bot'));"
+                "const last=bots.at(-1);return {"
+                "filters:Array.from(document.querySelectorAll('#fchips .fchip')).map(x=>"
+                "x.textContent.replace('✕','').trim()),"
+                "chips:Array.from(last?.querySelectorAll('.slotchip')||[]).map(x=>x.textContent.trim())};})()"
+            )
+            removed_filters = set((remove_filter_state or {}).get("filters") or [])
+            removed_message = set((remove_filter_state or {}).get("chips") or [])
+            add(
+                27,
+                "删除单个筛选条件后不会从会话上下文重新回弹",
+                removed_filters == {"颜色 · 黑色"}
+                and "品类 · 生活用品" not in removed_message
+                and "颜色 · 黑色" in removed_message,
+                str(remove_filter_state),
+            )
+
             root = settings.PROJECT_ROOT
             src = (root / "webui.py").read_text(encoding="utf-8")
             src += "\n".join(
@@ -697,7 +987,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=9455, help="CDP 调试端口")
     args = parser.parse_args()
 
-    banner("网页改版验收核验（设计文档表 6-1，22 项）")
+    banner("网页改版验收核验（设计文档表 6-1，27 项）")
     report = {"checked_at": now_iso(), "url": args.url, "checks": [], "verdict": "SKIP"}
 
     edge = _edge()

@@ -78,6 +78,43 @@ def test_voice_visual_phrase_merges_asr_with_camera_frame():
     assert result["response"]["trace"]["modes"]["asr"] == "real"
 
 
+def test_force_vision_merges_even_without_marker():
+    """网页「语音识图」按钮：不依赖「手上」等关键词，也强制同轮抓帧。"""
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    app.orch.multimodal.record_audio = lambda *args, **kwargs: ok({"recorded": True})
+
+    class FakeAsr:
+        def transcribe(self, *args, **kwargs):
+            return ok({"text": "这个适合送人吗"})
+
+    app.orch.asr = FakeAsr()
+    called = {}
+
+    def fake_vision(question, top_k=None):
+        called["question"] = question
+        called["top_k"] = top_k
+        return {
+            "ok": True,
+            "description": "白色陶瓷杯",
+            "response": {
+                "status": "ok",
+                "recommendations": [],
+                "event": {"source": "vision", "modality": "visual"},
+                "trace": {"modes": {}},
+            },
+        }
+
+    app.vision = fake_vision
+    result = app.voice(4, top_k=8, force_vision=True)
+
+    assert result["ok"] is True
+    assert result["input_modes"] == ["voice", "vision"]
+    assert result["transcript"] == "这个适合送人吗"
+    assert called == {"question": "这个适合送人吗", "top_k": 8}
+
+
 def test_voice_regular_shopping_phrase_stays_text_only():
     w = _webui()
     app = w.App("14156", "offline", False, False, None)
@@ -102,6 +139,34 @@ def test_voice_regular_shopping_phrase_stays_text_only():
 
     assert result["input_modes"] == ["voice"]
     assert called["spec"] == {"source": "voice", "text": "嗯给我推荐一些茶壶"}
+
+
+def test_voice_followup_keeps_selected_product_focus():
+    w = _webui()
+    app = w.App("15547", "offline", False, False, None)
+    app.orch.multimodal.active_mode = "real"
+    app.orch.multimodal.record_audio = lambda *args, **kwargs: ok({"recorded": True})
+    selected = app.home(8)["items"][0]["item_id"]
+
+    class FakeAsr:
+        def transcribe(self, *args, **kwargs):
+            return ok({"text": "为什么推荐它"})
+
+    app.orch.asr = FakeAsr()
+    called = {}
+
+    def fake_handle(spec, top_k=None):
+        session = app.orch.store.get_or_create(app.session_id, app.user_id)
+        called["focus"] = session.focus_item_id
+        called["spec"] = spec
+        return {"ok": True, "response": {"status": "ok", "recommendations": []}}
+
+    app.handle_spec = fake_handle
+    result = app.voice(4, top_k=8, focus_item_id=selected)
+
+    assert result["input_modes"] == ["voice"]
+    assert called["focus"] == selected
+    assert called["spec"] == {"source": "voice", "text": "为什么推荐它"}
 
 
 def test_more_padding_preserves_category_and_product_type():

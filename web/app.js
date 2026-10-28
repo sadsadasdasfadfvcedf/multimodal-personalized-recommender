@@ -16,6 +16,7 @@ const pendingItems = new Set();
 const removedFeedback = new Map();
 const likedSnapshots = new Map();
 const similarPreviewCache = new Map();
+const itemTitles = new Map();
 let autoSimilarSeedId = null;
 let autoSimilarRequestId = 0;
 const DEVICE_CONSENT_KEY = 'integrated_device_consent';
@@ -35,7 +36,8 @@ const SRC_ZH = {'historical_mode':'历史成交价', 'category_median':'类目�
 const MODE_ZH = {offline_snapshot:'内置离线快照', local_artifacts:'推荐系统发布制品',
                  http:'推荐系统实时接口', offline_stub:'离线场景桩', real:'真实模型'};
 const SLOT_ZH = {category:'类目', item_type:'商品类型', scene:'场景', colors:'颜色',
-                 budget_min:'最低价', budget_max:'最高价', target:'参照商品', targets:'对比商品'};
+                 theme:'风格/主题', material:'材质/工艺', budget_min:'最低价', budget_max:'最高价',
+                 target:'参照商品', targets:'对比商品'};
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -57,7 +59,7 @@ const money = v => v == null ? '—' : '£' + v;
 /* 匹配度：把模型原始分映射成用户可读刻度（表 3-3） */
 const matchPct = s => s == null ? null : Math.max(1, Math.min(99, Math.round(Number(s) * 100)));
 const intentZh = r => {
-  const ir = r.intent_result || {}, slots = ir.slots || {};
+  const ir = r.intent_result || {}, slots = responseSlots(r);
   const kind = slots.item_type && slots.item_type.value;
   if (kind && (ir.intent === 'discover' || ir.intent === 'filter')){
     return ir.intent === 'filter' ? '筛选 · ' + kind : '找' + kind;
@@ -111,7 +113,7 @@ function syncDeviceButtons(){
     btn.textContent = deviceAllowed ? '🔐 设备已允许' : '🔐 设备授权';
     btn.title = deviceAllowed ? '设备已允许，点击暂停' : '允许使用摄像头和麦克风';
   }
-  document.querySelectorAll('[data-act="voice"],[data-act="vision"]').forEach(b => {
+  document.querySelectorAll('[data-act="voice"],[data-act="vision"],[data-act="voice-vision"]').forEach(b => {
     b.disabled = needReal || !deviceAllowed || busy;
   });
 }
@@ -146,11 +148,22 @@ function setDeviceAllowed(on, persist){
 }
 
 /* ============ 筛选口径 → 可移除 chip（P1-5） ============ */
+function responseSlots(resp){
+  const effective = ((resp || {}).effective_request || {}).slots;
+  if (effective && Object.keys(effective).length) return effective;
+  return ((resp || {}).intent_result || {}).slots || {};
+}
 function filtersFrom(resp){
-  const s = ((resp || {}).intent_result || {}).slots || {};
+  const s = responseSlots(resp);
   const out = [];
   if (s.scene && s.scene.value)      out.push({key:'scene',    label:'场景 · ' + s.scene.value,    frag:s.scene.value});
   if (s.category && s.category.value) out.push({key:'category', label:'品类 · ' + s.category.value, frag:s.category.value});
+  if (s.item_type && s.item_type.value)
+    out.push({key:'item_type', label:'商品类型 · ' + s.item_type.value, frag:s.item_type.value});
+  if (s.theme && s.theme.value)
+    out.push({key:'theme', label:'风格/主题 · ' + s.theme.value, frag:s.theme.value});
+  if (s.material && s.material.value)
+    out.push({key:'material', label:'材质/工艺 · ' + s.material.value, frag:s.material.value});
   if (s.colors && s.colors.value && s.colors.value.length)
     out.push({key:'colors', label:'颜色 · ' + s.colors.value.join('/'), frag:s.colors.value.join('/')});
   if (s.budget_max && s.budget_max.value != null)
@@ -164,14 +177,28 @@ function renderFilters(){
     '<span class="fchip">' + esc(f.label) +
     '<button data-drop="' + esc(f.key) + '" aria-label="移除 ' + esc(f.label) + '">✕</button></span>').join('');
 }
+const FILTER_SLOT_NAMES = {
+  scene:['scene'], category:['category','category_alt'], item_type:['item_type','item_type_terms'],
+  theme:['theme'], material:['material'], colors:['colors'],
+  budget:['budget_max','budget_raw'], budget_min:['budget_min','budget_raw']
+};
+function clearSlotsFor(key){ return FILTER_SLOT_NAMES[key] || [key]; }
 function dropFilter(key){
   if (busy){ toast('正在处理，请稍后再移除条件'); return; }
+  const previous = activeFilters.slice();
   const keep = activeFilters.filter(f => f.key !== key);
+  const clearSlots = keep.length
+    ? clearSlotsFor(key)
+    : previous.flatMap(f => clearSlotsFor(f.key));
   activeFilters = keep; renderFilters();
-  if (!keep.length){ toast('已移除全部条件，重新为你推荐'); ask('推荐一些热门商品', {silent:true}); return; }
+  if (!keep.length){
+    toast('已移除全部条件，重新为你推荐');
+    ask('推荐一些热门商品', {silent:true, clearSlots});
+    return;
+  }
   const q = '只看' + keep.map(f => f.frag).join('，');
   toast('已按剩余条件重新筛选');
-  ask(q, {silent:true});
+  ask(q, {silent:true, clearSlots});
 }
 
 /* ============ 商品货架 ============ */
@@ -189,10 +216,11 @@ function renderShelf(items, title, subtitle, resp, append){
     currentItems = items || [];
     currentLimit = currentItems.length;
     hasMore = currentItems.length > 0;
-    if (!focusItemId || !currentItems.some(x => String(x.item_id) === focusItemId)){
+    if (!focusItemId){
       focusItemId = currentItems.length ? String(currentItems[0].item_id) : null;
     }
   }
+  currentItems.forEach(it => itemTitles.set(String(it.item_id), String(it.title || '')));
   if (resp){
     const nextIntent = (resp.intent_result || {}).intent;
     if (nextIntent === 'similar') shelfSimilarMode = true;
@@ -483,7 +511,8 @@ function updateAction(id, detail){
 /* P1-8：失败时给至少一个可点击的下一步 */
 function actionSuggestions(kind){
   const how = {voice:'请靠近麦克风、在安静环境说一句完整的话，说完停顿 1 秒。',
-               vision:'把要推荐的物品举到画面中央，确保有光，再点一次。'}[kind] || '';
+               vision:'把要推荐的物品举到画面中央，确保有光，再点一次。',
+               'voice-vision':'把物品对准摄像头并说出问题，说完停顿 1 秒；光线不足时靠近一些。'}[kind] || '';
   return '<div class="sugg">' +
     '<button data-retry="' + kind + '">重试一次</button>' +
     '<button data-type><span>改用打字</span></button>' +
@@ -493,6 +522,7 @@ function renderBot(resp, updateShelf){
   const st = resp.status || 'ok';
   const rankingTrace = ((resp.trace || {}).ranking || {});
   if (resp.event && resp.event.text) lastQuery = resp.event.text;
+  const intent = (resp.intent_result || {}).intent;
   const supplementStatus = st === 'degraded' && Number(rankingTrace.supplemented_count || 0) > 0;
   let h = '<div class="rh">' + badge(st, '', supplementStatus ? '已补充同类' : '') +
           '<span class="k">意图 <b>' + esc(intentZh(resp)) + '</b></span></div>';
@@ -513,14 +543,24 @@ function renderBot(resp, updateShelf){
     h += '<div class="errline" style="margin-top:6px">联网搜索失败：' + esc(ws.error) + '</div>';
   }
 
-  const slots = ((resp.intent_result || {}).slots) || {};
+  const slots = ['discover', 'similar', 'filter', 'browse'].includes(intent)
+    ? responseSlots(resp)
+    : (((resp.intent_result || {}).slots) || {});
   const sv = Object.entries(slots).filter(([k, v]) => v && v.value !== undefined &&
-    k !== 'budget_raw' && k !== 'category_alt' && k !== 'item_type_terms');
-  if (sv.length) h += '<div class="slots">' + sv.map(([k, v]) =>
-    '<button class="slotchip" data-slot="' + esc(String(v.value)) + '">' + esc(SLOT_ZH[k] || k) + ' · ' +
-    esc(String(v.value)) + '</button>').join('') + '</div>';
+    k !== 'budget_raw' && k !== 'category_alt' && k !== 'item_type_terms' &&
+    !(k === 'targets' && (!Array.isArray(v.value) || v.value.length < 2)));
+  if (sv.length) h += '<div class="slots"><span class="slots-label">当前条件</span>' + sv.map(([k, v]) => {
+    const raw = Array.isArray(v.value) ? v.value.map(String) : [String(v.value)];
+    const display = (k === 'target' || k === 'targets')
+      ? raw.map(id => itemTitles.get(id) || id).join(' / ')
+      : raw.join('/');
+    const content = esc(SLOT_ZH[k] || k) + ' · ' + esc(display);
+    if (k === 'target' || k === 'targets'){
+      return '<span class="slotchip readonly" title="商品编号 ' + esc(raw.join(' / ')) + '">' + content + '</span>';
+    }
+    return '<button class="slotchip" data-slot="' + esc(String(v.value)) + '">' + content + '</button>';
+  }).join('') + '</div>';
 
-  const intent = (resp.intent_result || {}).intent;
   const n = (resp.recommendations || []).length;
   const explainItem = intent === 'explain' ? (resp.recommendations || [])[0] : null;
   const explainText = explainItem && (explainItem.explanation || explainItem.reason);
@@ -533,6 +573,9 @@ function renderBot(resp, updateShelf){
     h += '<div style="margin-top:6px">为你找到 <b>' + n + '</b> 件商品，已更新左侧货架。</div>';
     if (rankingTrace.supplement_note){
       h += '<div class="scope-note">' + esc(rankingTrace.supplement_note) + '</div>';
+    }
+    if (intent === 'similar'){
+      h += '<button class="cmpbtn" style="margin-top:6px" data-similar-refresh>换一批相似商品</button>';
     }
   }
   if (resp.browse) h += '<div style="margin-top:4px">已记录浏览：<b>' + esc(resp.browse.title || '') +
@@ -578,7 +621,7 @@ function renderBot(resp, updateShelf){
 }
 function shelfTitle(resp){
   const i = (resp.intent_result || {}).intent;
-  const s = ((resp.intent_result || {}).slots) || {};
+  const s = responseSlots(resp);
   const kind = s.item_type && s.item_type.value;
   if (i === 'similar') return '相似商品';
   if (i === 'filter') return kind ? kind + '筛选结果' : '筛选结果';
@@ -587,7 +630,7 @@ function shelfTitle(resp){
   return '推荐结果';
 }
 function shelfSub(resp){
-  const s = ((resp.intent_result || {}).slots) || {};
+  const s = responseSlots(resp);
   if ((resp.intent_result || {}).intent === 'similar'){
     return '按相似度排序 · 前 2 件优先展示';
   }
@@ -595,6 +638,9 @@ function shelfSub(resp){
   if (s.scene && s.scene.value) p.push(s.scene.value);
   if (s.category && s.category.value) p.push(s.category.value);
   if (s.item_type && s.item_type.value) p.push(s.item_type.value);
+  if (s.theme && s.theme.value) p.push(s.theme.value);
+  if (s.material && s.material.value) p.push(s.material.value);
+  if (s.colors && s.colors.value && s.colors.value.length) p.push(s.colors.value.join('/'));
   if (s.budget_max && s.budget_max.value != null) p.push('≤£' + s.budget_max.value);
   return p.join(' · ');
 }
@@ -609,7 +655,7 @@ async function post(path, body){
 function setBusy(b){
   busy = b;
   document.querySelectorAll('button').forEach(x => {
-    if (['voice','gesture','vision'].includes(x.dataset.act)) x.disabled = b || needReal || !deviceAllowed;
+    if (['voice','gesture','vision','voice-vision'].includes(x.dataset.act)) x.disabled = b || needReal || !deviceAllowed;
     else if (x.dataset.act || x.dataset.view || x.dataset.like || x.dataset.cmp || x.dataset.retry || x.dataset.drop ||
              ['sendbtn','sendbtn2','trayGo','trayClear','userBtn','gearBtn','clearChat'].includes(x.id)) x.disabled = b;
   });
@@ -630,6 +676,7 @@ async function ask(text, opt){
   try{
     const payload = {text, top_k: pageSize};
     if (focusItemId) payload.focus_item_id = String(focusItemId);
+    if (Array.isArray(opt.clearSlots) && opt.clearSlots.length) payload.clear_slots = opt.clearSlots;
     const d = await post('/api/chat', payload);
     $('sk')?.remove();
     if (d.ok) renderBot(d.response, true);
@@ -1055,6 +1102,10 @@ function detailEvidence(local){
     rows.push('<li><span>解释生成</span><b>' +
       (local.explanation_source === 'llm' ? '在线模型 + 证据门控' : '模板逐句有据') + '</b></li>');
   }
+  if (local && local.llm_fallback_reason){
+    rows.push('<li><span>LLM 回退</span><b>' +
+      esc(local.llm_fallback_reason) + '</b></li>');
+  }
   return rows.length
     ? '<ul class="evidence-list">' + rows.join('') + '</ul>'
     : '<div class="evidence-empty">当前商品没有额外证据字段。</div>';
@@ -1075,6 +1126,7 @@ async function openDetail(itemId){
         '<div class="sec errline">' + esc(d.error) + '</div>'; return;
     }
     const p = d.product;
+    itemTitles.set(String(p.item_id), String(p.title || ''));
     const local = currentItems.find(x => String(x.item_id) === String(itemId));
     const reasonText = (local && (local.explanation || local.reason)) || p.reason || '';
     const pickedNow = picked.has(p.item_id);
@@ -1131,9 +1183,9 @@ async function openDetail(itemId){
       ev.stopPropagation();
       focusItemId = String(itemId);
       closeAll();
-      if (window.innerWidth <= 1023){
-        $('assistant').classList.add('show');
-        $('fab').textContent = '✕';
+      if (window.innerWidth <= 1023 || document.body.classList.contains('assistant-collapsed')){
+        setAssistantOpen(true);
+        markTab('chat');
       }
       setTimeout(() => {
         $('q2').focus();
@@ -1158,12 +1210,12 @@ function closeAll(){
 async function act(kind, extra){
   if (busy) return;
   if (kind === 'compare'){ openCompare(); return; }
-  if (['voice','vision'].includes(kind) && !deviceAllowed){
+  if (['voice','vision','voice-vision'].includes(kind) && !deviceAllowed){
     showPrivacyNotice(true);
     toast('请先阅读并允许使用摄像头/麦克风');
     return;
   }
-  if (needReal && ['voice','vision'].includes(kind)){
+  if (needReal && ['voice','vision','voice-vision'].includes(kind)){
     addBot('<div class="slots">该功能需要真实设备，请以 <code>python webui.py --real</code> 启动。</div>');
     return;
   }
@@ -1195,6 +1247,7 @@ async function act(kind, extra){
         picked.clear(); renderTray(); syncPickUI();
         ratings.clear(); removedFeedback.clear(); likedSnapshots.clear();
         similarPreviewCache.clear(); hideAutoRelated();
+        focusItemId = null; detailItemId = null;
         renderLikedShelf();
         activeFilters = []; renderFilters();
         await loadHomeShelf(true);
@@ -1202,19 +1255,36 @@ async function act(kind, extra){
     }catch(e){ finishAction(id, 'err', '失败', esc(e.message)); }
     setBusy(false); return;
   }
-  const meta = {voice:{i:'🎤', t:'语音输入', d:'正在录音 4 秒…'},
+  const meta = {voice:{i:'🎤', t:'语音输入', d:'请准备，2 秒后开始录音…'},
                 vision:{i:'📷', t:'识图推荐',
                         d:visionOnline ? '正在在线识别画面中的主要物品并生成同类推荐（通常 1~5 秒）…'
-                                       : '正在识别画面中的主要物品并生成同类推荐（本地 VL 约 60~90 秒）…'}}[kind];
+                                       : '正在识别画面中的主要物品并生成同类推荐（本地 VL 约 60~90 秒）…'},
+                'voice-vision':{i:'🎤📷', t:'语音识图', d:'请把物品对准摄像头，2 秒后开始录音…'}}[kind];
   const id = addAction(meta.i, meta.t, meta.d);
   try{
+    const needMic = kind === 'voice' || kind === 'voice-vision';
+    if (needMic){
+      for (let left = 2; left > 0; left--){
+        const detail = $(id)?.querySelector('.d');
+        if (detail) detail.textContent = (kind === 'voice-vision' ? '请把物品对准摄像头，' : '请准备，') +
+          left + ' 秒后开始录音…';
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      const detail = $(id)?.querySelector('.d');
+      if (detail) detail.textContent = kind === 'voice-vision'
+        ? '正在录音 5 秒，请说出你的问题并保持物品在画面中…'
+        : '正在录音 5 秒，请完整说完并停顿一下…';
+    }
     const payload = kind === 'voice'
-      ? {seconds: 4, top_k: pageSize}
-      : kind === 'vision'
-        ? {top_k: shelfTopK(), question: extra || ''}
-        : {top_k: pageSize};
-    const d = await post('/api/' + kind, payload);
-    if (kind === 'voice'){
+      ? {seconds: 5, top_k: pageSize}
+      : kind === 'voice-vision'
+        ? {seconds: 5, top_k: shelfTopK(), with_vision: true}
+        : kind === 'vision'
+          ? {top_k: shelfTopK(), question: extra || ''}
+          : {top_k: pageSize};
+    if (needMic && focusItemId) payload.focus_item_id = String(focusItemId);
+    const d = await post('/api/' + (kind === 'voice-vision' ? 'voice' : kind), payload);
+    if (needMic){
       if (d.transcript){
         const merged = Array.isArray(d.input_modes) && d.input_modes.includes('vision');
         const visual = d.description
@@ -1224,11 +1294,11 @@ async function act(kind, extra){
         finishAction(id, d.ok ? 'ok' : 'warn',
                      d.ok ? (merged ? '语音 + 识图完成' : '已识别') : '未识别',
                      '识别结果：<b>' + esc(d.transcript) + '</b>' + visual +
-                     (d.ok ? '' : actionSuggestions('voice')));
+                     (d.ok ? '' : actionSuggestions(kind)));
         if (d.ok) renderBot(d.response, true);
       } else {
         finishAction(id, 'err', '未识别到有效语音',
-                     esc(d.error || '没听清内容') + actionSuggestions('voice'));
+                     esc(d.error || '没听清内容') + actionSuggestions(kind));
       }
     } else if (kind === 'vision'){
       if (d.description){
@@ -1431,6 +1501,10 @@ stream.addEventListener('click', ev => {
   const rt = ev.target.closest('[data-retry]');
   if (rt){ act(rt.dataset.retry); return; }
   if (ev.target.closest('[data-type]')){ $('q').focus(); toast('已切到输入框，直接打字即可'); return; }
+  if (ev.target.closest('[data-similar-refresh]')){
+    ask('换一批相似商品');
+    return;
+  }
   const hp = ev.target.closest('[data-help]');
   if (hp){ toast(hp.dataset.help); return; }
 });
@@ -1473,14 +1547,172 @@ stream.addEventListener('scroll', () => {
   const far = stream.scrollHeight - stream.scrollTop - stream.clientHeight > 160;
   $('toBottom').classList.toggle('show', far);
 });
+/* 助手收起时是右下角圆形标志，展开时面板从圆标位置放大；关闭时缩回圆标。 */
+function markTab(tab){
+  $('tabbar').querySelectorAll('button[data-tab]').forEach(b =>
+    b.classList.toggle('on', b.dataset.tab === tab));
+}
+function setAssistantOpen(open){
+  const panel = $('assistant');
+  const fab = $('fab');
+  if (!panel || !fab) return;
+  if (window.innerWidth > 1023){
+    // 桌面：侧栏在网格里，收起时让出整列，并缩成右下角圆标。
+    document.body.classList.toggle('assistant-collapsed', !open);
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    panel.inert = !open;
+    fab.classList.remove('hide');
+  } else {
+    panel.classList.toggle('show', open);
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    panel.inert = !open;
+    fab.classList.toggle('hide', open);
+  }
+  if (!open) fab.focus({preventScroll: true});
+}
+let fabDragMoved = false;
 $('fab').addEventListener('click', () => {
-  $('assistant').classList.toggle('show');
-  $('fab').textContent = $('assistant').classList.contains('show') ? '✕' : '💬';
+  if (fabDragMoved){ fabDragMoved = false; return; } // 拖动结束后的 click 不当作打开
+  setAssistantOpen(true);
+  markTab('chat');
 });
+$('assistantClose').addEventListener('click', () => {
+  setAssistantOpen(false);
+  markTab('shelf');
+});
+
+/* 圆形助手标志可拖动：按住移动到任意位置，松手后写入 localStorage，
+   刷新/重启页面后保持；轻点仍然是打开/展开助手。 */
+(function initFabDrag(){
+  const fab = $('fab');
+  if (!fab) return;
+  const KEY = 'integrated.fab.pos.v1';
+  const clampPos = (x, y) => {
+    const w = fab.offsetWidth || 56;
+    const h = fab.offsetHeight || 56;
+    const margin = 8;
+    // 窄屏底部留出 Tab 栏高度，避免圆标盖住导航。
+    const bottomGuard = window.innerWidth <= 1023 ? 72 : margin;
+    return {
+      x: Math.max(margin, Math.min(x, window.innerWidth - w - margin)),
+      y: Math.max(margin, Math.min(y, window.innerHeight - h - bottomGuard)),
+    };
+  };
+  const applyPos = (x, y) => {
+    const p = clampPos(x, y);
+    fab.style.left = p.x + 'px';
+    fab.style.top = p.y + 'px';
+    fab.style.right = 'auto';
+    fab.style.bottom = 'auto';
+    return p;
+  };
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { saved = null; }
+  if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) applyPos(saved.x, saved.y);
+
+  let drag = null;
+  fab.addEventListener('pointerdown', ev => {
+    if (ev.button !== undefined && ev.button !== 0) return;
+    if (getComputedStyle(fab).display === 'none' || fab.classList.contains('hide')) return;
+    const r = fab.getBoundingClientRect();
+    drag = { id: ev.pointerId, sx: ev.clientX, sy: ev.clientY, left: r.left, top: r.top, moved: false };
+    try { fab.setPointerCapture(ev.pointerId); } catch (e) { /* 老浏览器忽略 */ }
+  });
+  fab.addEventListener('pointermove', ev => {
+    if (!drag || ev.pointerId !== drag.id) return;
+    const dx = ev.clientX - drag.sx;
+    const dy = ev.clientY - drag.sy;
+    if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+    if (!drag.moved){ drag.moved = true; fab.classList.add('dragging'); }
+    applyPos(drag.left + dx, drag.top + dy);
+    if (ev.cancelable) ev.preventDefault();
+  });
+  const finish = ev => {
+    if (!drag || (ev.pointerId !== undefined && ev.pointerId !== drag.id)) return;
+    const moved = drag.moved;
+    drag = null;
+    fab.classList.remove('dragging');
+    if (moved){
+      const r = fab.getBoundingClientRect();
+      const p = applyPos(r.left, r.top);
+      try { localStorage.setItem(KEY, JSON.stringify(p)); } catch (e) { /* 隐私模式忽略 */ }
+      fabDragMoved = true;
+      setTimeout(() => { fabDragMoved = false; }, 400);
+    }
+  };
+  fab.addEventListener('pointerup', finish);
+  fab.addEventListener('pointercancel', finish);
+  window.addEventListener('resize', () => {
+    if (!fab.style.left) return;
+    applyPos(parseFloat(fab.style.left), parseFloat(fab.style.top));
+  });
+})();
+
+/* 移动端底部面板：按住顶部手柄/标题栏向下拖即可关闭。
+   注意：灰色手柄是 .assistant::before 伪元素，触摸目标是 .assistant，
+   因此手势必须绑在面板上、按“顶部区域”判定，不能只绑 .phead。 */
+(function initAssistantDrag(){
+  const panel = $('assistant');
+  if (!panel) return;
+  const CLOSE_DISTANCE = 80;
+  const HEADER_ZONE = 72; // 手柄 + 标题栏的高度范围
+  let startY = 0;
+  let delta = 0;
+  let dragging = false;
+  const isSheet = () => window.innerWidth <= 1023 && panel.classList.contains('show');
+  const reset = () => {
+    panel.style.transition = '';
+    panel.style.transform = '';
+  };
+  const closeSheet = () => {
+    reset();
+    setAssistantOpen(false);
+    markTab('shelf');
+  };
+  panel.addEventListener('touchstart', ev => {
+    if (!isSheet() || ev.touches.length !== 1) return;
+    const touch = ev.touches[0];
+    const inHeader = !!ev.target.closest('.phead') ||
+      touch.clientY - panel.getBoundingClientRect().top <= HEADER_ZONE;
+    // 手势只从顶部发起；落在对话流里时保持原生滚动，不抢事件。
+    if (!inHeader || ev.target.closest('.stream')) return;
+    startY = touch.clientY;
+    delta = 0;
+    dragging = true;
+    panel.style.transition = 'none';
+  }, {passive: true});
+  panel.addEventListener('touchmove', ev => {
+    if (!dragging) return;
+    // 只允许向下拖；向上拖保持 0，避免面板飞出屏幕。
+    delta = Math.max(0, ev.touches[0].clientY - startY);
+    panel.style.transform = 'translateY(' + delta + 'px)';
+    if (ev.cancelable) ev.preventDefault();
+  }, {passive: false});
+  const finish = () => {
+    if (!dragging) return;
+    dragging = false;
+    if (delta > CLOSE_DISTANCE) closeSheet();
+    else reset();
+    delta = 0;
+  };
+  panel.addEventListener('touchend', finish);
+  panel.addEventListener('touchcancel', finish);
+})();
 function syncTabbar(){
   const narrow = window.innerWidth <= 639;
   $('tabbar').classList.toggle('is-on', narrow);
-  if (window.innerWidth > 1023) $('assistant').classList.remove('show');
+  if (window.innerWidth > 1023){
+    $('assistant').classList.remove('show');
+    const collapsed = document.body.classList.contains('assistant-collapsed');
+    $('assistant').setAttribute('aria-hidden', collapsed ? 'true' : 'false');
+    $('assistant').inert = collapsed;
+    $('fab').classList.remove('hide');
+  } else {
+    const open = $('assistant').classList.contains('show');
+    $('assistant').setAttribute('aria-hidden', open ? 'false' : 'true');
+    $('assistant').inert = !open;
+    $('fab').classList.toggle('hide', open);
+  }
 }
 window.addEventListener('resize', syncTabbar);
 syncTabbar();
@@ -1489,9 +1721,9 @@ $('tabbar').addEventListener('click', ev => {
   const b = ev.target.closest('button[data-tab]'); if (!b) return;
   $('tabbar').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
   const tab = b.dataset.tab;
-  if (tab === 'chat'){ $('assistant').classList.add('show'); $('fab').textContent = '✕'; }
-  else if (tab === 'status'){ $('assistant').classList.remove('show'); $('fab').textContent = '💬'; openStatus(); }
-  else { $('assistant').classList.remove('show'); $('fab').textContent = '💬'; window.scrollTo({top:0,behavior:'smooth'}); }
+  if (tab === 'chat') setAssistantOpen(true);
+  else if (tab === 'status'){ setAssistantOpen(false); openStatus(); }
+  else { setAssistantOpen(false); window.scrollTo({top:0,behavior:'smooth'}); }
 });
 
 async function loadHomeShelf(force){

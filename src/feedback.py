@@ -20,6 +20,7 @@ src/feedback.py
 
 from __future__ import annotations
 
+import re
 import uuid
 
 from config import settings
@@ -171,10 +172,15 @@ def run_ab(
         )
     before_topk = _topk(before_resp, top_k)
 
-    # 目标商品
+    # 目标商品："topN" 指代反馈前 TopK 的第 N 位（前端点选语义），
+    # 也允许直接给商品 ID；不再只支持 top1，避免用例硬编码商品编号。
     target = feedback.get("target")
-    if target in (None, "", "top1"):
+    top_ref = re.fullmatch(r"top(\d+)", str(target or ""))
+    if target in (None, ""):
         target = before_topk[0]["item_id"]
+    elif top_ref:
+        index = int(top_ref.group(1)) - 1
+        target = before_topk[index]["item_id"] if 0 <= index < len(before_topk) else ""
     target = str(target)
     polarity = feedback.get("polarity", "positive")
 

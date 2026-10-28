@@ -92,15 +92,15 @@
   },
   {
     "id": "F-07",
-    "desc": "反向变化：点赞首位后，其相似商品因命中场景约束反超，目标反降到第 2",
-    "user_id": "15547",
+    "desc": "反向变化：点赞第 3 位后，反馈刷新相似召回，目标反降到第 4",
+    "user_id": "14156",
     "query": {
       "source": "text",
-      "text": "只看派对用品"
+      "text": "价格50以上的厨具"
     },
     "feedback": {
       "polarity": "positive",
-      "target": "top1"
+      "target": "top3"
     },
     "expect": "any"
   },

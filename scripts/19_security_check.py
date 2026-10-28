@@ -59,6 +59,10 @@ def _call(base: str, path: str, body=None, method: str = "POST", timeout: float 
             return exc.code, dict(exc.headers), json.loads(raw.decode("utf-8"))
         except Exception:
             return exc.code, dict(exc.headers), {"_raw": raw[:200].decode("utf-8", "replace")}
+    except (ConnectionAbortedError, ConnectionResetError) as exc:
+        # 服务端拒绝超大请求时可能直接断开连接；保留原因供用例判定，
+        # 避免整个检查脚本因未捕获异常而中断。
+        return 0, {}, {"_connection_error": type(exc).__name__}
 
 
 def _scan_secrets() -> list[str]:
@@ -126,7 +130,12 @@ def main() -> int:
     # 3/4) 路径穿越
     evil = urllib.parse.quote("../../config/settings.py", safe="")
     s3, _, b3 = _call(base, f"/api/img/{evil}", method="GET", timeout=15)
-    add(3, "图片接口路径穿越被拒", s3 == 404 and b3.get("code") == "E_ITEM_NOT_FOUND", {"status": s3, "body": b3})
+    add(
+        3,
+        "图片接口路径穿越被拒",
+        s3 in (400, 404) and b3.get("code") in ("E_INVALID_INPUT", "E_ITEM_NOT_FOUND"),
+        {"status": s3, "body": b3},
+    )
     s4, _, b4 = _call(base, f"/audio/{evil}", method="GET", timeout=15)
     add(4, "音频接口路径穿越被拒", s4 == 404 and b4.get("code") == "E_ITEM_NOT_FOUND", {"status": s4, "body": b4})
 
@@ -137,8 +146,13 @@ def main() -> int:
     add(
         5,
         "超大请求体被快速拒绝",
-        s5 == 200 and (resp5.get("status") == "error"),
-        {"status": s5, "resp_status": resp5.get("status"), "code": (resp5.get("error") or {}).get("code")},
+        s5 == 413 or (s5 == 200 and resp5.get("status") == "error"),
+        {
+            "status": s5,
+            "resp_status": resp5.get("status"),
+            "code": (resp5.get("error") or {}).get("code"),
+            "connection_error": b5.get("_connection_error"),
+        },
     )
 
     # 6) 语音时长越界：负数应被钳制到 1s，且响应结构化

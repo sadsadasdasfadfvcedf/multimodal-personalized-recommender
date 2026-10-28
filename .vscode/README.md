@@ -54,7 +54,7 @@ code "C:\Users\Administrator\Desktop\多模态个性化推荐助手\integrated_a
 |---|---|---|
 | `src/orchestrator.py` | `handle()` | 一轮请求的完整推进顺序 |
 | `src/intent.py` | `understand()` | 一句话如何变成 intent + slots |
-| `src/recall.py` | `recall()` | 六路召回如何合并去重 |
+| `src/recall.py` | `recall()` | 多路召回如何合并去重 |
 | `src/ranking.py` | `hard_filter()` | 硬约束在哪里先于打分生效 |
 | `src/explain.py` | `explain()` | 三道门控如何判定 |
 | `src/llm_explain.py` | `evaluate_output()` | 生产链路与评测共用的统一入口 |

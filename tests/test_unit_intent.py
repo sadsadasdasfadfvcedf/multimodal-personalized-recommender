@@ -125,6 +125,25 @@ def test_visual_tag_maps_skateboard_to_toys(categories):
     assert slots["category"].value == "玩具"
 
 
+@pytest.mark.parametrize(
+    "tag,expected_category,expected_type",
+    [
+        ("蓝色金属标牌", "家居装饰", "标志牌"),
+        ("黑色雨伞", "生活用品", "雨伞"),
+    ],
+)
+def test_visual_tag_maps_common_catalog_objects(tag, expected_category, expected_type, categories):
+    event = make_event(
+        user_id="u-test",
+        source="vision",
+        modality="visual",
+        visual_tags=[{"tag": tag, "confidence": 0.9}],
+    )
+    slots = intent.extract_slots(event, catalog_categories=categories)
+    assert slots["category"].value == expected_category
+    assert slots["item_type"].value == expected_type
+
+
 def test_teapot_extracts_specific_product_type(categories):
     event = _event("嗯给我推荐一些茶壶")
     got, slots = _intent_of(event, categories)
@@ -137,6 +156,24 @@ def test_teapot_extracts_specific_product_type(categories):
     title_type = next(c for c in constraints if c.field == "title_type")
     assert title_type.kind == "hard"
     assert "茶壶" in title_type.value
+
+
+def test_theme_and_material_are_extracted_from_title_lexicon(categories):
+    event = _event("只看复古金属装饰品")
+    got, slots = _intent_of(event, categories)
+
+    assert got == "filter"
+    assert slots["category"].value == "装饰品"
+    assert slots["theme"].value == "复古"
+    assert slots["material"].value == "金属"
+
+    constraints = intent.build_constraints(slots, event.text or "", got)
+    theme = next(c for c in constraints if c.field == "title_theme")
+    material = next(c for c in constraints if c.field == "title_material")
+    assert theme.kind == "hard"
+    assert material.kind == "hard"
+    assert {"复古", "vintage", "retro"} & set(theme.value)
+    assert {"金属", "metal"} & set(material.value)
 
 
 @pytest.mark.parametrize(
